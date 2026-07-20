@@ -1,0 +1,36 @@
+# ── Secrets — NEVER commit ─────────────────────────────
+.env
+.env.local
+.env.*.local
+*.env
+# (keep the example templates)
+!.env.example
+!.env.production.example
+!.env.ci
+
+# ── Dependencies (rebuilt via composer/npm) ────────────
+vendor/
+node_modules/
+
+# ── Build output ───────────────────────────────────────
+web-dashboards/dist/
+dist/
+build/
+
+# ── Laravel runtime ────────────────────────────────────
+dxempire-backend/storage/*.key
+dxempire-backend/storage/logs/*.log
+dxempire-backend/storage/framework/cache/data/*
+dxempire-backend/storage/framework/sessions/*
+dxempire-backend/storage/framework/views/*.php
+dxempire-backend/bootstrap/cache/*.php
+dxempire-backend/public/storage
+.phpunit.result.cache
+
+# ── OS / editor junk ───────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+*.swp

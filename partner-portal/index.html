@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DXEmpire — Partner Portal</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── Login Screen ─────────────────────────────────────────────────────── -->
+  <div id="loginScreen" class="login-screen hidden">
+    <div class="login-card">
+      <div class="brand">
+        <div class="brand-logo">DX</div>
+        <div>
+          <div class="brand-name">DXEmpire</div>
+          <div class="brand-sub">Partner Portal</div>
+        </div>
+      </div>
+      <h1>Partner Login</h1>
+      <p class="muted">Sign in to view your orders, invoices and dues.</p>
+      <form id="loginForm">
+        <label>Email or Phone</label>
+        <input id="login" type="text" placeholder="you@business.com or 98XXXXXXXX" required />
+        <label>Password</label>
+        <input id="password" type="password" placeholder="Your password" required />
+        <div id="loginError" class="form-error"></div>
+        <button id="loginBtn" type="submit">Sign In</button>
+      </form>
+      <p class="login-foot">Don't have access? Contact your DXEmpire sales representative.</p>
+    </div>
+  </div>
+
+  <!-- ── App Shell ────────────────────────────────────────────────────────── -->
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">DX</div>
+        <div>
+          <div class="brand-name">DXEmpire</div>
+          <div class="brand-sub">Partner Portal</div>
+        </div>
+      </div>
+      <nav>
+        <button class="nav-item active" data-view="dashboard"><span>📊</span> Dashboard</button>
+        <button class="nav-item" data-view="orders"><span>📦</span> My Orders</button>
+        <button class="nav-item" data-view="invoices"><span>🧾</span> My Invoices</button>
+        <button class="nav-item" data-view="dues"><span>💰</span> My Dues</button>
+      </nav>
+      <div class="sidebar-foot">
+        <button id="logoutBtn" class="logout">⏻ Logout</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <h2 id="pageTitle">Dashboard</h2>
+        <div class="partner-chip">
+          <div class="avatar" id="partnerInitial">P</div>
+          <span id="partnerName">Partner</span>
+        </div>
+      </header>
+      <div id="content" class="content"></div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

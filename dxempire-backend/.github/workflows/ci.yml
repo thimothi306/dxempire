@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }} / MySQL 8.0
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: true
+      matrix:
+        php: ["8.0"]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: dxempire_test
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: dxempire
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, pdo_mysql, bcmath, json, openssl, fileinfo, gd
+          ini-values: memory_limit=256M
+          coverage: none
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: composer-${{ matrix.php }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: composer-${{ matrix.php }}-
+
+      - name: Install dependencies
+        run: composer install --no-ansi --no-interaction --no-progress --prefer-dist
+
+      - name: Copy CI environment file
+        run: cp .env.ci .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Wait for MySQL to be ready
+        run: |
+          until mysql -h 127.0.0.1 -u dxempire -psecret dxempire_test -e "SELECT 1" 2>/dev/null; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      - name: Seed roles, permissions and settings
+        run: |
+          php artisan db:seed --class=RolesPermissionsSeeder
+          php artisan db:seed --class=SettingsSeeder
+
+      - name: Run test suite
+        run: php artisan test --parallel
+
+  lint:
+    name: PHP Syntax Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.0"
+          coverage: none
+
+      - name: Check PHP syntax
+        run: find app config routes -name "*.php" | xargs php -l -n | grep -v "^No syntax errors" || true
+
+  deploy:
+    name: Deploy to Production
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key:      ${{ secrets.PROD_SSH_KEY }}
+          port:     ${{ secrets.PROD_PORT }}
+          script: |
+            cd /var/www/dxempire-backend
+            bash deploy/deploy.sh

@@ -1,0 +1,949 @@
+DXEMPIRE - BACKEND DEVELOPMENT GUIDE
+Laravel API . MySQL . Amazon S3 . Refurbished Electronics Platform
+SP Associates / DXEMPIRE (c) 2026
+================================================================================
+
+DXEMPIRE
+
+Backend Development Guide
+
+Laravel API · MySQL · Amazon S3 · Refurbished Electronics Platform
+
+  Document type: Complete backend development guide — step by step
+  Framework: Laravel 11 (PHP 8.3) with Sanctum, Spatie Permissions, Queues
+  Database: MySQL 8.0 with full schema, migrations, and seeders
+  Modules covered: 9 backend modules + 3rd-party integrations + deployment
+  Estimated days: ~57 working days (1 senior backend developer, full time)
+  Version: 1.0 — May 2026
+  Prepared by: SP Associates / DXEMPIRE
+1. Overview & tech stack
+
+This is the complete step-by-step backend development guide for the DXEMPIRE platform. It covers every module, database table, API endpoint, service class, and integration — from project bootstrap to production deployment. Follow each section in order; later modules depend on earlier ones.
+
+1.1 Module overview
+
+  Phase 0: Foundation: Project setup, DB schema, migrations, CI/CD, env config
+  Phase 1: Auth & Roles: OTP login, Sanctum tokens, RBAC with Spatie Permissions
+  Phase 2: Procurement: Suppliers, purchase orders, warehouse receiving, IMEI registration
+  Phase 3: QC: Quality check workflow, grading (S1–S5), refurbishment tracking
+  Phase 4: Inventory: Stock engine, bin/rack allocation, low-stock alerts
+  Phase 5: CRM & Sales: Leads, B2B dealers, credit limits, sales pipeline
+  Phase 6: Orders: Full order lifecycle — create, approve, pick, pack, dispatch
+  Phase 7: Finance: GST invoicing, expenses, vendor payments, P&L reports
+  Phase 8: HR: Employees, attendance, payroll, shift management
+  Phase 9: Analytics: Centralized BI engine, forecasting, partner performance
+  Phase 10: Integrations: Razorpay, MSG91, Logistics adapter, Expo push, WhatsApp
+  Phase 11: Deployment: Server setup, Nginx, SSL, supervisor queues, monitoring
+1.2 Full tech stack
+
+  Category             Technology                Purpose
+  Runtime              PHP 8.3                   Language runtime
+  Framework            Laravel 11                Core API framework
+  Auth                 Laravel Sanctum           Token-based API auth (mobile + web)
+  Permissions          Spatie Laravel Permission Role & permission management (RBAC)
+  Database             MySQL 8.0                 Primary data store
+  File storage         Amazon S3                 Invoices, IMEI images, docs
+  Cache / queues       Redis                     Queue driver, cache, rate limiting
+  Queue worker         Laravel Horizon           Queue monitoring and management
+  PDF generation       DomPDF (barryvdh/laravel-dompdf) GST invoices, salary slips
+  Excel export         Laravel Excel (maatwebsite) Stock exports, reports
+  Testing              PHPUnit + Pest            Unit and feature tests
+  API documentation    Scribe                    Auto-generate API docs from code
+  Error tracking       Sentry (sentry/sentry-laravel) Production error monitoring
+  Scheduler            Laravel Task Scheduler    Cron jobs (low-stock alerts, reports)
+  Payment              Razorpay PHP SDK          Payment orders and webhooks
+  SMS / OTP            MSG91 REST API            OTP login, SMS notifications
+  Logistics            Custom adapter pattern    DTDC / Delhivery / Shiprocket
+  Push notifs          Expo Push API             Staff and partner app notifications
+  WhatsApp             Twilio / Interakt API     Order updates, payment reminders
+  CI/CD                GitHub Actions            Auto-deploy on push to main
+2. Project structure
+
+  Phase 0              Project setup & foundation Bootstrap Laravel, design all DB tables, configure CI/CD — do this before any feature code Days 1–8
+2.1 Laravel folder structure
+
+  The structure below keeps each business domain isolated. One module = one folder in app/Modules/ (or follow standard Laravel structure as below). Choose one pattern and stick to it throughout.
+
+app/
+
+  Http/
+
+    Controllers/
+
+      Auth/           AuthController.php
+
+      Admin/          UserController.php, SettingsController.php
+
+      Procurement/    SupplierController.php, PurchaseOrderController.php
+
+      Inventory/      ProductController.php, BinController.php
+
+      QC/             QcController.php, GradeController.php
+
+      CRM/            LeadController.php, DealerController.php
+
+      Orders/         OrderController.php, DispatchController.php
+
+      Finance/        InvoiceController.php, ExpenseController.php
+
+      HR/             EmployeeController.php, AttendanceController.php
+
+      Analytics/      ReportController.php, DashboardController.php
+
+    Middleware/       RoleMiddleware.php, ApiResponseMiddleware.php
+
+    Requests/         (one FormRequest per endpoint — validation here)
+
+    Resources/        (API Resources for response shaping)
+
+  Models/             Product.php, Order.php, User.php, ...
+
+  Services/           OrderService.php, PaymentService.php, ...
+
+  Repositories/       ProductRepository.php, OrderRepository.php, ...
+
+  Jobs/               SendOtpJob.php, GenerateInvoiceJob.php, ...
+
+  Events/             OrderApproved.php, StockLow.php, ...
+
+  Listeners/          SendDispatchNotification.php, AlertStaff.php, ...
+
+  Integrations/
+
+    Logistics/        LogisticsInterface.php, DtdcDriver.php, DelhiveryDriver.php
+
+    Notifications/    ExpoNotificationService.php, WhatsAppService.php
+
+    Payment/          RazorpayService.php
+
+    Sms/              Msg91Service.php
+
+database/
+
+  migrations/         one file per table, named by date
+
+  seeders/            RolesSeeder.php, PermissionsSeeder.php, AdminSeeder.php
+
+routes/
+
+  api.php             all API routes, grouped by module with prefix + middleware
+
+2.2 Setup commands — day 1
+
+  #                    Task                      Detail
+  1                    Create project            composer create-project laravel/laravel dxempire-api && cd dxempire-api
+  2                    Install Sanctum           composer require laravel/sanctum && php artisan vendor:publish --provider="Laravel\Sanctum\SanctumServiceProvider"
+  3                    Install Spatie            composer require spatie/laravel-permission && php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider"
+  4                    Install queue tools       composer require laravel/horizon && php artisan horizon:install
+  5                    Install PDF + Excel       composer require barryvdh/laravel-dompdf maatwebsite/excel
+  6                    Install Sentry            composer require sentry/sentry-laravel && php artisan sentry:publish --dsn=YOUR_DSN
+  7                    Install Scribe docs       composer require --dev knuckleswtf/scribe && php artisan vendor:publish --tag=scribe-config
+  8                    Configure .env            Set DB_, QUEUE_CONNECTION=redis, REDIS_HOST, AWS_ for S3, APP_ENV=local
+  9                    Git setup                 git init && git remote add origin ... && create branches: main, develop, feature/
+2.3 Route structure (routes/api.php)
+
+  All routes are prefixed with /api/v1. Group routes by module with middleware applied at group level — not on individual routes.
+
+Route::prefix('v1')->group(function () {
+
+  // Public routes (no auth)
+
+  Route::post('/auth/send-otp', [AuthController::class, 'sendOtp']);
+
+  Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp']);
+
+  // Authenticated routes
+
+  Route::middleware('auth:sanctum')->group(function () {
+
+    Route::get('/auth/me', [AuthController::class, 'me']);
+
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+    // Super admin only
+
+    Route::middleware('role:super_admin')->prefix('admin')->group(function () {
+
+      Route::apiResource('users', UserController::class);
+
+      Route::apiResource('partners', PartnerController::class);
+
+      Route::put('settings/logistics', [SettingsController::class, 'logistics']);
+
+    });
+
+    // Procurement module
+
+    Route::middleware('role:super_admin  warehouse_staff')->prefix('procurement')->group(function () {
+      Route::apiResource('suppliers', SupplierController::class);
+
+      Route::post('receive', [ReceivingController::class, 'store']);
+
+    });
+
+    // ... (repeat pattern for every module)
+
+  });
+
+});
+
+3. Database schema
+
+All tables listed below. Build all migrations before writing any controllers — schema is the foundation everything else runs on. Use snake_case column names, always include timestamps(), use softDeletes() for tables where data should be archived not deleted.
+
+3.1 Core tables
+
+users
+
+  Column   Type                                Nullable                       Description
+  id       bigint UNSIGNED                     NO                             Primary key, auto-increment
+  name     varchar(191)                        NO                             Full name
+  phone    varchar(20)                         NO                             Mobile number — used for OTP login, must be unique
+  email    varchar(191)                        YES                            Optional email address
+  role     varchar(50)                         NO                             Denormalized role name for quick checks
+  is_active tinyint(1)                          NO                             Soft disable user without deleting
+  last_login_at timestamp                           YES                            Track last login for audit
+  created_at timestamp                           YES                            Auto Laravel timestamp
+  updated_at timestamp                           YES                            Auto Laravel timestamp
+otp_codes
+
+  Column   Type                                Nullable                       Description
+  id       bigint UNSIGNED                     NO                             Primary key
+  phone    varchar(20)                         NO                             Phone the OTP was sent to
+  code     varchar(6)                          NO                             Hashed OTP code (never store plain)
+  expires_at timestamp                           NO                             OTP expires after 10 minutes
+  verified_at timestamp                           YES                            Set when OTP is used — NULL = unused
+  created_at timestamp                           YES                            Auto timestamp
+products (core inventory item)
+
+  Column   Type                                Nullable                       Description
+  id       bigint UNSIGNED                     NO                             Primary key
+  imei     varchar(20)                         YES                            IMEI for phones — unique when not null
+  serial_number varchar(100)                        YES                            Serial number for laptops/accessories
+  category enum                                NO                             phone │ laptop │ accessory
+  brand    varchar(100)                        NO                             e.g. Apple, Samsung, OnePlus
+  model    varchar(200)                        NO                             e.g. iPhone 13, Galaxy S22
+  grade    enum                                YES                            S1 │ S2 │ S3 │ S4 │ S5 — set after QC
+  status   enum                                NO                             received │ qc_pending │ in_stock │ sold │ returned │ rejected
+  bin_id   bigint UNSIGNED                     YES                            FK → bins.id — current storage location
+  purchase_price decimal(10,2)                       NO                             What we paid for it
+  selling_price decimal(10,2)                       YES                            Listed price — set after grading
+  supplier_id bigint UNSIGNED                     NO                             FK → suppliers.id
+  purchase_order_id bigint UNSIGNED                     YES                            FK → purchase_orders.id
+  qc_passed_at timestamp                           YES                            When QC was completed
+  sold_at  timestamp                           YES                            When product was sold
+  deleted_at timestamp                           YES                            Soft delete — never hard delete products
+  created_at timestamp                           YES                            Auto timestamp
+  updated_at timestamp                           YES                            Auto timestamp
+orders
+
+  Column   Type                                Nullable                       Description
+  id       bigint UNSIGNED                     NO                             Primary key
+  order_number varchar(20)                         NO                             Human-readable: DX-2026-00001 — unique
+  dealer_id bigint UNSIGNED                     YES                            FK → dealers.id (null for retail)
+  customer_id bigint UNSIGNED                     YES                            FK → customers.id (null for B2B)
+  status   enum                                NO                             pending │ approved │ picking │ packing │ dispatched │ delivered │ cancelled │ returned
+  payment_status enum                                NO                             unpaid │ partial │ paid │ refunded
+  subtotal decimal(12,2)                       NO                             Sum of line items before GST
+  gst_amount decimal(12,2)                       NO                             Total GST collected
+  total_amount decimal(12,2)                       NO                             Grand total (subtotal + GST)
+  credit_used decimal(12,2)                       NO                             How much drawn from dealer credit line
+  awb_number varchar(100)                        YES                            Courier AWB — set when dispatched
+  logistics_provider varchar(50)                         YES                            dtdc │ delhivery │ shiprocket │ etc
+  dispatched_at timestamp                           YES                            When handed to courier
+  delivered_at timestamp                           YES                            When confirmed delivered
+  notes    text                                YES                            Internal notes about order
+  deleted_at timestamp                           YES                            Soft delete
+  created_at timestamp                           YES                            Auto timestamp
+  updated_at timestamp                           YES                            Auto timestamp
+3.2 Supporting tables (key fields only)
+
+  suppliers: id, name, phone, email, gst_number, address, type(dealer│importer│buyback), is_active, timestamps
+  purchase_orders: id, supplier_id, total_amount, status(draft│placed│received), received_at, created_by, timestamps
+  qc_records: id, product_id, engineer_id, grade, condition_notes, outcome(pass│repair│reject), graded_at
+  bins: id, code(e.g. A-01-03), zone, row, shelf, capacity, current_count, timestamps
+  bin_movements: id, product_id, from_bin_id, to_bin_id, moved_by, moved_at — audit trail for all moves
+  dealers: id, user_id, business_name, gst_number, kyc_status, credit_limit, credit_used, state, pincode
+  order_items: id, order_id, product_id, quantity(always 1 for IMEI items), unit_price, gst_rate, gst_amount, line_total
+  payments: id, order_id, razorpay_order_id, razorpay_payment_id, amount, status, method, paid_at
+  invoices: id, order_id, invoice_number, dealer_id, subtotal, gst_amount, total, pdf_path(S3), issued_at
+  leads: id, source, contact_name, phone, business_name, stage, assigned_to, last_contact_at, notes
+  employees: id, user_id, department, designation, shift, basic_salary, join_date, is_active
+  attendance: id, employee_id, date, status(present│absent│half_day│leave), check_in, check_out
+  payroll_runs: id, month, year, status(draft│processed│paid), processed_at, total_payout
+  payroll_items: id, payroll_run_id, employee_id, days_worked, basic, deductions, net_salary
+  expenses: id, category, amount, vendor, description, receipt_path, incurred_at, created_by
+  settings: id, key, value, updated_at — key-value store for provider config and system settings
+  audit_logs: id, user_id, action, model_type, model_id, old_values(JSON), new_values(JSON), ip_address, created_at
+  push_tokens: id, user_id, token, device_type(android│ios), created_at — Expo push tokens
+  notifications_log: id, user_id, type, title, body, data(JSON), sent_at, delivered_at
+3.3 Migration order (critical)
+
+  Run migrations in this exact order — foreign keys will fail if parent table does not exist first.
+
+1. users  2. settings  3. suppliers  4. bins  5. products  6. qc_records  7. bin_movements  8. dealers  9. leads  10. orders  11. order_items  12. payments  13. invoices  14. employees  15. attendance  16. payroll_runs  17. payroll_items  18. expenses  19. audit_logs  20. push_tokens  21. notifications_log  22. otp_codes
+
+4. Phase 1 — Authentication & RBAC
+
+  Phase 1              Auth, OTP login, roles & permissions Build this first — every other module depends on auth middleware Days 9–13
+4.1 OTP login flow
+
+  #                    Task                      Detail
+  1                    Send OTP endpoint         POST /api/v1/auth/send-otp. Accepts { phone }. Validates phone format. Generates 6-digit OTP. Hashes with bcrypt before storing in otp_codes. Deletes any previous unused OTP for that phone. Dispatches SendOtpJob (queued) → calls MSG91 API. Returns { message: "OTP sent" } — never return the OTP itself.
+  2                    Verify OTP endpoint       POST /api/v1/auth/verify-otp. Accepts { phone, code }. Finds latest unexpired OTP for phone. Checks Hash::check($code, $otp->code). If valid: marks verified_at, finds/creates User, creates Sanctum token, registers Expo push token if provided. Returns { token, user { id, name, role } }.
+  3                    Token structure           Sanctum personal access token. Token stored in personal_access_tokens table. Include role in token name for quick identification. Set token expiry to 30 days. For mobile: long-lived token. For web: also 30 days (user explicitly logs out).
+  4                    Auth middleware           auth:sanctum middleware on all protected routes. Returns 401 with { message: "Unauthenticated" } if token missing or expired.
+  5                    Logout                    POST /api/v1/auth/logout. Calls $request->user()->currentAccessToken()->delete(). Returns { message: "Logged out" }.
+  6                    Get current user          GET /api/v1/auth/me. Returns { id, name, phone, role, permissions[] }. Frontend uses this on app load to restore session.
+4.2 Roles & permissions (Spatie)
+
+Create all roles and permissions in a seeder — never hard-code them in controllers.
+
+// database/seeders/RolesPermissionsSeeder.php
+
+$roles = ['super_admin','sales','warehouse_staff','qc_engineer','packing_staff','accounts','hr_manager','b2b_partner'];
+
+foreach ($roles as $role) { Role::create(['name' => $role, 'guard_name' => 'api']); }
+
+// Permissions (module.action format)
+
+$permissions = [
+
+  'users.view','users.create','users.edit','users.delete',
+
+  'inventory.view','inventory.edit',
+
+  'orders.view','orders.approve','orders.dispatch',
+
+  'finance.view','finance.edit',
+
+  'hr.view','hr.edit','payroll.run',
+
+  'analytics.view','settings.edit',
+
+];
+
+foreach ($permissions as $p) { Permission::create(['name' => $p, 'guard_name' => 'api']); }
+
+// Assign permissions to roles
+
+Role::findByName('super_admin','api')->givePermissionTo(Permission::all());
+
+Role::findByName('sales','api')->givePermissionTo(['orders.view','orders.approve','inventory.view','analytics.view']);
+
+Role::findByName('warehouse_staff','api')->givePermissionTo(['inventory.view','inventory.edit','orders.view','orders.dispatch']);
+
+4.3 Role middleware
+
+// app/Http/Middleware/RoleMiddleware.php
+
+public function handle(Request $request, Closure $next, ...$roles): Response {
+
+  if (! $request->user()->hasAnyRole($roles)) {
+
+    return response()->json(['message' => 'Forbidden'], 403);
+
+  }
+
+  return $next($request);
+
+}
+
+// Register in bootstrap/app.php: ->withMiddleware(fn($m) => $m->alias(['role' => RoleMiddleware::class]))
+
+4.4 Auth API endpoints
+
+  Method   Endpoint                            Description                    Role
+  POST     /api/v1/auth/send-otp               Send OTP to mobile number      Public
+  POST     /api/v1/auth/verify-otp             Verify OTP, return token       Public
+  GET      /api/v1/auth/me                     Get authenticated user + role  Any auth
+  POST     /api/v1/auth/logout                 Revoke current access token    Any auth
+  POST     /api/v1/auth/refresh                Issue new token (if valid)     Any auth
+5. Phase 2 — Procurement & sourcing
+
+  Phase 2              Suppliers, purchase orders, warehouse receiving How stock enters the system — foundation for all inventory Days 14–21
+5.1 Module logic
+
+  #                    Task                      Detail
+  1                    Supplier management       CRUD for suppliers. Types: dealer, importer, buyback_partner. GST number stored and validated format. Supplier balance tracking (what we owe them).
+  2                    Purchase orders           Create PO against a supplier with expected items. Status: draft → placed → received. PO stores expected count, actual received count.
+  3                    Warehouse receiving       POST /procurement/receive. Accepts supplier_id, items[]. For each item: creates Product record with status=received, stores IMEI/serial if provided. Increments received_count on PO.
+  4                    IMEI registration         Uniqueness check on IMEI across all products (including soft-deleted). If duplicate detected: return 422 with error. IMEI validation: must be 15 digits numeric.
+  5                    Batch receive             Single API call can receive 1–200 items. Use DB transaction: if any item fails, rollback all. Return { created: [], failed: [] } with reasons.
+  6                    After receiving           Fire ProductReceived event → listener creates QC task → listener sends notification to QC engineer mobile app.
+5.2 Procurement API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/suppliers                   List all suppliers with filters super_admin│warehouse_staff
+  POST     /api/v1/suppliers                   Create new supplier            super_admin
+  PUT      /api/v1/suppliers/{id}              Update supplier details        super_admin
+  GET      /api/v1/purchase-orders             List POs with status filter    super_admin│warehouse_staff
+  POST     /api/v1/purchase-orders             Create new PO                  super_admin
+  POST     /api/v1/procurement/receive         Receive stock batch into warehouse super_admin│warehouse_staff
+  GET      /api/v1/procurement/history         Receiving history log          super_admin│warehouse_staff
+6. Phase 3 — Quality control (QC)
+
+  Phase 3              QC workflow, grading S1–S5, refurbishment tracking Products flow through QC before entering sellable inventory Days 22–27
+6.1 QC flow logic
+
+  #                    Task                      Detail
+  1                    QC queue                  GET /qc/pending returns all products with status=received, ordered by received_at ASC. QC engineer picks from top.
+  2                    Grade submission          POST /qc/grade. Body: { product_id, grade, condition_notes, outcome }. Outcome: pass │ repair │ reject. Validates QC engineer role.
+  3                    Pass path                 Creates qc_record. Updates product: grade=S1–S5, status=in_stock, qc_passed_at=now. Calculates and sets selling_price based on grade rules in settings table. Fires StockAdded event.
+  4                    Repair path               Creates qc_record with outcome=repair. Updates product status=refurbishment. Creates refurbishment_job record. Sends notification to repair team.
+  5                    Reject path               Creates qc_record with outcome=reject. Updates product status=rejected. Flags product against supplier for return. Sends notification to procurement team.
+  6                    Grade rules               Grade pricing rules stored in settings table as JSON: { S1: 0.85, S2: 0.75, S3: 0.65, S4: 0.50, S5: 0.30 } — multipliers of purchase price. Admin can update from dashboard.
+  7                    Refurbishment done        PUT /qc/refurbishment/{id}/complete. Re-enters QC cycle: product status → received, new qc_record created.
+6.2 QC API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/qc/pending                  Products awaiting QC           qc_engineer│warehouse_staff│super_admin
+  POST     /api/v1/qc/grade                    Submit QC grade and outcome    qc_engineer│super_admin
+  GET      /api/v1/qc/records                  QC history with filters        super_admin│warehouse_staff
+  GET      /api/v1/qc/refurbishment            Active refurbishment jobs      super_admin│warehouse_staff
+  PUT      /api/v1/qc/refurbishment/{id}       Mark refurbishment complete    qc_engineer│super_admin
+  GET      /api/v1/qc/stats                    QC throughput and pass rate    super_admin
+7. Phase 4 — Inventory management
+
+  Phase 4              Stock engine, bin/rack, real-time counts, alerts Central inventory that all other modules read from Days 28–33
+7.1 Inventory module logic
+
+  #                    Task                      Detail
+  1                    Stock query engine        GET /inventory accepts filters: category, grade, status, bin_id, brand, search(IMEI/serial). Use Eloquent scopes for each filter. Paginate at 50 per page. Always eager-load: bin, qcRecord, supplier.
+  2                    Real-time counts          Do not cache counts — query live. Stock count = products.count() where status=in_stock, grouped by category. Run in <100ms with proper indexes on status and category columns.
+  3                    Bin management            Bins have a capacity. Before moving product to bin: check bin.current_count < bin.capacity. On move: create bin_movement record, update product.bin_id, update bin.current_count (±1).
+  4                    Low stock alerts          Laravel scheduled job runs every 30 minutes. Queries: SELECT category, COUNT() FROM products WHERE status=in_stock GROUP BY category. If count < threshold (stored in settings), fire LowStockAlert event → push notification to admin.
+  5                    Stock availability        GET /inventory/availability used by B2B partner app and CRM. Returns { phones: { S1: 12, S2: 45 ... }, laptops: {...}, accessories: {...} }. Cache this for 60 seconds (Redis) since it is called frequently.
+  6                    Product detail            GET /inventory/{id} returns full product history: qc records, bin movements, who received it, purchase price, current selling price.
+  7                    Bulk export               GET /inventory/export returns Excel file via Laravel Excel. Applies same filters as list endpoint. Stream response to avoid memory issues.
+7.2 Key indexes to add in migrations
+
+  Without these indexes, inventory queries will full-scan millions of rows. Add them in the migration, not after.
+
+// In products migration:
+
+$table->index(['status', 'category']);       // stock count queries
+
+$table->index('imei');                       // IMEI lookup
+
+$table->index('bin_id');                     // bin occupancy
+
+$table->index('supplier_id');                // supplier stock queries
+
+$table->index('grade');                      // grade-based filtering
+
+// In orders migration:
+
+$table->index(['status', 'dealer_id']);      // order list for dealer
+
+$table->index('order_number');               // order lookup
+
+$table->index('created_at');                 // date range queries
+
+7.3 Inventory API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/inventory                   Full stock list with filters + pagination Any auth
+  GET      /api/v1/inventory/{id}              Single product detail with history Any auth
+  GET      /api/v1/inventory/availability      Live count by category and grade Any auth
+  GET      /api/v1/inventory/export            Download Excel stock report    super_admin│warehouse_staff
+  GET      /api/v1/bins                        All bins with occupancy        warehouse_staff│super_admin
+  POST     /api/v1/bins/move                   Move product to different bin  warehouse_staff│super_admin
+  GET      /api/v1/bins/{id}/products          All products in a specific bin warehouse_staff│super_admin
+8. Phase 5 — CRM & Sales
+
+  Phase 5              Leads, B2B dealers, credit system, sales pipeline All sales channels flow through this module Days 34–40
+8.1 CRM module logic
+
+  #                    Task                      Detail
+  1                    Lead management           CRUD for leads. Lead sources: b2b_inquiry, website, referral, walk_in, marketplace. Stage pipeline: new → contacted → quoted → negotiating → won → lost. Stage change creates an audit entry with timestamp and changed_by.
+  2                    B2B dealer system         Dealer is a special user type. Has: business_name, gst_number, kyc_status, credit_limit, credit_used. KYC status: pending → verified → rejected. KYC check happens in Auth flow: if kyc_status != verified, block dealer from placing orders.
+  3                    Credit limit engine       credit_used = sum of unpaid orders for that dealer. Before approving any order: check dealer.credit_used + order.total <= dealer.credit_limit. If fails, return 422 with message: "Credit limit exceeded. Available: ₹X".
+  4                    Price tiers               Dealers can have price tiers stored in settings. Tier A gets 5% discount, Tier B gets 3%. Applied automatically during order creation based on dealer.price_tier.
+  5                    Revenue analytics         GET /analytics/revenue accepts date_from, date_to, channel. Runs aggregate queries: total revenue, order count, average order value, top 10 products, top 10 dealers. Use DB::select with raw SQL for performance on large data sets.
+  6                    Support tickets           Simple ticket system: customer reports issue → ticket created with order_id reference → assigned to sales rep → resolved. Status: open │ in_progress │ resolved │ closed.
+8.2 CRM API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/leads                       Lead list with stage and source filters sales│super_admin
+  POST     /api/v1/leads                       Create new lead                sales│super_admin
+  PUT      /api/v1/leads/{id}/stage            Move lead to new pipeline stage sales│super_admin
+  GET      /api/v1/dealers                     All B2B dealers with credit info sales│super_admin
+  POST     /api/v1/dealers                     Register new dealer            super_admin
+  PUT      /api/v1/dealers/{id}/kyc            Approve or reject dealer KYC   super_admin
+  PUT      /api/v1/dealers/{id}/credit         Update dealer credit limit     super_admin
+  GET      /api/v1/dealers/{id}/ledger         Dealer transaction ledger      sales│super_admin│b2b_partner
+  GET      /api/v1/analytics/revenue           Revenue report by date and channel sales│super_admin│accounts
+  GET      /api/v1/support/tickets             Support ticket list            sales│super_admin
+  POST     /api/v1/support/tickets             Create support ticket          Any auth
+  PUT      /api/v1/support/tickets/{id}        Update ticket status/assignee  sales│super_admin
+9. Phase 6 — Order processing
+
+  Phase 6              Full order lifecycle — create to delivery Most complex module — 6 status stages, payment verification, logistics integration Days 41–50
+9.1 Order lifecycle states
+
+  pending: Order created. Payment not yet confirmed. Stock not locked.
+  approved: Payment verified OR credit approved. Stock locked (cannot be sold to anyone else). Warehouse pick request created.
+  picking: Warehouse staff assigned and started picking items.
+  packing: All items picked. Packing team has the order. IMEI scan confirms each item.
+  dispatched: Handed to courier. AWB number attached. Tracking active.
+  delivered: Courier confirms delivery. GST invoice final. Credit updated for dealer.
+  cancelled: Cancelled before dispatch. Stock unlocked. Payment refunded if paid.
+  returned: Returned after delivery. Stock enters QC cycle. Credit note issued.
+9.2 Order creation logic
+
+  #                    Task                      Detail
+  1                    Receive order             POST /orders. Accepts { dealer_id OR customer_id, items: [{ product_id }] }. Validate: all products exist, status=in_stock, not already in another order.
+  2                    Stock validation          In a DB transaction: lock products rows with SELECT FOR UPDATE. Check each product.status == in_stock. If any product unavailable: rollback + return 422.
+  3                    Credit validation         If dealer order: check credit_used + total <= credit_limit. If fails: return 422 with available credit amount.
+  4                    Calculate totals          For each item: unit_price = product.selling_price. Apply dealer price tier discount. Calculate GST: if dealer is GST registered use GSTIN, apply 18% GST. Sum totals.
+  5                    Create records            Create order record. Create order_items records (one per product). Create Razorpay payment order via RazorpayService. Return { order, razorpay_order_id } to frontend.
+  6                    Generate order number     Format: DX-YYYY-NNNNN. Use DB sequence or: SELECT MAX(id) + 1 padded to 5 digits. Must be unique.
+9.3 Payment and approval logic
+
+  #                    Task                      Detail
+  1                    Razorpay webhook          POST /webhooks/razorpay (public, no auth). Verify webhook signature using HMAC SHA256 with Razorpay webhook secret. On payment.captured event: find order by razorpay_order_id, update payment status=paid, call OrderService::approve($order).
+  2                    OrderService::approve     Wraps in DB transaction. Updates order status=approved. Updates each product status=sold. Reduces dealer credit available. Creates warehouse pick request. Fires OrderApproved event.
+  3                    OrderApproved event       Listeners: (a) Send push notification to warehouse staff app, (b) Send WhatsApp message to dealer, (c) Log to audit_log.
+  4                    Credit order approval     For dealers using credit (no upfront payment): sales rep manually calls PUT /orders/{id}/approve after verifying. Same OrderService::approve() runs.
+  5                    Manual approval           Super admin and sales role can manually approve any pending order. Useful for cash payments or bank transfers confirmed offline.
+9.4 Dispatch logic
+
+  #                    Task                      Detail
+  1                    Packing confirmation      PUT /orders/{id}/packing-complete. Packing staff scans each product IMEI to confirm. Validates: scanned IMEIs match order_items. Updates status=packing.
+  2                    Generate AWB              POST /orders/{id}/create-shipment. Calls LogisticsService::createShipment(). Logistics adapter calls active provider API (DTDC / Delhivery etc). Stores AWB number and tracking URL on order.
+  3                    Mark dispatched           PUT /orders/{id}/dispatch. Updates status=dispatched, dispatched_at=now. Fires OrderDispatched event → sends tracking details to dealer via WhatsApp + push notification.
+  4                    Delivery confirmation     Logistics providers send webhook on delivery. Or staff manually marks delivered. Updates status=delivered, delivered_at=now. Triggers invoice PDF generation + delivery notification.
+  5                    Returns                   PUT /orders/{id}/return. Validates order is delivered. Creates return record. Updates order status=returned. Each product status=received (re-enters QC). Issues credit note to dealer.
+9.5 Order API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/orders                      All orders with status/dealer filters sales│super_admin
+  POST     /api/v1/orders                      Create new order               sales│super_admin│b2b_partner
+  GET      /api/v1/orders/{id}                 Order detail with items and timeline Any auth (own orders)
+  PUT      /api/v1/orders/{id}/approve         Manually approve order         sales│super_admin
+  PUT      /api/v1/orders/{id}/picking         Start picking items            warehouse_staff│super_admin
+  PUT      /api/v1/orders/{id}/packing-complete Confirm all items packed       packing_staff│super_admin
+  POST     /api/v1/orders/{id}/create-shipment Create AWB via logistics API   warehouse_staff│super_admin
+  PUT      /api/v1/orders/{id}/dispatch        Mark order dispatched          warehouse_staff│super_admin
+  PUT      /api/v1/orders/{id}/deliver         Mark order delivered           super_admin
+  POST     /api/v1/orders/{id}/return          Process return                 sales│super_admin
+  GET      /api/v1/orders/{id}/invoice         Download GST invoice PDF       Any auth (own orders)
+  POST     /api/v1/webhooks/razorpay           Razorpay payment webhook       Public (signature verified)
+10. Phase 7 — Finance & accounting
+
+  Phase 7              GST invoices, expenses, ledger, P&L reports Financial records for every transaction in the system Days 51–56
+10.1 Finance module logic
+
+  #                    Task                      Detail
+  1                    GST invoice generation    Auto-triggered on order delivery. Uses DomPDF to generate PDF from Blade template. PDF stored in S3 at invoices/{year}/{month}/{invoice_number}.pdf. Invoice has: seller details (from settings), buyer GST details, HSN codes, line items, GST breakdown (CGST/SGST for intra-state, IGST for inter-state).
+  2                    Invoice numbering         Format: DXINV-YYYY-MM-NNNNN. Sequential per month. Stored in invoices table. Once issued, invoice is immutable — never edit an issued invoice (issue credit note instead).
+  3                    Expense tracking          CRUD for expenses. Categories stored in settings. Receipt upload → S3. Expense linked to optional vendor. Monthly expense summary aggregations.
+  4                    Vendor payments           Record payments made to suppliers. Links to supplier and purchase order. Updates supplier outstanding balance. Creates ledger entry.
+  5                    Ledger system             Double-entry style ledger. Every financial event creates two ledger entries: debit and credit. Query ledger by date range, entity, type. Running balance calculated in query using window function: SUM() OVER (ORDER BY id).
+  6                    P&L report                GET /reports/pl?period=monthly&month=5&year=2026. Revenue = SUM(orders.total_amount WHERE status=delivered). COGS = SUM(products.purchase_price WHERE sold). Gross profit = Revenue - COGS. Operating expenses = SUM(expenses). Net profit = Gross - OpEx.
+10.2 Finance API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/invoices                    Invoice list with date/dealer filters accounts│super_admin
+  GET      /api/v1/invoices/{id}               Invoice detail                 accounts│super_admin│b2b_partner
+  GET      /api/v1/invoices/{id}/pdf           Download invoice PDF from S3   accounts│super_admin│b2b_partner
+  POST     /api/v1/expenses                    Add new expense                accounts│super_admin
+  GET      /api/v1/expenses                    Expense list with filters      accounts│super_admin
+  GET      /api/v1/ledger                      Full ledger with date range filter accounts│super_admin
+  GET      /api/v1/reports/pl                  P&L report by period           accounts│super_admin
+  GET      /api/v1/reports/gst-summary         GST collected summary for filing accounts│super_admin
+  POST     /api/v1/vendor-payments             Record vendor payment          accounts│super_admin
+11. Phase 8 — HR & Operations
+
+  Phase 8              Employees, attendance, payroll, shifts Internal people management — run after all operational modules Days 57–62
+11.1 HR module logic
+
+  #                    Task                      Detail
+  1                    Employee management       Employee is a profile on top of User. One-to-one: users.id → employees.user_id. Stores: department, designation, shift(morning│evening), basic_salary, join_date. Soft delete when employee leaves — preserve attendance and payroll history.
+  2                    Attendance system         POST /hr/attendance to mark attendance for a date. Status: present │ absent │ half_day │ leave. check_in and check_out timestamps stored. Validation: cannot mark future dates. Cannot mark same employee twice for same date.
+  3                    Payroll calculation       PayrollService::calculate(month, year). For each active employee: count attendance records for month. Calculate working_days = present + (half_day  0.5). Daily rate = basic_salary / total_working_days_in_month. Gross = daily_rate  working_days. Deductions: PF (12% of basic), PT (professional tax per state slab). Net = Gross - Deductions.
+  4                    Payroll run               POST /hr/payroll/run. Creates payroll_run record (status=draft). Creates one payroll_item per employee. HR reviews draft. POST /hr/payroll/{id}/process confirms and marks status=processed. Generates salary slips (DomPDF). Stores PDFs in S3.
+  5                    Shift management          Employees assigned to shifts. Shift schedule stored weekly. API to view who is on shift today — used by Super Admin to see current staff.
+11.2 HR API endpoints
+
+  Method   Endpoint                            Description                    Role
+  GET      /api/v1/employees                   Employee list                  hr_manager│super_admin
+  POST     /api/v1/employees                   Create employee                hr_manager│super_admin
+  PUT      /api/v1/employees/{id}              Update employee details        hr_manager│super_admin
+  POST     /api/v1/hr/attendance               Mark attendance for date       hr_manager│super_admin
+  GET      /api/v1/hr/attendance/{month}       Monthly attendance report      hr_manager│super_admin
+  POST     /api/v1/hr/payroll/run              Start payroll calculation      hr_manager│super_admin
+  POST     /api/v1/hr/payroll/{id}/process     Confirm and process payroll    super_admin
+  GET      /api/v1/hr/payroll/{id}/slips       Download salary slips (ZIP)    hr_manager│super_admin
+  GET      /api/v1/hr/shifts                   View shift schedule            Any auth
+12. Phase 9 — Analytics & Business Intelligence
+
+  Phase 9              Centralized BI engine, dashboards, forecasting Aggregates data from all modules — build last when data exists Days 63–67
+12.1 Analytics module logic
+
+  #                    Task                      Detail
+  1                    Dashboard KPIs            GET /analytics/dashboard. Returns: today revenue, week revenue, month revenue, active orders count, low stock alerts count, pending QC count, pending dispatch count. Cache for 5 minutes. Used by Super Admin home and Sales CRM home.
+  2                    Sales analytics           GET /analytics/sales. Params: period(daily│weekly│monthly), from, to, channel. Returns time-series revenue data. Run as raw SQL query for performance. Channel breakdown: b2b, retail, online, marketplace.
+  3                    Inventory analytics       GET /analytics/inventory. Returns: stock by category and grade matrix, turnover rate per category, average days in stock before sale, bin utilization chart data.
+  4                    Partner performance       GET /analytics/partners. Ranks B2B dealers by: order volume, revenue, payment timeliness, return rate. Returns top 10 with trend vs previous period.
+  5                    Demand forecasting        Simple moving average: for each product category, average the last 30 days order volume. Project next 7 and 14 days. Stored in cache and recalculated nightly via scheduler.
+  6                    Stock movement            GET /analytics/stock-movement. Shows: what was received, what passed QC, what was sold, what was returned — for any date range. Useful for understanding velocity per category.
+12.2 Scheduled jobs (cron)
+
+  All scheduled jobs defined in app/Console/Kernel.php or bootstrap/app.php with Schedule facade. Run php artisan schedule:work in production via supervisor.
+
+  Every 30 minutes: LowStockCheckJob — check if any category below threshold, fire alert if so
+  Every midnight: DemandForecastJob — recalculate 7-day and 14-day demand projections
+  Every midnight: DealerCreditSyncJob — recalculate credit_used for all dealers from unpaid orders
+  Every Sunday 11pm: WeeklyReportJob — generate and email weekly P&L summary to super admin
+  1st of month: MonthlyStatementJob — generate GST summary for previous month, store to S3
+  Every 5 minutes: FailedNotificationRetry — retry any push/WhatsApp notifications that failed to send
+13. Phase 10 — Third-party integrations
+
+  Phase 10             Razorpay, MSG91, logistics adapter, Expo push, WhatsApp Each integration is a separate service class — swappable without touching other code Days 68–78
+13.1 Razorpay — payment gateway (fixed)
+
+  #                    Task                      Detail
+  1                    Create payment order      RazorpayService::createOrder(amount_in_paise, order_id). Returns razorpay_order_id stored on orders table. Frontend uses this ID to open Razorpay checkout.
+  2                    Webhook verification      POST /webhooks/razorpay. Header: X-Razorpay-Signature. Verify: hash_hmac("sha256", $rawBody, $webhookSecret). If mismatch: return 400 immediately — do NOT process.
+  3                    Events to handle          payment.captured → mark order paid, approve. payment.failed → notify customer. refund.processed → update refund status. Store all raw webhook payloads in webhook_logs table.
+  4                    Idempotency               Before processing any webhook: check if razorpay_payment_id already exists in payments table. If yes: return 200 without processing (Razorpay retries webhooks up to 3 times).
+  5                    Refunds                   RazorpayService::createRefund(payment_id, amount). Call on order cancellation or return. Store refund_id in payments table.
+13.2 MSG91 — OTP & SMS (fixed)
+
+// app/Integrations/Sms/Msg91Service.php
+
+public function sendOtp(string $phone): void {
+
+  Http::post("https://api.msg91.com/api/v5/otp", [
+
+    "authkey"  => config("services.msg91.auth_key"),
+
+    "mobile"   => "91" . $phone,
+
+    "template_id" => config("services.msg91.otp_template_id"),
+
+    "otp"      => $otp,   // pre-generated 6-digit code
+
+  ]);
+
+}
+
+// Store HASHED OTP in otp_codes table — NEVER store plain OTP anywhere
+
+13.3 Logistics adapter (swappable)
+
+The adapter pattern means you can add a new logistics provider without changing order code. Define the interface, implement per-provider, configure active provider in settings.
+
+// app/Integrations/Logistics/LogisticsInterface.php
+
+interface LogisticsInterface {
+
+  public function createShipment(Order $order): ShipmentResult;
+
+  public function trackShipment(string $awb): TrackingResult;
+
+  public function cancelShipment(string $awb): bool;
+
+  public function getLabel(string $awb): string; // Returns PDF URL
+
+}
+
+// app/Integrations/Logistics/DtdcDriver.php  implements LogisticsInterface
+
+// app/Integrations/Logistics/DelhiveryDriver.php  implements LogisticsInterface
+
+// app/Integrations/Logistics/ShiprocketDriver.php  implements LogisticsInterface
+
+// app/Providers/LogisticsServiceProvider.php
+
+$this->app->bind(LogisticsInterface::class, function () {
+
+  $provider = Setting::get("logistics_provider"); // "dtdc"   "delhivery": etc
+  return match($provider) {
+
+    "dtdc"       => new DtdcDriver(),
+
+    "delhivery"  => new DelhiveryDriver(),
+
+    "shiprocket" => new ShiprocketDriver(),
+
+    default      => throw new InvalidArgumentException("Unknown provider: $provider"),
+
+  };
+
+});
+
+// Inject LogisticsInterface in controllers — never call a driver directly
+
+13.4 Expo push notifications
+
+// app/Integrations/Notifications/ExpoNotificationService.php
+
+public function send(string $expoPushToken, string $title, string $body, array $data = []): void {
+
+  Http::post("https://exp.host/--/api/v2/push/send", [
+
+    "to"    => $expoPushToken,
+
+    "title" => $title,
+
+    "body"  => $body,
+
+    "data"  => $data,  // deep-link data for app navigation
+
+    "sound" => "default",
+
+  ]);
+
+}
+
+// Store push tokens in push_tokens table on login
+
+// One user can have multiple tokens (phone + tablet)
+
+// Send to all tokens for a user — Expo handles deduplication
+
+13.5 WhatsApp messaging adapter
+
+  WhatsApp provider is swappable via settings. Build to the interface — not directly to Twilio or Interakt.
+
+// app/Integrations/Notifications/WhatsAppInterface.php
+
+interface WhatsAppInterface {
+
+  public function sendTemplate(string $phone, string $templateName, array $params): void;
+
+  public function sendText(string $phone, string $message): void;
+
+}
+
+// Implement: TwilioWhatsAppDriver, InteraktDriver, GupshupDriver
+
+// Active driver resolved from settings.whatsapp_provider
+
+14. API standards & response format
+
+14.1 Universal response format
+
+Every API response — success or error — follows this structure. Never return raw model data without wrapping.
+
+// SUCCESS response
+
+{
+
+  "success": true,
+
+  "message": "Order approved successfully",
+
+  "data": { ... },          // null for actions with no data
+
+  "meta": {                 // only on paginated responses
+
+    "current_page": 1,
+
+    "per_page": 50,
+
+    "total": 423,
+
+    "last_page": 9
+
+  }
+
+}
+
+// ERROR response
+
+{
+
+  "success": false,
+
+  "message": "Validation failed",
+
+  "errors": {               // only for 422
+
+    "phone": ["The phone field is required."],
+
+    "grade": ["Invalid grade value."]
+
+  }
+
+}
+
+14.2 HTTP status codes used
+
+  200 OK: Successful GET, PUT, PATCH — returns data
+  201 Created: Successful POST that creates a resource — returns created object
+  204 No Content: Successful DELETE — no body returned
+  400 Bad Request: Malformed request — missing required field, wrong format
+  401 Unauthorized: No token or expired token — must login again
+  403 Forbidden: Valid token but wrong role for this endpoint
+  404 Not Found: Resource does not exist — or soft-deleted (treat same)
+  422 Unprocessable: Validation failed — return errors object with field-level messages
+  429 Too Many Requests: Rate limit hit — implemented via Laravel Throttle middleware
+  500 Server Error: Unexpected error — logged to Sentry, generic message returned to client
+14.3 Pagination standard
+
+// All list endpoints accept:
+
+GET /inventory?page=1&per_page=50&sort=created_at&direction=desc
+
+// Use Laravel paginate():
+
+Product::filter($request)->paginate($request->per_page ?? 50);
+
+// Return via API Resource:
+
+return ProductCollection::make($products); // includes meta automatically
+
+14.4 Rate limiting
+
+// routes/api.php — apply throttle per role
+
+Route::middleware(['auth:sanctum', 'throttle:120,1'])->group(...)  // 120 req/min default
+
+Route::middleware(['throttle:10,1'])->group(...) // OTP endpoints: 10/min
+
+15. Testing strategy
+
+  Phase QA             Unit, feature, and integration testing Test critical paths before every deployment Days 79–83
+15.1 What to test (priority order)
+
+  #                    Task                      Detail
+  P1                   OTP login flow            Unit test Msg91Service mock. Feature test: send OTP → verify → receive token. Test invalid OTP returns 401. Test expired OTP returns 401.
+  P1                   Order lifecycle           Feature test full flow: create order → approve → pick → pack → dispatch → deliver. Assert product status changes at each step. Assert dealer credit_used updates.
+  P1                   Payment webhook           Feature test: valid Razorpay signature → order approved. Invalid signature → 400 returned. Duplicate payment_id → 200 no duplicate processing.
+  P1                   Credit limit check        Unit test: order total > credit available → 422. Order total <= credit available → passes. Assert credit_used updates after order approved.
+  P1                   Role permissions          Feature test: each endpoint returns 403 when called with wrong role. Assert sales role cannot access /admin endpoints.
+  P2                   IMEI uniqueness           Feature test: receive product with existing IMEI → 422. Receive with new IMEI → 201.
+  P2                   Inventory counts          Feature test: product sold → stock count decreases. Product returned → stock count increases. Assert real-time counts correct.
+  P2                   GST invoice generation    Feature test: order delivered → invoice record created → PDF stored in S3 (use fake S3 in tests). Assert invoice number format correct.
+  P2                   Payroll calculation       Unit test PayrollService::calculate with known attendance data. Assert correct days_worked, gross, deductions, net.
+  P3                   Logistics adapter         Unit test each driver with mocked HTTP responses. Assert interface contract satisfied by each driver.
+15.2 Test setup
+
+// Use RefreshDatabase trait in feature tests — fresh DB per test
+
+// Use DatabaseTransactions trait for faster tests that do not need full wipe
+
+// Fake external services: Http::fake(), Storage::fake(), Queue::fake()
+
+// Create test data with factories: User::factory()->role("sales")->create()
+
+// Run all tests: php artisan test --parallel
+
+// Run specific module: php artisan test --filter=OrderTest
+
+16. Phase 11 — Deployment & production setup
+
+  Phase 11             Server config, Nginx, queue workers, monitoring Final step — run in staging first, verify, then production Days 84–87
+16.1 Server requirements
+
+  OS: Ubuntu 22.04 LTS (recommended — long-term support)
+  PHP: PHP 8.3 with extensions: mbstring, xml, curl, zip, gd, mysql, redis, opcache
+  Web server: Nginx 1.24+ (never Apache for Laravel — Nginx handles concurrency better)
+  Database: MySQL 8.0 — separate server or managed DB (AWS RDS recommended for production)
+  Cache / queues: Redis 7+ — separate instance if traffic is high
+  Memory: Minimum 4GB RAM. 8GB recommended when running queues + Nginx + MySQL on same server
+  Storage: At least 50GB SSD for OS + logs + temp files. PDFs and images go to S3.
+  SSL: Let's Encrypt via Certbot — free, auto-renews every 90 days
+16.2 Deployment steps
+
+  #                    Task                      Detail
+  1                    Server prep               apt update && apt upgrade. Install Nginx, PHP 8.3 + extensions, MySQL, Redis, Composer, Git, Certbot, Supervisor.
+  2                    Clone repo                git clone {repo_url} /var/www/dxempire-api. Set permissions: chown -R www-data:www-data /var/www/dxempire-api.
+  3                    Install dependencies      composer install --no-dev --optimize-autoloader. Copy .env.production to .env. Generate: php artisan key:generate.
+  4                    Database setup            Create MySQL database and user. Run: php artisan migrate --force. Run: php artisan db:seed --class=RolesPermissionsSeeder --force. Run AdminSeeder to create super_admin user.
+  5                    Optimize Laravel          php artisan config:cache && php artisan route:cache && php artisan view:cache && php artisan event:cache. These dramatically speed up request handling.
+  6                    Nginx config              Create /etc/nginx/sites-available/dxempire-api. Set root to /var/www/dxempire-api/public. Add try_files $uri $uri/ /index.php?$query_string. Enable site: ln -s ... /sites-enabled/.
+  7                    SSL setup                 certbot --nginx -d api.dxempire.com. Verify auto-renewal: certbot renew --dry-run.
+  8                    Queue workers             Create /etc/supervisor/conf.d/dxempire-horizon.conf. Command: php artisan horizon. Set numprocs=1, autorestart=true. Run: supervisorctl reread && supervisorctl update && supervisorctl start dxempire-horizon.
+  9                    Scheduler                 Add to crontab (www-data user):      php /var/www/dxempire-api/artisan schedule:run >> /dev/null 2>&1
+  10                   GitHub Actions CI/CD      On push to main: SSH to server, git pull, composer install, php artisan migrate --force, php artisan optimize, supervisorctl restart dxempire-horizon.
+  11                   Verify deployment         Test: POST /api/v1/auth/send-otp with a real number. Check Sentry dashboard — no errors. Check Horizon dashboard — workers running. Tail logs: tail -f /var/www/dxempire-api/storage/logs/laravel.log
+16.3 Environment variables (.env) — production
+
+APP_ENV=production
+
+APP_DEBUG=false          # CRITICAL: never true in production — leaks stack traces
+
+APP_URL=https://api.dxempire.com
+
+DB_CONNECTION=mysql
+
+DB_HOST=127.0.0.1       # or RDS endpoint
+
+DB_DATABASE=dxempire
+
+DB_USERNAME=dxempire_user
+
+DB_PASSWORD=<strong_password>
+
+CACHE_DRIVER=redis
+
+QUEUE_CONNECTION=redis
+
+SESSION_DRIVER=redis
+
+REDIS_HOST=127.0.0.1
+
+REDIS_PASSWORD=null
+
+REDIS_PORT=6379
+
+AWS_ACCESS_KEY_ID=
+
+AWS_SECRET_ACCESS_KEY=
+
+AWS_DEFAULT_REGION=ap-south-1   # Mumbai region for India
+
+AWS_BUCKET=dxempire-files
+
+FILESYSTEM_DISK=s3
+
+RAZORPAY_KEY_ID=
+
+RAZORPAY_KEY_SECRET=
+
+RAZORPAY_WEBHOOK_SECRET=
+
+MSG91_AUTH_KEY=
+
+MSG91_OTP_TEMPLATE_ID=
+
+SENTRY_LARAVEL_DSN=https://...@sentry.io/...
+
+16.4 Post-launch monitoring checklist
+
+  ☐: Sentry dashboard shows zero new errors after first 30 minutes of production traffic
+  ☐: Laravel Horizon shows all queue jobs processing — no failed jobs in red
+  ☐: All cron jobs visible in scheduler: php artisan schedule:list
+  ☐: Redis memory usage normal — check: redis-cli info memory
+  ☐: MySQL slow query log enabled: set global slow_query_log=ON, long_query_time=1
+  ☐: Nginx access log tailing shows 200s for all API endpoints, no 500s
+  ☐: S3 bucket has correct IAM policy — API can read/write, public cannot read private files
+  ☐: Razorpay webhook URL registered in Razorpay dashboard and test event fires correctly
+  ☐: MSG91 OTP sending and delivery confirmed with real SIM
+  ☐: Logistics provider AWB creation tested with a real test shipment
+  ☐: Push notification received on real Android and iOS devices
+  ☐: Daily backup job configured — mysqldump to S3 every night at 2am
+17. Development timeline summary
+
+  Days     Phase                               Deliverable                    Status
+  1–8      Foundation & schema                 Laravel project, all migrations, CI/CD, env Critical first
+  9–13     Auth & RBAC                         OTP login, 8 roles, permissions, middleware Critical path
+  14–21    Procurement                         Suppliers, POs, receiving, IMEI registration Module 1
+  22–27    QC module                           Grading workflow, S1–S5, refurbishment, events Module 2
+  28–33    Inventory                           Stock engine, bins, low-stock alerts, exports Module 3
+  34–40    CRM & Sales                         Leads, dealers, credit system, analytics Module 4
+  41–50    Order processing                    Full lifecycle, payment, dispatch, returns Largest module
+  51–56    Finance                             GST invoices, ledger, P&L, DomPDF reports Module 6
+  57–62    HR module                           Employees, attendance, payroll engine Module 7
+  63–67    Analytics & BI                      Dashboard KPIs, reports, forecasting, scheduler Module 8
+  68–78    All integrations                    Razorpay, MSG91, logistics, Expo push, WhatsApp Integrations
+  79–83    Testing & QA                        PHPUnit tests, feature tests, UAT with real users QA
+  84–87    Deployment                          Server, Nginx, SSL, queues, monitoring, go-live Launch
+  Total: 87 working days for 1 senior backend developer working full time. With 2 backend devs, modules in Phase 2–9 can run in parallel, compressing to ~55 days.*
+
+	SP Associates | DXEMPIRE © 2026	Page
