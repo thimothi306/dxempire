@@ -37,6 +37,7 @@ use App\Http\Controllers\Mobile\HierarchyController as MobileHierarchyController
 use App\Http\Controllers\Mobile\DashboardController as MobileDashboardController;
 use App\Http\Controllers\Partner\PartnerAuthController;
 use App\Http\Controllers\Partner\PartnerPortalController;
+use App\Http\Controllers\Partner\PartnerCatalogController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
@@ -355,6 +356,11 @@ Route::prefix('v1')->group(function () {
             Route::get('orders/{order}',  [PartnerPortalController::class, 'orderShow']);
             Route::get('invoices',        [PartnerPortalController::class, 'invoices']);
             Route::get('dues',            [PartnerPortalController::class, 'dues']);
+
+            // Catalog — browse in-stock products by brand / grade
+            Route::get('catalog/brands',  [PartnerCatalogController::class, 'brands']);
+            Route::get('catalog/grades',  [PartnerCatalogController::class, 'grades']);
+            Route::get('catalog',         [PartnerCatalogController::class, 'index']);
         });
     });
 

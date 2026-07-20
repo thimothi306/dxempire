@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Http\Controllers\Partner;
+
+use App\Http\Controllers\Controller;
+use App\Http\Traits\ApiResponse;
+use App\Models\Product;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Partner Web/App Catalog — browse in-stock products.
+ * Partner selects a brand → sees all grades (S1–S5) of that brand's mobiles.
+ * Products are individual units, so results are aggregated by model + grade
+ * (available quantity + price) instead of listing every physical unit.
+ */
+class PartnerCatalogController extends Controller
+{
+    use ApiResponse;
+
+    /**
+     * List distinct brands available in stock (for the brand selector).
+     * Optional ?category=phone|laptop|accessory
+     */
+    public function brands(Request $request): JsonResponse
+    {
+        $brands = Product::where('status', 'in_stock')
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->select('brand', DB::raw('COUNT(*) as available_qty'))
+            ->groupBy('brand')
+            ->orderBy('brand')
+            ->get();
+
+        return $this->success($brands);
+    }
+
+    /**
+     * Catalog listing — aggregated by model + grade.
+     * Filters: ?brand=Apple  ?category=phone  ?grade=S1  ?search=iphone
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $items = Product::where('status', 'in_stock')
+            ->when($request->brand, fn($q) => $q->where('brand', $request->brand))
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->when($request->grade, fn($q) => $q->where('grade', $request->grade))
+            ->when($request->search, fn($q) => $q->where(function ($q) use ($request) {
+                $q->where('brand', 'like', "%{$request->search}%")
+                  ->orWhere('model', 'like', "%{$request->search}%");
+            }))
+            ->select(
+                'brand',
+                'model',
+                'category',
+                'grade',
+                DB::raw('COUNT(*) as available_qty'),
+                DB::raw('ROUND(MIN(selling_price), 2) as price_from'),
+                DB::raw('ROUND(MAX(selling_price), 2) as price_to')
+            )
+            ->groupBy('brand', 'model', 'category', 'grade')
+            ->orderBy('brand')
+            ->orderBy('model')
+            ->orderBy('grade')
+            ->get();
+
+        return $this->success([
+            'total_variants' => $items->count(),
+            'items'          => $items,
+        ]);
+    }
+
+    /**
+     * Grades breakdown for a specific brand+model (e.g. tap a phone → see all grades).
+     * ?brand=Apple&model=iPhone 14 Pro
+     */
+    public function grades(Request $request): JsonResponse
+    {
+        $request->validate([
+            'brand' => ['required', 'string'],
+            'model' => ['required', 'string'],
+        ]);
+
+        $grades = Product::where('status', 'in_stock')
+            ->where('brand', $request->brand)
+            ->where('model', $request->model)
+            ->select(
+                'grade',
+                DB::raw('COUNT(*) as available_qty'),
+                DB::raw('ROUND(MIN(selling_price), 2) as price_from'),
+                DB::raw('ROUND(MAX(selling_price), 2) as price_to')
+            )
+            ->groupBy('grade')
+            ->orderBy('grade')
+            ->get();
+
+        return $this->success([
+            'brand'  => $request->brand,
+            'model'  => $request->model,
+            'grades' => $grades,
+        ]);
+    }
+}
