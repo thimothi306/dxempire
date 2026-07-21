@@ -502,7 +502,92 @@ Paginated. Optional filters: `?status=delivered` and `?per_page=15`.
 
 ---
 
-## 2.6 Order Detail — `GET /partner/orders/{id}`
+## 2.6 Place an Order — `POST /partner/orders`
+
+**The end-to-end ordering endpoint.** Send `{ brand, model, grade, quantity }` lines straight from
+the catalog response (2.10/2.11) — no need to know individual product/unit IDs. The backend finds
+that many available units matching each line, locks them, and creates the order.
+
+`dealer_id` is **always** taken from the authenticated partner's own account — it is never read from
+the request body, so a partner can only ever order for themselves.
+
+**Request**
+```json
+{
+  "items": [
+    { "brand": "Samsung", "model": "Galaxy S23 Ultra", "grade": "S3", "category": "phone", "quantity": 1 }
+  ],
+  "notes": "Please pack securely"
+}
+```
+- `items` — required, 1–20 lines
+- `items[].brand`, `items[].model` — required, must match a catalog entry
+- `items[].grade` — required, one of `S1`–`S5`
+- `items[].category` — optional (`phone`/`laptop`/`accessory`) — helps disambiguate if the same model name exists across categories
+- `items[].quantity` — required, 1–50
+- `notes` — optional, free text
+
+**Response `201`**
+```json
+{
+  "success": true,
+  "message": "Order placed successfully.",
+  "data": {
+    "id": 15,
+    "order_number": "DX-2026-00015",
+    "dealer_id": 1,
+    "status": "pending",
+    "payment_status": "unpaid",
+    "subtotal": "58381.00",
+    "gst_amount": "10508.58",
+    "total_amount": "68889.58",
+    "credit_used": "68889.58",
+    "billing_state": "Maharashtra",
+    "shipping_state": "Maharashtra",
+    "notes": "Please pack securely",
+    "created_at": "2026-07-21T06:21:30.000000Z",
+    "items": [
+      {
+        "id": 33,
+        "product_id": 35,
+        "quantity": 1,
+        "unit_price": "58381.00",
+        "gst_rate": "18.00",
+        "gst_amount": "10508.58",
+        "line_total": "68889.58",
+        "product": { "id": 35, "brand": "Samsung", "model": "Galaxy S23 Ultra", "category": "phone", "grade": "S3" }
+      }
+    ]
+  }
+}
+```
+
+The order is created with **`status: "pending"`**. It moves to `approved` once your sales rep / admin
+reviews it — track progress via `GET /partner/orders/{id}`. Note: the order appears immediately in
+"My Orders", but `credit_used` on the dealer account only increases once the order is **approved**
+(matches the existing admin order-approval flow).
+
+**Error `422`** — not enough stock for a line
+```json
+{ "success": false, "message": "Only 1 unit(s) available for Samsung Galaxy S23 Ultra (Grade S3), requested 5." }
+```
+
+**Error `422`** — over the dealer's credit limit or KYC not verified
+```json
+{ "success": false, "message": "Insufficient credit or KYC not verified. Available: ₹768731.00" }
+```
+
+**Error `422`** — validation (e.g. quantity over the 50 cap)
+```json
+{ "message": "The items.0.quantity must not be greater than 50.", "errors": { "items.0.quantity": ["The items.0.quantity must not be greater than 50."] } }
+```
+> ⚠️ Validation errors like this one are only returned as JSON if the request sends
+> `Accept: application/json`. Without it, Laravel redirects instead of returning JSON — always send
+> this header (see **Authentication** at the top of this doc).
+
+---
+
+## 2.7 Order Detail — `GET /partner/orders/{id}`
 
 Full order with line items (each item includes its product's brand/model/grade), payments, and invoice.
 A partner can only open **their own** orders (others return `404`).
@@ -546,7 +631,7 @@ A partner can only open **their own** orders (others return `404`).
 
 ---
 
-## 2.7 My Invoices — `GET /partner/invoices`
+## 2.8 My Invoices — `GET /partner/invoices`
 
 Paginated. Each invoice includes its related order summary.
 
@@ -574,7 +659,7 @@ When a partner has no invoices yet, `data` is `[]` with `"total": 0`.
 
 ---
 
-## 2.8 My Dues — `GET /partner/dues`
+## 2.9 My Dues — `GET /partner/dues`
 
 Outstanding balance + list of unpaid/partial orders.
 
@@ -605,7 +690,7 @@ Outstanding balance + list of unpaid/partial orders.
 
 ---
 
-## 2.9 Catalog — Brands — `GET /partner/catalog/brands`
+## 2.10 Catalog — Brands — `GET /partner/catalog/brands`
 
 In-stock brands for the brand selector. Optional `?category=phone|laptop|accessory`.
 
@@ -626,7 +711,7 @@ In-stock brands for the brand selector. Optional `?category=phone|laptop|accesso
 
 ---
 
-## 2.10 Catalog — Products by Brand/Grade — `GET /partner/catalog`
+## 2.11 Catalog — Products by Brand/Grade — `GET /partner/catalog`
 
 **Select a brand → get all grades of that brand's mobiles.** Results are aggregated by model + grade
 (available quantity + price range), so the app shows one row per variant instead of every physical unit.
@@ -643,9 +728,9 @@ In-stock brands for the brand selector. Optional `?category=phone|laptop|accesso
   "data": {
     "total_variants": 3,
     "items": [
-      { "brand": "Samsung", "model": "Galaxy S22",       "category": "phone", "grade": "S2", "available_qty": 1, "price_from": "80426.00", "price_to": "80426.00" },
-      { "brand": "Samsung", "model": "Galaxy S22",       "category": "phone", "grade": "S5", "available_qty": 2, "price_from": "50340.00", "price_to": "74746.00" },
-      { "brand": "Samsung", "model": "Galaxy S23 Ultra", "category": "phone", "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00" }
+      { "brand": "Samsung", "model": "Galaxy S22", "category": "phone", "grade": "S2", "available_qty": 1, "price_from": "80426.00", "price_to": "80426.00", "image_url": "https://placehold.co/600x600/1428a0/ffffff?text=Galaxy+S22" },
+      { "brand": "Samsung", "model": "Galaxy S22", "category": "phone", "grade": "S5", "available_qty": 2, "price_from": "50340.00", "price_to": "74746.00", "image_url": "https://placehold.co/600x600/1428a0/ffffff?text=Galaxy+S22" },
+      { "brand": "Samsung", "model": "Galaxy S23 Ultra", "category": "phone", "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00", "image_url": null }
     ]
   }
 }
@@ -653,10 +738,11 @@ In-stock brands for the brand selector. Optional `?category=phone|laptop|accesso
 
 - `grade` is one of `S1`–`S5`
 - `price_from` / `price_to` — price range (B2B `selling_price`) across available units of that model+grade
+- `image_url` — **model-level** stock photo (one photo per brand+model+category, not per physical unit). **`null`** if no photo has been uploaded yet for that model — show a placeholder in the UI when null. Currently seeded with placeholder images for demo; real product photography needs to be uploaded via the admin panel (see note below).
 
 ---
 
-## 2.11 Catalog — Grades for a Model — `GET /partner/catalog/grades`
+## 2.12 Catalog — Grades for a Model — `GET /partner/catalog/grades`
 
 Grade breakdown for a specific brand + model (e.g. tap a phone → see its grades).
 
@@ -670,13 +756,291 @@ Grade breakdown for a specific brand + model (e.g. tap a phone → see its grade
   "success": true,
   "message": "Success",
   "data": {
-    "brand": "Samsung",
-    "model": "Galaxy S23 Ultra",
+    "brand": "Apple",
+    "model": "iPhone 13",
+    "image_url": "https://placehold.co/600x600/1d1d1f/ffffff?text=iPhone+13",
     "grades": [
-      { "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00" }
+      { "grade": "S1", "available_qty": 1, "price_from": "52293.00", "price_to": "52293.00" },
+      { "grade": "S5", "available_qty": 1, "price_from": "89999.00", "price_to": "89999.00" }
     ]
   }
 }
+```
+
+---
+---
+
+# 🏭 PART 3 — WAREHOUSE APP
+
+Same planned mobile app as Part 1/2, for warehouse staff. **Login is different** — warehouse staff use
+the **general admin login** (email + password), not a Sales ID and not partner credentials, because
+warehouse accounts live in the same system as other back-office staff.
+
+---
+
+## 3.1 Login — `POST /auth/admin/login`
+
+**Request**
+```json
+{ "email": "mohan@dxempire.com", "password": "password123" }
+```
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "30|2fP9VRqU5Ogg7ipSfnSf35GFmiuxDfrqaHNYa3kid9383898",
+    "user": {
+      "id": 10,
+      "name": "Mohan Kumar",
+      "phone": "9111111110",
+      "email": "mohan@dxempire.com",
+      "role": "warehouse_staff",
+      "permissions": ["inventory.view", "inventory.edit", "orders.view", "orders.dispatch", "procurement.view", "procurement.edit"]
+    }
+  }
+}
+```
+Use the same Bearer token pattern as Parts 1 & 2. Logout: `POST /auth/logout`.
+
+---
+
+## 3.2 Inventory List — `GET /inventory`
+
+Paginated, with filters. Warehouse staff see all statuses (not just in-stock).
+
+**Query params (all optional):** `category`, `grade`, `status`, `bin_id`, `brand`, `search`, `sort`, `direction`, `per_page`
+
+**Product status values:** `received`, `qc_pending`, `in_stock`, `reserved`, `sold`, `returned`, `rejected`, `refurbishment`
+
+**Example:** `GET /inventory?category=phone&per_page=2`
+
+**Response `200`** (truncated — each item includes full `bin` and `supplier` objects)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "id": 7,
+      "imei": "0000004596609236",
+      "serial_number": "SN946568",
+      "category": "phone",
+      "brand": "Samsung",
+      "model": "Galaxy S23 Ultra",
+      "grade": "S3",
+      "status": "sold",
+      "purchase_price": "48049.00",
+      "selling_price": "68002.00",
+      "bin_id": null,
+      "supplier_id": 6,
+      "qc_passed_at": "2026-07-04T09:41:59.000000Z",
+      "sold_at": "2026-07-08T09:41:59.000000Z"
+    }
+  ],
+  "meta": { "current_page": 1, "per_page": 2, "total": 25, "last_page": 13 }
+}
+```
+
+---
+
+## 3.3 IMEI Lookup — `GET /inventory/imei/{imei}`
+
+For a barcode/IMEI scan screen. Returns the full unit with bin, supplier, and QC history.
+
+**Example:** `GET /inventory/imei/0000004596609236`
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "id": 7,
+    "imei": "0000004596609236",
+    "serial_number": "SN946568",
+    "category": "phone",
+    "brand": "Samsung",
+    "model": "Galaxy S23 Ultra",
+    "grade": "S3",
+    "status": "sold",
+    "purchase_price": "48049.00",
+    "selling_price": "68002.00",
+    "bin": null,
+    "supplier": { "id": 6, "name": "ElectroHub Suppliers", "phone": "9822000005", "type": "buyback_partner" }
+  }
+}
+```
+
+**Error `404`**
+```json
+{ "success": false, "message": "No product found with IMEI: 0000000000000", "code": 404 }
+```
+
+---
+
+## 3.4 Bins — `GET /bins`
+
+Paginated list of storage bins with live product counts.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    { "id": 1, "code": "BIN-001", "zone": "Zone A", "row": "R1", "shelf": "S4", "capacity": 50, "current_count": 10, "products_count": 3 }
+  ],
+  "meta": { "current_page": 1, "per_page": 100, "total": 10, "last_page": 1 }
+}
+```
+
+## 3.5 Move a Product to a Bin — `POST /bins/move`
+
+**Request**
+```json
+{ "product_id": 40, "bin_id": 3 }
+```
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Product moved to bin BIN-003.",
+  "data": { "product_id": 40, "bin": { "id": 3, "code": "BIN-003", "current_count": 43, "capacity": 50 } }
+}
+```
+
+**Error `422`** — bin full
+```json
+{ "success": false, "message": "Bin BIN-003 is full. Capacity: 50, Current: 50." }
+```
+
+## 3.6 Products in a Bin — `GET /bins/{id}/products`
+
+Returns the array of products currently stored in that bin (same shape as inventory list items).
+
+---
+
+## 3.7 Receive Stock — `POST /procurement/receive`
+
+Add new units into inventory (status starts as `received`, awaiting QC). Supports batch entry.
+
+**Request**
+```json
+{
+  "supplier_id": 1,
+  "purchase_order_id": null,
+  "items": [
+    { "category": "phone", "brand": "Apple", "model": "iPhone 15", "purchase_price": 45000, "imei": "356789012345678", "serial_number": "APIPTEST01" }
+  ]
+}
+```
+- `items[].imei` — optional, but must be **exactly 15 digits** and globally unique (including soft-deleted units) when provided
+- Use `POST /purchase-orders/{id}/receive` instead (same body, minus `purchase_order_id`) to receive against a specific PO — it auto-fills the PO link
+
+**Response `200`**
+```json
+{ "success": true, "message": "1 item(s) received successfully.", "data": { "created_count": 1, "created_ids": [41], "failed": [] } }
+```
+
+**Error `422`** — duplicate IMEI (whole batch is rejected, nothing partially created)
+```json
+{ "success": false, "message": "Batch receive failed due to duplicate IMEI." }
+```
+
+## 3.8 Receiving History — `GET /procurement/history`
+
+Paginated list of received products with their supplier and purchase-order context. Same shape as `GET /inventory`.
+
+---
+
+## 3.9 QC — Pending Queue — `GET /qc/pending`
+
+Units awaiting grading (`status = received`). Same object shape as inventory list.
+
+## 3.10 QC — Submit a Grade — `POST /qc/grade`
+
+**Request**
+```json
+{ "product_id": 41, "grade": "S2", "condition_notes": "Minor scratches on back panel", "outcome": "pass" }
+```
+- `outcome` — one of `pass`, `repair`, `reject`
+- `grade` — required **only if** `outcome` is `pass` (one of `S1`–`S5`)
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "QC grade recorded.",
+  "data": {
+    "qc_record": { "id": 13, "product_id": 41, "engineer_id": 10, "grade": "S2", "condition_notes": "Minor scratches on back panel", "outcome": "pass", "graded_at": "2026-07-21T06:26:57.000000Z" },
+    "product": { "id": 41, "status": "in_stock", "grade": "S2", "selling_price": "33750.00" }
+  }
+}
+```
+On `pass`, the product's status automatically becomes `in_stock` (ready to sell) and its `selling_price` is computed from the grade.
+
+## 3.11 QC — Records & Stats — `GET /qc/records`, `GET /qc/stats`
+
+`records` is a paginated audit trail of all grading decisions (same fields as the `qc_record` object
+above). `stats` returns pass/repair/reject counts for a dashboard tile.
+
+---
+
+## 3.12 Order Fulfillment Lifecycle
+
+Warehouse staff move an order through these statuses, **in order**. Each endpoint validates the
+current status server-side and rejects out-of-sequence calls with a `422`.
+
+```
+approved (by admin) → picking → packed → dispatched → delivered
+```
+
+| Step | Endpoint | Requires order status | New status |
+|------|----------|------------------------|------------|
+| Start picking | `POST /orders/{id}/picking` | `approved` | `picking` |
+| Complete packing | `POST /orders/{id}/packing-complete` | `picking` | `packed` |
+| Dispatch | `POST /orders/{id}/dispatch` | `packed` (or `approved`) | `dispatched` |
+| Mark delivered | `POST /orders/{id}/deliver` | `dispatched` | `delivered` |
+| Process a return | `POST /orders/{id}/return` | `delivered` | `returned` |
+
+**3.12.a Start picking** — `POST /orders/{id}/picking` (no body)
+```json
+{ "success": true, "message": "Picking started.", "data": { "id": 15, "order_number": "DX-2026-00015", "status": "picking", "...": "..." } }
+```
+
+**3.12.b Complete packing** — `POST /orders/{id}/packing-complete` (no body)
+```json
+{ "success": true, "message": "Packing completed.", "data": { "id": 15, "status": "packed", "...": "..." } }
+```
+
+**3.12.c Dispatch** — `POST /orders/{id}/dispatch`
+```json
+{ "logistics_provider": "Shiprocket", "awb_number": "AWB12345678" }
+```
+```json
+{
+  "success": true,
+  "message": "Order dispatched.",
+  "data": {
+    "id": 15, "status": "dispatched",
+    "awb_number": "AWB12345678", "logistics_provider": "Shiprocket",
+    "dispatched_at": "2026-07-21T06:25:38.000000Z"
+  }
+}
+```
+
+**3.12.d Mark delivered** — `POST /orders/{id}/deliver` (no body)
+```json
+{ "success": true, "message": "Order marked as delivered.", "data": { "id": 15, "status": "delivered", "delivered_at": "2026-07-21T06:25:38.000000Z" } }
+```
+
+**Error `422`** — wrong-state transition (e.g. calling `/picking` on a delivered order)
+```json
+{ "success": false, "message": "Order must be approved before picking. Current status: delivered." }
 ```
 
 ---
@@ -690,9 +1054,60 @@ Grade breakdown for a specific brand + model (e.g. tap a phone → see its grade
 | `401` | Bad credentials | `{ "success": false, "message": "Invalid login or password." }` |
 | `403` | Account deactivated / no permission | `{ "success": false, "message": "..." }` |
 | `404` | Resource not found / not yours | `{ "success": false, "message": "..." }` |
-| `422` | Validation error | `{ "success": false, "message": "...", "errors": { ... } }` |
+| `422` | Validation / business-rule error | `{ "success": false, "message": "...", "errors"?: { ... } }` |
+| `500` | Server error | `{ "message": "Server Error" }` — should not happen; report it if you see one |
 
 On any `401`, clear the stored token and route the user to the login screen.
+
+> ⚠️ **Always send `Accept: application/json`** on every request. Without it, some validation
+> failures return an HTML redirect instead of JSON (default Laravel behavior for "browser" requests).
+> All three example flows below assume this header is always present.
+
+---
+
+# Push Notifications (Expo)
+
+All three apps share the same push-token registration, under the general authenticated API
+(works with a staff, warehouse, **or** partner token):
+
+- Register on app open / after login: `POST /users/push-token` — body `{ "token": "<expo-push-token>", "device_type": "android"|"ios" }`
+- Unregister on logout: `DELETE /users/push-token` — optional body `{ "token": "..." }` to remove just one device, omit to remove all of the user's tokens
+
+The backend sends via **Expo's push API** (`exp.host`), which relays to FCM/APNs — so the app only
+needs the **Expo SDK** (`expo-notifications`), no separate Firebase project required.
+
+**Currently wired to fire on:** order approved (notifies partner + warehouse), order dispatched
+(notifies dealer), stock added (notifies partners), product received (notifies QC team). Order
+placement/fulfillment triggers (3.12) do not yet push a notification for every step — only
+approval and dispatch do, today.
+
+**⚠️ `EXPO_ACCESS_TOKEN` status: confirmed NOT configured in production `.env` as of this writing.**
+The code path now supports it (optional `Authorization: Bearer <token>` header sent to Expo when
+set — see `config/services.php` → `expo.access_token`), but no token is set on the server yet.
+Expo's push API works *without* one — sending will still succeed — but Expo recommends setting one
+for production to prevent anyone else from pushing to your project. **Action needed from us:**
+generate an Expo access token (from the Expo dashboard, tied to the app's Expo project) and set
+`EXPO_ACCESS_TOKEN=` in the production `.env`. Let us know if you want this prioritized before
+launch, or if you're fine going live without it initially.
+
+---
+
+# Catalog Images — Admin Upload
+
+`image_url` in the catalog (2.11/2.12) is **model-level** (one photo per brand+model+category — not
+per physical IMEI). It is currently seeded with **placeholder images** for demo purposes. To upload
+real product photography, use the admin endpoint (super_admin only, not part of the 3 mobile apps):
+
+```
+POST /api/v1/admin/catalog-images
+{ "brand": "Apple", "model": "iPhone 13", "category": "phone", "image_url": "https://..." }
+```
+This performs an upsert (create or replace) keyed on brand+model+category.
+`GET /api/v1/admin/catalog-images` lists all; `DELETE /api/v1/admin/catalog-images/{id}` removes one.
+
+Note this endpoint accepts a **URL**, not a file upload — images need to be hosted somewhere
+(e.g. an S3/Hostinger uploads folder) first. If you'd rather the admin panel support direct file
+upload, let us know and we'll add that.
 
 ---
 
@@ -703,16 +1118,29 @@ On any `401`, clear the stored token and route the user to the login screen.
 2. `GET /mobile/dashboard` → render level-specific home screen
 3. `GET /mobile/hierarchy/subordinates` or `/tree` → "My Team" screen
 4. `GET /mobile/hierarchy/team-stats` → stats widget
-5. `POST /mobile/auth/logout` on sign-out
+5. `POST /users/push-token` → register for push
+6. `POST /mobile/auth/logout` on sign-out
 
 **Partner App**
 1. `POST /partner/auth/login` (email/phone + password) → store token
 2. `GET /partner/dashboard` → home tiles + recent orders
 3. `GET /partner/catalog/brands` → brand selector
-4. `GET /partner/catalog?brand=X` → mobiles + grades → tap → `/catalog/grades`
-5. `GET /partner/orders` → order history → `/orders/{id}` for detail
-6. `GET /partner/invoices` and `GET /partner/dues` → billing screens
-7. `POST /partner/auth/logout` on sign-out
+4. `GET /partner/catalog?brand=X` → mobiles + grades (with `image_url`) → tap → `/catalog/grades`
+5. Build a cart client-side → `POST /partner/orders` with `{ brand, model, grade, quantity }` lines
+6. `GET /partner/orders` → order history → `/orders/{id}` for detail/tracking
+7. `GET /partner/invoices` and `GET /partner/dues` → billing screens
+8. `POST /users/push-token` → register for push
+9. `POST /partner/auth/logout` on sign-out
+
+**Warehouse App**
+1. `POST /auth/admin/login` (email + password) → store token
+2. `GET /inventory` or scan → `GET /inventory/imei/{imei}` → lookup screen
+3. `GET /qc/pending` → `POST /qc/grade` → grading screen
+4. `GET /bins` → `POST /bins/move` → put-away screen
+5. `POST /procurement/receive` → receiving screen
+6. `GET /orders?status=approved` → pick list → walk through 3.12 (picking → packed → dispatch → deliver)
+7. `POST /users/push-token` → register for push
+8. `POST /auth/logout` on sign-out
 
 ---
 
@@ -723,6 +1151,23 @@ On any `401`, clear the stored token and route the user to the login screen.
 
 **Partner app** (email or phone + password `password123`):
 `partner1@dxempire.com` … `partner10@dxempire.com`
+
+**Warehouse app** (email + password `password123`):
+`mohan@dxempire.com` (warehouse_staff) · `deepak@dxempire.com` (qc_engineer, can also access `/qc/*`)
+
+---
+
+# Known Gaps / Follow-ups
+
+Flagging these now so nothing is a surprise later:
+
+1. **Staff dashboard stats are placeholders.** `total_orders`, `total_leads`, revenue figures in
+   Part 1.4 are hardcoded `0`/`[]` — Orders/Leads aren't yet aggregated into the staff dashboard.
+2. **`EXPO_ACCESS_TOKEN`** — not set in production yet (see Push Notifications above). Push will
+   still work without it.
+3. **Catalog images are placeholders** — real photos need to be uploaded via the new admin endpoint.
+4. **Order-lifecycle push notifications** — only "approved" and "dispatched" currently notify;
+   picking/packed/delivered do not yet.
 
 ---
 

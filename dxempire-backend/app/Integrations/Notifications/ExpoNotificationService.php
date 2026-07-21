@@ -17,7 +17,7 @@ class ExpoNotificationService
             return;
         }
 
-        Http::withHeaders(['Content-Type' => 'application/json'])
+        Http::withHeaders($this->headers())
             ->post(self::EXPO_PUSH_URL, [
                 'to'    => $expoPushToken,
                 'title' => $title,
@@ -39,7 +39,7 @@ class ExpoNotificationService
         }
 
         foreach (array_chunk($messages, self::BATCH_SIZE) as $chunk) {
-            Http::withHeaders(['Content-Type' => 'application/json'])
+            Http::withHeaders($this->headers())
                 ->post(self::EXPO_PUSH_URL, $chunk);
         }
     }
@@ -55,5 +55,21 @@ class ExpoNotificationService
         ], $tokens);
 
         $this->sendBatch($messages);
+    }
+
+    /**
+     * Expo works without an access token, but Expo recommends one (enhanced
+     * security — prevents anyone else from pushing to your project) once
+     * EXPO_ACCESS_TOKEN is set in config/services.php ('expo.access_token').
+     */
+    private function headers(): array
+    {
+        $headers = ['Content-Type' => 'application/json'];
+
+        if ($token = config('services.expo.access_token')) {
+            $headers['Authorization'] = 'Bearer ' . $token;
+        }
+
+        return $headers;
     }
 }

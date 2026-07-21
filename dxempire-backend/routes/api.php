@@ -32,6 +32,7 @@ use App\Http\Controllers\Inventory\PetiTransferController;
 use App\Http\Controllers\Retail\CustomerAuthController;
 use App\Http\Controllers\Retail\RetailController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CatalogImageController;
 use App\Http\Controllers\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Mobile\HierarchyController as MobileHierarchyController;
 use App\Http\Controllers\Mobile\DashboardController as MobileDashboardController;
@@ -79,6 +80,11 @@ Route::prefix('v1')->group(function () {
             Route::put('users/{user}/role',           [UserController::class, 'assignRole']);
             Route::post('users/{user}/deactivate',    [UserController::class, 'deactivate']);
             Route::post('users/{user}/activate',      [UserController::class, 'activate']);
+
+            // Catalog images (model-level photos for the partner catalog)
+            Route::get('catalog-images',               [CatalogImageController::class, 'index']);
+            Route::post('catalog-images',               [CatalogImageController::class, 'upsert']);
+            Route::delete('catalog-images/{catalogImage}', [CatalogImageController::class, 'destroy']);
 
             // Audit log
             Route::get('audit-logs',                  [AuditLogController::class, 'index']);
@@ -353,6 +359,7 @@ Route::prefix('v1')->group(function () {
 
             Route::get('dashboard',       [PartnerPortalController::class, 'dashboard']);
             Route::get('orders',          [PartnerPortalController::class, 'orders']);
+            Route::post('orders',         [PartnerPortalController::class, 'store']);
             Route::get('orders/{order}',  [PartnerPortalController::class, 'orderShow']);
             Route::get('invoices',        [PartnerPortalController::class, 'invoices']);
             Route::get('dues',            [PartnerPortalController::class, 'dues']);

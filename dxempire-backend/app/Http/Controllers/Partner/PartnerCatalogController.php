@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Partner;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\CatalogImage;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -64,10 +65,25 @@ class PartnerCatalogController extends Controller
             ->orderBy('grade')
             ->get();
 
+        $images = $this->imageMap();
+        $items->transform(function ($item) use ($images) {
+            $item->image_url = $images[$item->brand . '|' . $item->model . '|' . $item->category] ?? null;
+            return $item;
+        });
+
         return $this->success([
             'total_variants' => $items->count(),
             'items'          => $items,
         ]);
+    }
+
+    /** brand|model|category => image_url lookup map, built once per request. */
+    private function imageMap(): array
+    {
+        return CatalogImage::query()
+            ->get(['brand', 'model', 'category', 'image_url'])
+            ->mapWithKeys(fn($img) => [$img->brand . '|' . $img->model . '|' . $img->category => $img->image_url])
+            ->all();
     }
 
     /**
@@ -94,10 +110,15 @@ class PartnerCatalogController extends Controller
             ->orderBy('grade')
             ->get();
 
+        $imageUrl = CatalogImage::where('brand', $request->brand)
+            ->where('model', $request->model)
+            ->value('image_url');
+
         return $this->success([
-            'brand'  => $request->brand,
-            'model'  => $request->model,
-            'grades' => $grades,
+            'brand'     => $request->brand,
+            'model'     => $request->model,
+            'image_url' => $imageUrl,
+            'grades'    => $grades,
         ]);
     }
 }

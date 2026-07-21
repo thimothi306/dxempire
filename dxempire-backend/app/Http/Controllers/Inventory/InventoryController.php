@@ -21,7 +21,7 @@ class InventoryController extends Controller
 
         $products = Product::with(['bin', 'supplier'])
             ->when($isPartner, fn($q) => $q->where('status', 'in_stock'))
-            ->scopeFilter($request)
+            ->filter($request)
             ->orderBy($request->sort ?? 'created_at', $request->direction ?? 'desc')
             ->paginate($perPage);
 

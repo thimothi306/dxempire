@@ -71,4 +71,11 @@ return [
         'api_key' => env('INTERAKT_API_KEY'),
     ],
 
+    'expo' => [
+        // Optional — Expo push works without it, but Expo recommends setting
+        // one for enhanced security (stops others from pushing to your project).
+        // https://docs.expo.dev/push-notifications/sending-notifications/#additional-security
+        'access_token' => env('EXPO_ACCESS_TOKEN'),
+    ],
+
 ];
