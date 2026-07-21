@@ -1,627 +1,729 @@
-# DXEMPIRE — Backend API Reference
-> Base URL: `https://api.dxempire.com/api/v1`  
-> All requests must include `Authorization: Bearer <token>` except the two OTP endpoints.  
-> All responses follow: `{ success: bool, data: any, message: string }`  
-> Paginated responses include: `{ data: [], meta: { total, per_page, current_page, last_page } }`
+# DXEmpire — Mobile API Reference
+
+Complete reference for the mobile app developer building the **Staff (Sales) App** and the **Partner App**.
+All responses below are **real samples** captured from the live production API.
 
 ---
+
+## Base URL
+
+```
+https://api.dxempire.in/api/v1
+```
 
 ## Authentication
 
-| Method | URL | Auth | Description |
-|--------|-----|------|-------------|
-| POST | `/auth/send-otp` | ❌ | Send OTP to phone number |
-| POST | `/auth/verify-otp` | ❌ | Verify OTP — returns token + user |
-| GET | `/auth/me` | ✅ | Get logged-in user profile |
-| POST | `/auth/refresh` | ✅ | Refresh token — revokes old, issues new 30-day token |
-| POST | `/auth/logout` | ✅ | Revoke current token |
+All protected endpoints use a **Bearer token** (Laravel Sanctum). Obtain it from the relevant `login`
+endpoint, store it, and send it on every subsequent request:
 
-### POST `/auth/send-otp`
-```json
-// Request
-{ "phone": "9876543210" }
-
-// Response
-{ "success": true, "message": "OTP sent successfully" }
+```
+Authorization: Bearer <token>
+Accept: application/json
+Content-Type: application/json
 ```
 
-### POST `/auth/verify-otp`
-```json
-// Request
-{ "phone": "9876543210", "code": "123456" }
+- **Staff app** tokens come from `POST /mobile/auth/login`
+- **Partner app** tokens come from `POST /partner/auth/login`
+- Tokens are valid for **30 days**. On `401 Unauthenticated`, send the user back to the login screen.
 
-// Response
+## Standard response envelope
+
+Every response has this shape:
+
+```json
+{ "success": true, "message": "Success", "data": { ... } }
+```
+
+- `success` — boolean
+- `message` — human-readable status
+- `data` — the payload (object, array, or `null`)
+
+Paginated lists add a `meta` object: `{ "current_page", "per_page", "total", "last_page" }`.
+
+---
+---
+
+# 📱 PART 1 — STAFF (SALES) APP
+
+The sales team logs in with their **unique Sales ID** (no password): `SM001`, `AM001`, `DM001`, `SG001`, etc.
+The app shows a **role-specific dashboard** and the person's **team/hierarchy**.
+
+Hierarchy levels (derived from the Sales ID prefix):
+
+| Prefix | Level |
+|--------|-------|
+| `CEO`  | CEO |
+| `SM`   | State Manager |
+| `AM`   | Area Manager |
+| `DM`   | District Manager |
+| `SG`   | Salesman |
+
+---
+
+## 1.1 Login — `POST /mobile/auth/login`
+
+Login with Sales ID only. **No auth header needed.**
+
+**Request**
+```json
+{ "unique_code": "SM001" }
+```
+
+**Response `200`**
+```json
 {
   "success": true,
+  "message": "Login successful",
   "data": {
-    "token": "1|xxxxxxxxxxxxxxxx",
     "user": {
+      "id": 2,
+      "name": "Rajesh Kumar",
+      "email": "rajesh@dxempire.com",
+      "phone": "9111111102",
+      "unique_code": "SM001",
+      "role": "sales"
+    },
+    "token": "15|4wRByj0eBQkzi0uLoxdRZ24BTcJ6B2YSJEcQtCCY84649d96"
+  }
+}
+```
+
+**Error `401`** — invalid / inactive ID
+```json
+{ "success": false, "message": "Invalid Sales ID or account is inactive", "code": 401 }
+```
+
+---
+
+## 1.2 My Profile — `GET /mobile/auth/me`
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "id": 2,
+    "name": "Rajesh Kumar",
+    "email": "rajesh@dxempire.com",
+    "phone": "9111111102",
+    "unique_code": "SM001",
+    "role": "sales",
+    "parent": {
       "id": 1,
-      "name": "Ravi Kumar",
-      "phone": "9876543210",
-      "role": "b2b_partner",
-      "partner_id": 3,
+      "name": "Anil Sharma",
+      "unique_code": "CEO001",
+      "role": "super_admin"
+    },
+    "department": null
+  }
+}
+```
+`parent` is `null` for the top of the tree.
+
+---
+
+## 1.3 Logout — `POST /mobile/auth/logout`
+
+Revokes the current token.
+
+**Response `200`**
+```json
+{ "success": true, "message": "Logged out successfully", "data": null }
+```
+
+---
+
+## 1.4 Dashboard — `GET /mobile/dashboard`
+
+Returns a **different payload per hierarchy level**. Detect the shape from the caller's Sales ID prefix.
+
+### 1.4.a State Manager (`SM*`)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "user_info": {
+      "name": "Rajesh Kumar",
+      "unique_code": "SM001",
+      "phone": "9111111102",
+      "role": "State Manager",
+      "state": null,
+      "reports_to": "Anil Sharma"
+    },
+    "state_info": { "total_state_members": 7, "area_managers": 2 },
+    "state_stats": {
+      "total_orders": 0,
+      "total_leads": 0,
+      "state_revenue": "₹0",
+      "state_conversion": "0%"
+    },
+    "quick_actions": [
+      "view_state_structure", "view_state_orders", "view_state_leads",
+      "view_state_performance", "manage_area_managers"
+    ],
+    "area_performance": [],
+    "top_district_managers": []
+  }
+}
+```
+
+### 1.4.b Area Manager (`AM*`)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "user_info": {
+      "name": "Priya Singh", "unique_code": "AM001", "phone": "9111111103",
+      "role": "Area Manager", "zone": null,
+      "reports_to": "Rajesh Kumar", "reports_to_code": "SM001"
+    },
+    "zone_info": { "total_zone_members": 3, "district_managers": 1, "salesmen": 2 },
+    "zone_stats": {
+      "total_orders": 0, "total_leads": 0, "zone_revenue": "₹0", "zone_conversion": "0%"
+    },
+    "quick_actions": [
+      "view_zone", "view_zone_orders", "view_zone_leads",
+      "view_zone_performance", "manage_district_managers"
+    ],
+    "zone_performance": [],
+    "top_salesmen": []
+  }
+}
+```
+
+### 1.4.c District Manager (`DM*`)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "user_info": {
+      "name": "Amit Patel", "unique_code": "DM001", "phone": "9111111105",
+      "role": "District Manager", "territory": null,
+      "reports_to": "Priya Singh", "reports_to_code": "AM001"
+    },
+    "team_info": {
+      "total_team_members": 2,
+      "direct_reports": 2,
+      "team_members": [
+        { "id": 7, "name": "Vikram Singh", "unique_code": "SG001", "role": "sales" },
+        { "id": 8, "name": "Suresh Patel", "unique_code": "SG002", "role": "sales" }
+      ]
+    },
+    "team_stats": {
+      "total_orders": 0, "total_leads": 0, "team_revenue": "₹0", "average_conversion": "0%"
+    },
+    "my_stats": { "my_orders": 0, "my_leads": 0 },
+    "quick_actions": [
+      "view_team", "view_team_orders", "view_team_leads",
+      "view_team_performance", "create_lead", "create_order"
+    ],
+    "team_performance": [],
+    "recent_team_orders": []
+  }
+}
+```
+
+### 1.4.d Salesman (`SG*`)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "user_info": {
+      "name": "Vikram Singh", "unique_code": "SG001", "phone": "9111111107",
+      "role": "Salesman", "reports_to": "Amit Patel", "reports_to_code": "DM001"
+    },
+    "my_stats": {
+      "total_orders": 0, "total_leads": 0, "conversion_rate": "0%", "month_revenue": "₹0"
+    },
+    "quick_actions": [
+      "create_lead", "create_order", "view_orders", "view_leads", "update_profile"
+    ],
+    "recent_orders": [],
+    "recent_leads": []
+  }
+}
+```
+
+> **Note:** revenue/order/lead stats are currently `0`/`[]` placeholders — the Orders & Leads
+> aggregation into the mobile dashboard is not wired up yet on the backend. Structure is final;
+> only the numbers will populate later.
+
+---
+
+## 1.5 My Team (all levels below me) — `GET /mobile/hierarchy/subordinates`
+
+Flat list of **everyone** under the logged-in user (recursive).
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "total_subordinates": 7,
+    "subordinates": [
+      { "id": 3, "name": "Priya Singh",  "unique_code": "AM001", "email": "priya@dxempire.com",  "phone": "9111111103", "role": "area_manager",     "is_active": true },
+      { "id": 5, "name": "Amit Patel",   "unique_code": "DM001", "email": "amit@dxempire.com",   "phone": "9111111105", "role": "district_manager", "is_active": true },
+      { "id": 7, "name": "Vikram Singh", "unique_code": "SG001", "email": "vikram@dxempire.com", "phone": "9111111107", "role": "sales",            "is_active": true }
+    ]
+  }
+}
+```
+
+---
+
+## 1.6 Org Tree — `GET /mobile/hierarchy/tree`
+
+Nested tree structure under the logged-in user.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "id": 2, "name": "Rajesh Kumar", "unique_code": "SM001", "role": "sales",
+    "subordinates": [
+      {
+        "id": 3, "name": "Priya Singh", "unique_code": "AM001", "role": "area_manager",
+        "subordinates": [
+          {
+            "id": 5, "name": "Amit Patel", "unique_code": "DM001", "role": "district_manager",
+            "subordinates": [
+              { "id": 7, "name": "Vikram Singh", "unique_code": "SG001", "role": "sales", "subordinates": [] },
+              { "id": 8, "name": "Suresh Patel", "unique_code": "SG002", "role": "sales", "subordinates": [] }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 1.7 Team Stats — `GET /mobile/hierarchy/team-stats`
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "total_team_size": 7,
+    "by_role": { "area_manager": 2, "district_manager": 2, "sales": 3 },
+    "direct_reports": 2,
+    "total_orders": 0,
+    "total_leads": 0
+  }
+}
+```
+
+---
+
+## 1.8 Colleagues (same level) — `GET /mobile/hierarchy/colleagues`
+
+Other people reporting to the **same parent**.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": { "total_colleagues": 0, "colleagues": [] }
+}
+```
+When there are colleagues, each entry looks like:
+`{ "id", "name", "unique_code", "role" }`.
+
+---
+---
+
+# 🤝 PART 2 — PARTNER APP
+
+Business partners (dealers) log in with **email or phone + password**. The app is **view-only**
+for orders/invoices/dues, plus a **product catalog** to browse stock by brand and grade.
+
+---
+
+## 2.1 Login — `POST /partner/auth/login`
+
+**No auth header needed.** `login` accepts **email OR phone**.
+
+**Request**
+```json
+{ "login": "partner1@dxempire.com", "password": "password123" }
+```
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "token": "17|xBNcLiJFIgAhQGSGsCFn00wN9Bz943DzsCKmIARH11d56c14",
+    "partner": {
+      "id": 14,
+      "name": "Sharma Electronics (Owner)",
+      "email": "partner1@dxempire.com",
+      "phone": "9933000000",
+      "business_name": "Sharma Electronics",
       "kyc_status": "verified",
-      "permissions": ["place-orders", "view-catalog"]
+      "gst_number": "27AABF6C6C8Z0",
+      "state": "Maharashtra",
+      "pincode": "400001",
+      "price_tier": "T1",
+      "has_dealer": true
     }
   }
 }
 ```
-> `kyc_status` is `null` for internal staff roles. Only set for `b2b_partner`.  
-> `partner_id` is `null` for internal staff roles.
 
-### GET `/auth/me`
+**Error `401`**
 ```json
-// Response
+{ "success": false, "message": "Invalid login or password." }
+```
+
+**Error `403`** — deactivated account
+```json
+{ "success": false, "message": "Your account has been deactivated. Please contact your sales representative." }
+```
+
+---
+
+## 2.2 My Profile — `GET /partner/auth/me`
+
+**Response `200`**
+```json
 {
   "success": true,
+  "message": "Success",
   "data": {
-    "id": 1,
-    "name": "Ravi Kumar",
-    "phone": "9876543210",
-    "email": null,
-    "role": "b2b_partner",
-    "partner_id": 3,
+    "id": 14,
+    "name": "Sharma Electronics (Owner)",
+    "email": "partner1@dxempire.com",
+    "phone": "9933000000",
+    "business_name": "Sharma Electronics",
     "kyc_status": "verified",
-    "is_active": true,
-    "permissions": ["place-orders"]
+    "gst_number": "27AABF6C6C8Z0",
+    "state": "Maharashtra",
+    "pincode": "400001",
+    "price_tier": "T1",
+    "has_dealer": true
   }
 }
 ```
 
 ---
 
-## Push Tokens
+## 2.3 Logout — `POST /partner/auth/logout`
 
-> ⚠️ Guide says `/notifications/register` — actual URL is `/users/push-token`
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/users/push-token` | Register Expo push token for this device |
-| DELETE | `/users/push-token` | Remove push token on logout |
-
-### POST `/users/push-token`
+**Response `200`**
 ```json
-// Request
-{ "token": "ExponentPushToken[xxxxxx]", "device_type": "android" }
-// device_type: "android" | "ios" — defaults to "android"
-```
-
-### DELETE `/users/push-token`
-```json
-// Request (optional — omit to remove ALL tokens for user)
-{ "token": "ExponentPushToken[xxxxxx]" }
+{ "success": true, "message": "Logged out successfully", "data": null }
 ```
 
 ---
 
-## Notifications (In-App Inbox)
+## 2.4 Dashboard — `GET /partner/dashboard`
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/notifications` | List notifications for logged-in user (paginated) |
-| PATCH | `/notifications/read-all` | Mark all as read |
-| GET | `/notifications/unread-count` | Get unread count |
-| PATCH | `/notifications/{id}` | Mark single notification as read |
+Summary tiles + recent orders for the logged-in partner only.
 
-### GET `/notifications`
-```
-Query params: per_page (default 20)
-```
+**Response `200`**
 ```json
-// Response
 {
+  "success": true,
+  "message": "Success",
+  "data": {
+    "business_name": "Sharma Electronics",
+    "kyc_status": "verified",
+    "total_orders": 1,
+    "active_orders": 1,
+    "delivered_orders": 0,
+    "lifetime_purchases": 0,
+    "credit_limit": 900000,
+    "credit_used": 131269,
+    "available_credit": 768731,
+    "recent_orders": [
+      {
+        "id": 11,
+        "order_number": "ORD-00011",
+        "status": "packing",
+        "total_amount": "305156.26",
+        "created_at": "2026-07-20T01:41:59.000000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 2.5 My Orders — `GET /partner/orders`
+
+Paginated. Optional filters: `?status=delivered` and `?per_page=15`.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "id": 11,
+      "order_number": "ORD-00011",
+      "dealer_id": 1,
+      "status": "packing",
+      "payment_status": "unpaid",
+      "subtotal": "258607.00",
+      "gst_amount": "46549.26",
+      "total_amount": "305156.26",
+      "awb_number": null,
+      "logistics_provider": null,
+      "dispatched_at": null,
+      "delivered_at": null,
+      "notes": "Bulk order of refurbished devices",
+      "created_at": "2026-07-20T01:41:59.000000Z",
+      "items_count": 3
+    }
+  ],
+  "meta": { "current_page": 1, "per_page": 2, "total": 1, "last_page": 1 }
+}
+```
+
+**Order status values:** `pending`, `approved`, `picking`, `packing`, `packed`, `dispatched`, `delivered`, `cancelled`, `returned`
+**Payment status values:** `unpaid`, `partial`, `paid`, `refunded`
+
+---
+
+## 2.6 Order Detail — `GET /partner/orders/{id}`
+
+Full order with line items (each item includes its product's brand/model/grade), payments, and invoice.
+A partner can only open **their own** orders (others return `404`).
+
+**Response `200`** (truncated to show item shape)
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "id": 11,
+    "order_number": "ORD-00011",
+    "status": "packing",
+    "payment_status": "unpaid",
+    "subtotal": "258607.00",
+    "gst_amount": "46549.26",
+    "total_amount": "305156.26",
+    "created_at": "2026-07-20T01:41:59.000000Z",
+    "items": [
+      {
+        "id": 23,
+        "product_id": 6,
+        "quantity": 2,
+        "unit_price": "62205.00",
+        "gst_rate": "18.00",
+        "gst_amount": "22393.80",
+        "line_total": "146803.80",
+        "product": { "id": 6, "brand": "Dell", "model": "XPS 13", "category": "laptop", "grade": "S3" }
+      }
+    ],
+    "payments": [],
+    "invoice": null
+  }
+}
+```
+
+**Error `404`** — not the partner's order / not found
+```json
+{ "success": false, "message": "Order not found.", "code": 404 }
+```
+
+---
+
+## 2.7 My Invoices — `GET /partner/invoices`
+
+Paginated. Each invoice includes its related order summary.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
   "data": [
     {
       "id": 1,
-      "title": "Order Dispatched",
-      "body": "Your order DX-2026-00001 is on the way.",
-      "type": "order_update",
-      "data": { "order_id": "42" },
-      "is_read": false,
-      "created_at": "2026-05-18T10:30:00"
+      "invoice_number": "INV-00003",
+      "dealer_id": 1,
+      "subtotal": "137900.00",
+      "gst_amount": "24822.00",
+      "total": "162722.00",
+      "issued_at": "2026-07-03T13:14:48.000000Z",
+      "order": { "id": 3, "order_number": "ORD-00003", "status": "delivered" }
     }
   ],
-  "meta": { "total": 25, "per_page": 20, "current_page": 1 }
+  "meta": { "current_page": 1, "per_page": 15, "total": 1, "last_page": 1 }
 }
 ```
-
-### GET `/notifications/unread-count`
-```json
-{ "success": true, "data": { "count": 5 } }
-```
+When a partner has no invoices yet, `data` is `[]` with `"total": 0`.
 
 ---
 
-## Inventory / Catalog
+## 2.8 My Dues — `GET /partner/dues`
 
-> ⚠️ Partners (`b2b_partner` role) automatically see only `in_stock` items.  
-> Staff roles see all statuses.
+Outstanding balance + list of unpaid/partial orders.
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/inventory` | Stock list (paginated) |
-| GET | `/inventory/availability` | Stock count by category + grade |
-| GET | `/inventory/imei/{imei}` | Look up product by IMEI (staff scanner) |
-| GET | `/inventory/{id}` | Single product detail |
-| GET | `/inventory/export` | Download Excel — staff/admin only |
-
-### GET `/inventory`
-```
-Query params:
-  category    → "phone" | "laptop" | "accessory"
-  grade       → "S1" | "S2" | "S3" | "S4" | "S5"
-  status      → "received" | "qc_pending" | "in_stock" | "sold" | "returned" | "rejected" | "refurbishment"
-  brand       → string (partial match)
-  bin_id      → integer
-  search      → string (searches IMEI, serial number, model)
-  sort        → column name (default: created_at)
-  direction   → "asc" | "desc"
-  per_page    → integer (max 100, default 50)
-```
-
-### GET `/inventory/imei/{imei}`
+**Response `200`**
 ```json
-// Response — returns product with bin, supplier, qcRecords
-// 404 if IMEI not found
 {
   "success": true,
+  "message": "Success",
   "data": {
-    "id": 12,
-    "imei": "356789012345678",
+    "credit_limit": 900000,
+    "credit_used": 131269,
+    "available_credit": 768731,
+    "outstanding_amount": 131269,
+    "unpaid_orders": [
+      {
+        "id": 11,
+        "order_number": "ORD-00011",
+        "status": "packing",
+        "payment_status": "unpaid",
+        "total_amount": "305156.26",
+        "created_at": "2026-07-20T01:41:59.000000Z"
+      }
+    ],
+    "note": "To make a payment, please use the DXEmpire mobile app or contact your sales representative."
+  }
+}
+```
+
+---
+
+## 2.9 Catalog — Brands — `GET /partner/catalog/brands`
+
+In-stock brands for the brand selector. Optional `?category=phone|laptop|accessory`.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    { "brand": "Apple",   "available_qty": 5 },
+    { "brand": "Dell",    "available_qty": 2 },
+    { "brand": "HP",      "available_qty": 3 },
+    { "brand": "Samsung", "available_qty": 5 },
+    { "brand": "Xiaomi",  "available_qty": 3 }
+  ]
+}
+```
+
+---
+
+## 2.10 Catalog — Products by Brand/Grade — `GET /partner/catalog`
+
+**Select a brand → get all grades of that brand's mobiles.** Results are aggregated by model + grade
+(available quantity + price range), so the app shows one row per variant instead of every physical unit.
+
+**Query params (all optional):** `brand`, `category`, `grade`, `search`
+
+**Example:** `GET /partner/catalog?brand=Samsung&category=phone`
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "total_variants": 3,
+    "items": [
+      { "brand": "Samsung", "model": "Galaxy S22",       "category": "phone", "grade": "S2", "available_qty": 1, "price_from": "80426.00", "price_to": "80426.00" },
+      { "brand": "Samsung", "model": "Galaxy S22",       "category": "phone", "grade": "S5", "available_qty": 2, "price_from": "50340.00", "price_to": "74746.00" },
+      { "brand": "Samsung", "model": "Galaxy S23 Ultra", "category": "phone", "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00" }
+    ]
+  }
+}
+```
+
+- `grade` is one of `S1`–`S5`
+- `price_from` / `price_to` — price range (B2B `selling_price`) across available units of that model+grade
+
+---
+
+## 2.11 Catalog — Grades for a Model — `GET /partner/catalog/grades`
+
+Grade breakdown for a specific brand + model (e.g. tap a phone → see its grades).
+
+**Query params (required):** `brand`, `model`
+
+**Example:** `GET /partner/catalog/grades?brand=Samsung&model=Galaxy S23 Ultra`
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
     "brand": "Samsung",
-    "model": "Galaxy S23",
-    "grade": "S1",
-    "status": "in_stock",
-    "selling_price": "45000.00",
-    "bin": { "id": 3, "name": "A-03" },
-    "qc_records": [...]
+    "model": "Galaxy S23 Ultra",
+    "grades": [
+      { "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00" }
+    ]
   }
 }
 ```
 
 ---
+---
 
-## Orders
+# Common Errors
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/orders` | List orders (paginated) |
-| POST | `/orders` | Place new order |
-| GET | `/orders/{id}` | Order detail |
-| POST | `/orders/{id}/approve` | Approve order — super_admin only |
-| POST | `/orders/{id}/cancel` | Cancel order — super_admin only |
-| POST | `/orders/{id}/picking` | Start picking — warehouse_staff |
-| POST | `/orders/{id}/packing-complete` | Mark packed — warehouse_staff |
-| POST | `/orders/{id}/dispatch` | Mark dispatched — warehouse_staff |
-| POST | `/orders/{id}/deliver` | Mark delivered — warehouse_staff |
-| POST | `/orders/{id}/return` | Process return — warehouse_staff |
-| GET | `/orders/{id}/payments` | Order payment history |
-| GET | `/orders/{id}/invoice/download` | Invoice download info |
+| Code | Meaning | Body |
+|------|---------|------|
+| `401` | Not logged in / token expired | `{ "success": false, "message": "Unauthenticated." }` |
+| `401` | Bad credentials | `{ "success": false, "message": "Invalid login or password." }` |
+| `403` | Account deactivated / no permission | `{ "success": false, "message": "..." }` |
+| `404` | Resource not found / not yours | `{ "success": false, "message": "..." }` |
+| `422` | Validation error | `{ "success": false, "message": "...", "errors": { ... } }` |
 
-> ⚠️ Guide says `PUT /orders/:id/approve` — actual method is **POST**, not PUT.  
-> ⚠️ Guide says `GET /dispatch/queue` — use `GET /orders?status=approved` instead.
-
-### GET `/orders`
-```
-Query params:
-  status          → "pending" | "approved" | "picking" | "packing" | "dispatched" | "delivered" | "cancelled" | "returned"
-  dealer_id       → integer
-  payment_status  → "unpaid" | "partial" | "paid" | "refunded"
-  search          → order number
-  per_page        → integer (default 20)
-```
-
-### POST `/orders` — Place order
-```json
-// Request
-{
-  "product_ids": [12, 15, 18],
-  "dealer_id": 3,
-  "notes": "Urgent delivery"
-}
-// dealer_id is optional — omit for retail/walk-in orders
-// Duplicate product_ids are de-duped automatically
-```
-```json
-// Response 201
-{
-  "data": {
-    "id": 42,
-    "order_number": "DX-2026-00042",
-    "status": "pending",
-    "subtotal": "45000.00",
-    "gst_amount": "8100.00",
-    "total_amount": "53100.00",
-    "items": [...]
-  }
-}
-// 422 if any product is out of stock
-// 422 if dealer has insufficient credit
-```
-
-### POST `/orders/{id}/dispatch`
-```json
-// Request
-{
-  "logistics_provider": "shiprocket",
-  "awb_number": "SHIP1234567890"
-}
-```
+On any `401`, clear the stored token and route the user to the login screen.
 
 ---
 
-## Dealers / Partners
+# Suggested App Flows
 
-> ⚠️ Guide says `/partners` — actual URL is `/dealers`  
-> ⚠️ Guide says `PUT /partners/:id/kyc` — actual URL is `PUT /dealers/:id/kyc`
+**Staff (Sales) App**
+1. `POST /mobile/auth/login` (Sales ID) → store token
+2. `GET /mobile/dashboard` → render level-specific home screen
+3. `GET /mobile/hierarchy/subordinates` or `/tree` → "My Team" screen
+4. `GET /mobile/hierarchy/team-stats` → stats widget
+5. `POST /mobile/auth/logout` on sign-out
 
-| Method | URL | Roles | Description |
-|--------|-----|-------|-------------|
-| GET | `/dealers` | sales, super_admin | List all dealers |
-| GET | `/dealers/{id}` | sales, super_admin | Dealer detail |
-| POST | `/dealers` | super_admin | Create new dealer |
-| PUT | `/dealers/{id}/kyc` | super_admin | Approve / reject KYC |
-| PUT | `/dealers/{id}/credit` | super_admin | Update credit limit |
-| GET | `/dealers/{id}/ledger` | sales, super_admin | Dealer order + credit ledger |
-
-### PUT `/dealers/{id}/kyc`
-```json
-// Request
-{ "kyc_status": "verified", "reason": "Documents verified" }
-// kyc_status: "verified" | "rejected"
-// Automatically pushes notification to partner on verification
-```
-
-### GET `/dealers/{id}/ledger`
-```
-Query params: from (date), to (date)
-```
-```json
-// Response
-{
-  "data": {
-    "summary": {
-      "total_orders": 12,
-      "total_billed": "500000.00",
-      "total_paid": "450000.00",
-      "credit_limit": "200000.00",
-      "credit_used": "50000.00",
-      "available_credit": "150000.00"
-    },
-    "transactions": { ...paginated orders... }
-  }
-}
-```
+**Partner App**
+1. `POST /partner/auth/login` (email/phone + password) → store token
+2. `GET /partner/dashboard` → home tiles + recent orders
+3. `GET /partner/catalog/brands` → brand selector
+4. `GET /partner/catalog?brand=X` → mobiles + grades → tap → `/catalog/grades`
+5. `GET /partner/orders` → order history → `/orders/{id}` for detail
+6. `GET /partner/invoices` and `GET /partner/dues` → billing screens
+7. `POST /partner/auth/logout` on sign-out
 
 ---
 
-## Leads (CRM)
+# Test Credentials (production demo data)
 
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/leads` | List leads (paginated) |
-| POST | `/leads` | Create lead |
-| GET | `/leads/{id}` | Lead detail |
-| PUT | `/leads/{id}` | Update lead |
-| PUT | `/leads/{id}/stage` | Move lead to new pipeline stage |
+**Staff app** (Sales ID, no password):
+`SM001` · `AM001` / `AM002` · `DM001` / `DM002` · `SG001` / `SG002` / `SG003`
 
-### PUT `/leads/{id}/stage`
-```json
-// Request
-{ "stage": "negotiating" }
-// stages: new | contacted | quoted | negotiating | won | lost
-```
+**Partner app** (email or phone + password `password123`):
+`partner1@dxempire.com` … `partner10@dxempire.com`
 
 ---
 
-## QC
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/qc/pending` | Items awaiting QC (paginated) |
-| POST | `/qc/grade` | Submit QC result |
-| GET | `/qc/records` | QC history log |
-| GET | `/qc/stats` | QC throughput stats |
-| GET | `/qc/refurbishment` | Items in refurbishment |
-| PUT | `/qc/refurbishment/{product}` | Complete refurbishment |
-
-### POST `/qc/grade`
-```json
-// Request
-{
-  "product_id": 12,
-  "grade": "S2",
-  "outcome": "pass",
-  "notes": "Minor scratches on back"
-}
-// outcome: "pass" | "repair" | "reject"
-// grade: "S1" | "S2" | "S3" | "S4" | "S5"
-```
-
----
-
-## Bins / Rack Management
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/bins` | List all bins with occupancy |
-| POST | `/bins/move` | Move product to different bin |
-| GET | `/bins/{id}/products` | Products in a specific bin |
-
-### POST `/bins/move`
-```json
-// Request
-{ "product_id": 12, "to_bin_id": 5 }
-```
-
----
-
-## Procurement
-
-> ⚠️ Guide says `POST /inventory/receive` — actual URL is `POST /procurement/receive`
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/suppliers` | List suppliers |
-| POST | `/suppliers` | Add supplier |
-| GET | `/suppliers/{id}` | Supplier detail |
-| PUT | `/suppliers/{id}` | Update supplier |
-| GET | `/purchase-orders` | List purchase orders |
-| POST | `/purchase-orders` | Create purchase order |
-| GET | `/purchase-orders/{id}` | Purchase order detail |
-| POST | `/procurement/receive` | Receive stock batch |
-| GET | `/procurement/history` | Receiving history |
-
----
-
-## Finance
-
-> ⚠️ Guide says `GET /reports/pl` — actual URL is `GET /finance/profit-loss`
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/finance/invoices` | All GST invoices (paginated) |
-| GET | `/finance/invoices/{id}` | Invoice detail |
-| GET | `/finance/invoices/{id}/download` | Invoice PDF download |
-| POST | `/finance/invoices/orders/{order}` | Generate invoice for order |
-| GET | `/finance/expenses` | Expense list |
-| POST | `/finance/expenses` | Add expense |
-| GET | `/finance/expenses/categories` | Expense categories |
-| GET | `/finance/expenses/{id}` | Expense detail |
-| GET | `/finance/profit-loss` | P&L report |
-| GET | `/finance/gst-summary` | GST 12-month summary |
-| GET | `/finance/receivables` | Outstanding receivables |
-| GET | `/finance/dealers/{id}/ledger` | Dealer ledger (finance view) |
-
-### GET `/finance/profit-loss`
-```
-Query params: from (date), to (date)
-```
-```json
-// Response
-{
-  "data": {
-    "revenue": "5000000.00",
-    "gst_collected": "900000.00",
-    "cogs": "3500000.00",
-    "gross_profit": "1500000.00",
-    "expenses": "200000.00",
-    "net_profit": "1300000.00",
-    "gross_margin_pct": 30.0,
-    "net_margin_pct": 26.0
-  }
-}
-```
-
----
-
-## HR
-
-> ⚠️ Guide says `GET /attendance/:month` — actual URL is `GET /hr/attendance?month=YYYY-MM`  
-> ⚠️ Guide says `POST /payroll/run` — actual URL is `POST /hr/payroll`
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/hr/employees` | Employee list |
-| POST | `/hr/employees` | Add employee |
-| GET | `/hr/employees/{id}` | Employee detail |
-| PUT | `/hr/employees/{id}` | Update employee |
-| DELETE | `/hr/employees/{id}` | Deactivate employee |
-| GET | `/hr/employees/departments` | Department list |
-| GET | `/hr/attendance` | Attendance records |
-| POST | `/hr/attendance/bulk` | Bulk mark attendance |
-| GET | `/hr/attendance/today` | Today's attendance status |
-| GET | `/hr/attendance/{employee}/summary` | Employee attendance summary |
-| GET | `/hr/payroll` | Payroll run list |
-| POST | `/hr/payroll` | Create new payroll run |
-| GET | `/hr/payroll/{id}` | Payroll run detail |
-| GET | `/hr/payroll/{id}/items` | Payroll line items |
-| POST | `/hr/payroll/{id}/process` | Process payroll (calculate salaries) |
-| POST | `/hr/payroll/{id}/mark-paid` | Mark payroll as paid |
-| GET | `/hr/payroll/{id}/slips/{itemId}` | Download salary slip PDF |
-
-### GET `/hr/attendance`
-```
-Query params: month (YYYY-MM), employee_id
-```
-
----
-
-## Analytics
-
-> ⚠️ Guide says `GET /admin/stats` — actual URL is `GET /analytics/dashboard`
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/analytics/dashboard` | KPI summary (revenue, orders, stock counts) |
-| GET | `/analytics/revenue` | Revenue by period |
-| GET | `/analytics/sales` | Sales breakdown by brand/grade/channel |
-| GET | `/analytics/inventory` | Inventory matrix + aging buckets |
-| GET | `/analytics/stock-movements` | Bin movement history (paginated) |
-| GET | `/analytics/partners` | Partner performance table |
-| GET | `/analytics/forecast` | 3-month demand forecast |
-
-### GET `/analytics/dashboard`
-```json
-// Response
-{
-  "data": {
-    "today_revenue": "85000.00",
-    "week_revenue": "520000.00",
-    "month_revenue": "2100000.00",
-    "active_orders": 14,
-    "pending_qc": 8,
-    "pending_dispatch": 3,
-    "in_refurbishment": 5,
-    "total_in_stock": 142
-  }
-}
-```
-
-### GET `/analytics/revenue`
-```
-Query params: period (daily | weekly | monthly), from, to
-```
-
-### GET `/analytics/sales`
-```
-Query params: group_by (category | brand | grade), from, to
-```
-
----
-
-## Admin (Super Admin only)
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| GET | `/admin/users` | All users list |
-| POST | `/admin/users` | Create user |
-| GET | `/admin/users/{id}` | User detail |
-| PUT | `/admin/users/{id}` | Update user |
-| PUT | `/admin/users/{id}/role` | Change user role |
-| POST | `/admin/users/{id}/deactivate` | Deactivate user + revoke tokens |
-| POST | `/admin/users/{id}/activate` | Re-activate user |
-| GET | `/admin/roles` | All roles with user counts |
-| GET | `/admin/settings` | All settings |
-| PUT | `/admin/settings` | Bulk update settings |
-| GET | `/admin/settings/{key}` | Single setting |
-| PUT | `/admin/settings/{key}` | Update single setting |
-| GET | `/admin/audit-logs` | Full audit log (paginated) |
-
-### PUT `/admin/users/{id}/role`
-```json
-// Request
-{ "role": "accounts" }
-// roles: super_admin | warehouse_staff | qc_engineer | sales | accounts | hr_manager | b2b_partner | logistics
-```
-
-### GET `/admin/audit-logs`
-```
-Query params: user_id, action, model, from (date), to (date), per_page
-```
-
-### PUT `/admin/settings/{key}`
-```json
-// Request
-{ "value": "shiprocket" }
-```
-
-**Editable setting keys:**
-| Key | Description |
-|-----|-------------|
-| `logistics_provider` | `shiprocket` \| `delhivery` \| `dtdc` |
-| `whatsapp_provider` | `interakt` \| `twilio` |
-| `company_name` | Company display name |
-| `company_address` | Registered address |
-| `company_gst` | GST number |
-| `company_phone` | Contact phone |
-| `company_email` | Contact email |
-| `grade_price_rules` | JSON grade pricing rules |
-| `low_stock_threshold` | Integer — triggers low stock alert |
-
----
-
-## Support Tickets
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/support/tickets` | Create ticket (any logged-in user) |
-| GET | `/support/tickets` | List tickets — sales, super_admin |
-| PUT | `/support/tickets/{id}` | Update ticket status |
-
----
-
-## Logistics
-
-| Method | URL | Description |
-|--------|-----|-------------|
-| POST | `/logistics/orders/{order}/shipment` | Create shipment with provider |
-| GET | `/logistics/track/{awb}` | Track shipment by AWB |
-| DELETE | `/logistics/shipment/{awb}` | Cancel shipment |
-
----
-
-## Role Permission Matrix
-
-| Endpoint group | super_admin | sales | warehouse_staff | qc_engineer | accounts | hr_manager | b2b_partner |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `/admin/*` | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `/dealers` | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `/leads` | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `/inventory` (view) | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| `/inventory` (export) | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `/qc/*` | ✅ | ❌ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| `/bins/*` | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `/orders` (place) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| `/orders` (approve/cancel) | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| `/orders` (fulfill) | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `/finance/*` | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| `/hr/*` | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| `/analytics/*` | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| `/procurement/*` | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| `/notifications` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
----
-
-## Common HTTP Status Codes
-
-| Code | Meaning | Frontend action |
-|------|---------|-----------------|
-| 200 | Success | Show data |
-| 201 | Created | Show success toast, refresh list |
-| 401 | Unauthenticated | Clear token → redirect to login |
-| 403 | Forbidden | Show "No permission" toast, stay on page |
-| 404 | Not found | Show empty state or error message |
-| 422 | Validation failed | Map `errors` object to form fields |
-| 500 | Server error | Show "Something went wrong" toast |
-
-### 422 error shape
-```json
-{
-  "success": false,
-  "message": "The given data was invalid.",
-  "errors": {
-    "phone": ["The phone field is required."],
-    "product_ids.0": ["The selected product is out of stock."]
-  }
-}
-```
-
----
-
-## Quick URL Correction Table
-*The frontend development guide uses some URLs that differ from the actual backend.*
-
-| Guide says | Actual backend URL | Note |
-|---|---|---|
-| `GET /admin/stats` | `GET /analytics/dashboard` | Same data, different path |
-| `GET /partners` | `GET /dealers` | Partners = Dealers in backend |
-| `PUT /partners/:id/kyc` | `PUT /dealers/:id/kyc` | Same |
-| `GET /dispatch/queue` | `GET /orders?status=approved` | Filter by status |
-| `POST /notifications/register` | `POST /users/push-token` | Register Expo token |
-| `GET /reports/pl` | `GET /finance/profit-loss` | P&L report |
-| `POST /inventory/receive` | `POST /procurement/receive` | Receive new stock |
-| `PUT /orders/:id/approve` | `POST /orders/:id/approve` | Method is POST not PUT |
-| `GET /attendance/:month` | `GET /hr/attendance?month=YYYY-MM` | Query param not path param |
-| `POST /payroll/run` | `POST /hr/payroll` | Under /hr prefix |
+_Last updated: 2026-07-21 • Base URL: `https://api.dxempire.in/api/v1`_

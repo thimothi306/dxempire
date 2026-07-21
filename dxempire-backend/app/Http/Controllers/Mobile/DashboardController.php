@@ -18,16 +18,20 @@ class DashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = auth()->user();
-        $role = $user->roles->first()?->name;
 
-        // Get role-specific data
-        $dashboard = match($role) {
-            'salesman' => $this->getSalesmanDashboard($user),
-            'district_manager' => $this->getDistrictManagerDashboard($user),
-            'area_manager' => $this->getAreaManagerDashboard($user),
-            'state_manager' => $this->getStateManagerDashboard($user),
-            'ceo' => $this->getCEODashboard($user),
-            default => ['message' => 'Role not configured'],
+        // Determine hierarchy level from the unique-code prefix
+        // (CEO*, SM*, AM*, DM*, SG*) since one DB role ("sales") covers
+        // both state managers and salesmen.
+        $code   = strtoupper((string) $user->unique_code);
+        $prefix = preg_replace('/[0-9]+$/', '', $code);
+
+        $dashboard = match($prefix) {
+            'SG'  => $this->getSalesmanDashboard($user),
+            'DM'  => $this->getDistrictManagerDashboard($user),
+            'AM'  => $this->getAreaManagerDashboard($user),
+            'SM'  => $this->getStateManagerDashboard($user),
+            'CEO' => $this->getCEODashboard($user),
+            default => ['message' => 'Dashboard not configured for this user'],
         };
 
         return $this->success($dashboard);
@@ -230,9 +234,8 @@ class DashboardController extends Controller
     /**
      * Helper: Get all subordinates recursively
      */
-    private function getAllSubordinates($user): array
+    private function getAllSubordinates($user, array &$allSubs = []): array
     {
-        $allSubs = [];
         $directSubs = $user->subordinates()->with('roles')->get();
 
         foreach ($directSubs as $sub) {
@@ -243,6 +246,7 @@ class DashboardController extends Controller
                 'role' => $sub->roles->first()?->name,
             ];
 
+            // Recurse into this subordinate's own team (by reference)
             $this->getAllSubordinates($sub, $allSubs);
         }
 
