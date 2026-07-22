@@ -6,7 +6,7 @@ import {
   LogOut, Building2, UserPlus, BarChart3, Boxes,
   FileText, Receipt, TrendingUp, BadgeDollarSign, Landmark,
   PersonStanding, CalendarDays, Banknote, ChevronDown, ChevronRight,
-  GitBranch, Tag, PackageCheck, ShoppingBag, LifeBuoy,
+  GitBranch, Tag, PackageCheck, ShoppingBag, LifeBuoy, Images,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import type { Role } from '../../types';
@@ -23,6 +23,7 @@ const NAV: NavItem[] = [
   { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'sales', 'warehouse_staff', 'qc_engineer', 'accounts', 'hr_manager', 'logistics'] },
   { label: 'Orders',      to: '/orders',       icon: <ShoppingCart size={18} />,   roles: ['super_admin', 'sales', 'warehouse_staff'] },
   { label: 'Inventory',   to: '/inventory',    icon: <Package size={18} />,        roles: ['super_admin', 'warehouse_staff', 'qc_engineer'] },
+  { label: 'Catalog Images', to: '/catalog-images', icon: <Images size={18} />,    roles: ['super_admin'] },
   { label: 'QC',          to: '/qc',           icon: <ClipboardCheck size={18} />, roles: ['super_admin', 'warehouse_staff', 'qc_engineer'] },
   { label: 'Bins',        to: '/bins',         icon: <Boxes size={18} />,          roles: ['super_admin', 'warehouse_staff'] },
   { label: 'Procurement', to: '/procurement',  icon: <Archive size={18} />,        roles: ['super_admin', 'warehouse_staff'] },

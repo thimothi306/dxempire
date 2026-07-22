@@ -8,6 +8,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import LoginPage from './pages/auth/LoginPage';
 import DashboardPage from './pages/dashboard/DashboardPage';
 import InventoryPage from './pages/inventory/InventoryPage';
+import CatalogImagesPage from './pages/inventory/CatalogImagesPage';
 import QCPage from './pages/qc/QCPage';
 import BinsPage from './pages/bins/BinsPage';
 import ProcurementPage from './pages/procurement/ProcurementPage';
@@ -57,11 +58,12 @@ export default function App() {
             <Route path="dashboard" element={<DashboardPage />} />
 
             {/* Warehouse */}
-            <Route path="inventory"   element={<InventoryPage />} />
-            <Route path="qc"          element={<QCPage />} />
-            <Route path="bins"        element={<BinsPage />} />
-            <Route path="procurement" element={<ProcurementPage />} />
-            <Route path="peti"        element={<PetiPage />} />
+            <Route path="inventory"       element={<InventoryPage />} />
+            <Route path="catalog-images"  element={<CatalogImagesPage />} />
+            <Route path="qc"              element={<QCPage />} />
+            <Route path="bins"            element={<BinsPage />} />
+            <Route path="procurement"     element={<ProcurementPage />} />
+            <Route path="peti"            element={<PetiPage />} />
 
             {/* Sales / CRM */}
             <Route path="orders"    element={<OrdersPage />} />

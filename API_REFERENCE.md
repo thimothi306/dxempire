@@ -1109,19 +1109,27 @@ launch, or if you're fine going live without it initially.
 # Catalog Images — Admin Upload
 
 `image_url` in the catalog (2.11/2.12) is **model-level** (one photo per brand+model+category — not
-per physical IMEI). It is currently seeded with **placeholder images** for demo purposes. To upload
-real product photography, use the admin endpoint (super_admin only, not part of the 3 mobile apps):
+per physical IMEI). Managed from the admin dashboard, not any of the 3 mobile apps.
+
+**Admin dashboard UI:** `admin.dxempire.in` → **Inventory → Catalog Images** (super_admin only).
+Upload a photo file directly, pick Brand + Model + Category, done — the page handles hosting.
+Uploading again for the same brand+model+category **replaces** the existing photo.
+
+**API (used by that screen, also directly callable):**
 
 ```
-POST /api/v1/admin/catalog-images
+POST /api/v1/admin/catalog-images/upload   (multipart/form-data)
+  brand, model, category, image (file — jpg/png/webp, max 4MB)
+```
+Stores the file under `public/uploads/catalog-images/` on the API server (not S3 — no external
+hosting needed) and upserts the `CatalogImage` row with the resulting public URL.
+
+```
+POST /api/v1/admin/catalog-images          (JSON — set a URL directly instead of uploading a file)
 { "brand": "Apple", "model": "iPhone 13", "category": "phone", "image_url": "https://..." }
 ```
-This performs an upsert (create or replace) keyed on brand+model+category.
-`GET /api/v1/admin/catalog-images` lists all; `DELETE /api/v1/admin/catalog-images/{id}` removes one.
 
-Note this endpoint accepts a **URL**, not a file upload — images need to be hosted somewhere
-(e.g. an S3/Hostinger uploads folder) first. If you'd rather the admin panel support direct file
-upload, let us know and we'll add that.
+`GET /api/v1/admin/catalog-images` lists all; `DELETE /api/v1/admin/catalog-images/{id}` removes one.
 
 ---
 
@@ -1179,7 +1187,8 @@ Flagging these now so nothing is a surprise later:
    Part 1.4 are hardcoded `0`/`[]` — Orders/Leads aren't yet aggregated into the staff dashboard.
 2. **`EXPO_ACCESS_TOKEN`** — not set in production yet (see Push Notifications above). Push will
    still work without it.
-3. **Catalog images are placeholders** — real photos need to be uploaded via the new admin endpoint.
+3. **Catalog images** — upload is live (admin dashboard → Inventory → Catalog Images, or the API
+   directly). Any model still showing a placeholder simply hasn't had a real photo uploaded yet.
 4. **Order-lifecycle push notifications** — only "approved" and "dispatched" currently notify;
    picking/packed/delivered do not yet.
 

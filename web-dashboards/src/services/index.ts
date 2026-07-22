@@ -199,3 +199,11 @@ export const procurementService = {
   receive: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post('/procurement/receive', data).then((r) => r.data),
   history: () => DEMO_MODE ? mock({ data: [] }) : api.get('/procurement/history').then((r) => r.data),
 };
+
+// ─── Catalog Images (partner catalog photos) ─────────────────────────────────
+export const catalogImageService = {
+  list: () => api.get('/admin/catalog-images').then((r) => r.data.data),
+  upload: (formData: FormData) =>
+    api.post('/admin/catalog-images/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data.data),
+  remove: (id: number) => api.delete(`/admin/catalog-images/${id}`),
+};
