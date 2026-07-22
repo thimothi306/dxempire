@@ -700,14 +700,18 @@ In-stock brands for the brand selector. Optional `?category=phone|laptop|accesso
   "success": true,
   "message": "Success",
   "data": [
-    { "brand": "Apple",   "available_qty": 5 },
-    { "brand": "Dell",    "available_qty": 2 },
-    { "brand": "HP",      "available_qty": 3 },
-    { "brand": "Samsung", "available_qty": 5 },
-    { "brand": "Xiaomi",  "available_qty": 3 }
+    { "brand": "Apple",   "available_qty": 5, "image_url": "https://.../iphone-13.png" },
+    { "brand": "Dell",    "available_qty": 2, "image_url": null },
+    { "brand": "HP",      "available_qty": 3, "image_url": "https://.../hp-pavilion-15.png" },
+    { "brand": "Samsung", "available_qty": 5, "image_url": "https://.../galaxy-s22.png" },
+    { "brand": "Xiaomi",  "available_qty": 3, "image_url": null }
   ]
 }
 ```
+
+> **Added 2026-07-22:** `image_url` per brand. `CatalogImage` is stored per brand+model+category (not
+> per brand alone), so this is a **representative** photo — the earliest-uploaded model image for that
+> brand — used for the brand-selector tile. `null` if no model under that brand has a photo yet.
 
 ---
 

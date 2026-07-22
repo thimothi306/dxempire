@@ -33,7 +33,28 @@ class PartnerCatalogController extends Controller
             ->orderBy('brand')
             ->get();
 
+        $brandImages = $this->brandImageMap();
+        $brands->transform(function ($b) use ($brandImages) {
+            $b->image_url = $brandImages[$b->brand] ?? null;
+            return $b;
+        });
+
         return $this->success($brands);
+    }
+
+    /**
+     * brand => image_url. CatalogImage is keyed by brand+model+category (no
+     * brand-level image exists), so this picks one representative photo per
+     * brand — its earliest-uploaded model image — for the brand selector tile.
+     */
+    private function brandImageMap(): array
+    {
+        return CatalogImage::query()
+            ->orderBy('id')
+            ->get(['brand', 'image_url'])
+            ->groupBy('brand')
+            ->map(fn($group) => $group->first()->image_url)
+            ->all();
     }
 
     /**
