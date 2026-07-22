@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { qcService } from '../../services';
-import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, Modal, Input } from '../../components/ui';
+import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, Modal } from '../../components/ui';
 import type { Product } from '../../types';
 
 const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5'];
@@ -12,11 +12,13 @@ const ISSUE_OPTIONS = [
   'Speaker issue', 'Camera issue', 'Charging port issue', 'Software issue',
 ];
 
+const EMPTY_GRADE_FORM = { outcome: 'pass', grade: 'S1', issues: '' };
+
 export default function QCPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Product | null>(null);
-  const [gradeForm, setGradeForm] = useState({ grade: 'S1', selling_price: '', issues: '' });
+  const [gradeForm, setGradeForm] = useState(EMPTY_GRADE_FORM);
 
   const { data: queueData, isLoading } = useQuery({
     queryKey: ['qc-queue', page],
@@ -27,17 +29,18 @@ export default function QCPage() {
 
   const gradeMut = useMutation({
     mutationFn: () => qcService.grade(selected!.id, {
-      grade: gradeForm.grade,
-      selling_price: Number(gradeForm.selling_price),
-      issues: gradeForm.issues ? gradeForm.issues.split(',').map(s => s.trim()) : [],
+      outcome: gradeForm.outcome as 'pass' | 'reject',
+      grade: gradeForm.outcome === 'pass' ? gradeForm.grade : undefined,
+      condition_notes: gradeForm.issues || undefined,
     }),
     onSuccess: () => {
-      toast.success('Product graded successfully');
+      toast.success(gradeForm.outcome === 'pass' ? 'Product passed QC — now in stock' : 'Product rejected');
       qc.invalidateQueries({ queryKey: ['qc-queue'] });
       qc.invalidateQueries({ queryKey: ['qc-stats'] });
+      qc.invalidateQueries({ queryKey: ['inventory'] });
       setSelected(null);
     },
-    onError: () => toast.error('Failed to grade product'),
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to grade product'),
   });
 
   const refurbishMut = useMutation({
@@ -88,7 +91,7 @@ export default function QCPage() {
                 {
                   key: 'actions', header: '', render: (p) => (
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={(e) => { e.stopPropagation(); setSelected(p); setGradeForm({ grade: 'S1', selling_price: '', issues: '' }); }}>
+                      <Button size="sm" onClick={(e) => { e.stopPropagation(); setSelected(p); setGradeForm(EMPTY_GRADE_FORM); }}>
                         Grade
                       </Button>
                       <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); refurbishMut.mutate(p); }}>
@@ -109,19 +112,29 @@ export default function QCPage() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={`Grade — ${selected?.brand} ${selected?.model}`}>
         <div className="space-y-4">
           <div className="text-xs text-gray-500 font-mono bg-gray-50 px-3 py-2 rounded">IMEI: {selected?.imei}</div>
+
           <Select
-            label="Grade"
-            value={gradeForm.grade}
-            onChange={(e) => setGradeForm({ ...gradeForm, grade: e.target.value })}
-            options={GRADES.map((g) => ({ value: g, label: g }))}
+            label="Outcome *"
+            value={gradeForm.outcome}
+            onChange={(e) => setGradeForm({ ...gradeForm, outcome: e.target.value })}
+            options={[
+              { value: 'pass', label: 'Pass — grade & move to stock' },
+              { value: 'reject', label: 'Reject — unsellable' },
+            ]}
           />
-          <Input
-            label="Selling Price (₹)"
-            type="number"
-            value={gradeForm.selling_price}
-            onChange={(e) => setGradeForm({ ...gradeForm, selling_price: e.target.value })}
-            placeholder="e.g. 12000"
-          />
+
+          {gradeForm.outcome === 'pass' && (
+            <>
+              <Select
+                label="Grade *"
+                value={gradeForm.grade}
+                onChange={(e) => setGradeForm({ ...gradeForm, grade: e.target.value })}
+                options={GRADES.map((g) => ({ value: g, label: g }))}
+              />
+              <p className="text-xs text-gray-500">Selling price is calculated automatically from the grade — no need to enter it.</p>
+            </>
+          )}
+
           <Select
             label="Issues (select one to add)"
             value=""
@@ -137,8 +150,11 @@ export default function QCPage() {
           {gradeForm.issues && (
             <div className="text-xs text-gray-600 bg-orange-50 px-3 py-2 rounded">{gradeForm.issues}</div>
           )}
+
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => gradeMut.mutate()} loading={gradeMut.isPending} className="flex-1 justify-center">Confirm Grade</Button>
+            <Button onClick={() => gradeMut.mutate()} loading={gradeMut.isPending} className="flex-1 justify-center">
+              {gradeForm.outcome === 'pass' ? 'Confirm Grade' : 'Confirm Reject'}
+            </Button>
             <Button variant="outline" onClick={() => setSelected(null)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>

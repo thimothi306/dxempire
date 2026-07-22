@@ -59,7 +59,7 @@ export const qcService = {
   refurbishment: () => DEMO_MODE ? mock({ data: [] }) : api.get('/qc/refurbishment').then((r) => r.data),
   sendToRefurbishment: (productId: number) => DEMO_MODE ? mock({}) : api.post(`/qc/refurbishment`, { product_id: productId }).then((r) => r.data),
   completeRefurb: (id: number) => DEMO_MODE ? mock({}) : api.put(`/qc/refurbishment/${id}`).then((r) => r.data),
-  grade: (productId: number, data: { grade: string; selling_price?: number; issues?: string[] }) => DEMO_MODE ? mock({}) : api.post('/qc/grade', { product_id: productId, ...data }).then((r) => r.data.data),
+  grade: (productId: number, data: { outcome: 'pass' | 'reject'; grade?: string; condition_notes?: string }) => DEMO_MODE ? mock({}) : api.post('/qc/grade', { product_id: productId, ...data }).then((r) => r.data.data),
 };
 
 // ─── Orders ──────────────────────────────────────────────────────────────────
