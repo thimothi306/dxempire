@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Download } from 'lucide-react';
-import { inventoryService } from '../../services';
-import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, fmtINR } from '../../components/ui';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Download, Plus } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { inventoryService, procurementService } from '../../services';
+import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR } from '../../components/ui';
+import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 import type { Product } from '../../types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -56,12 +58,39 @@ function StockAvailabilityWidget() {
 }
 
 export default function InventoryPage() {
+  const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({ search: '', category: '', grade: '', status: '' });
+  const [showAdd, setShowAdd] = useState(false);
+  const [addSupplierId, setAddSupplierId] = useState('');
+  const [addItems, setAddItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventory', page, filters],
     queryFn: () => inventoryService.list({ page: String(page), per_page: '50', ...Object.fromEntries(Object.entries(filters).filter(([, v]) => v)) }),
+  });
+
+  const { data: suppData } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: () => procurementService.suppliers({}),
+    enabled: showAdd,
+  });
+  const suppliers: any[] = suppData?.data ?? [];
+
+  const addProductMut = useMutation({
+    mutationFn: () => procurementService.receive({
+      supplier_id: Number(addSupplierId),
+      items: expandReceiveItems(addItems),
+    }),
+    onSuccess: () => {
+      toast.success('Product(s) added — sent to QC queue');
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+      qc.invalidateQueries({ queryKey: ['inventory-availability'] });
+      setShowAdd(false);
+      setAddSupplierId('');
+      setAddItems([{ ...EMPTY_RECEIVE_ITEM }]);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to add product'),
   });
 
   const products: Product[] = Array.isArray(data?.data) ? data.data : [];
@@ -78,7 +107,12 @@ export default function InventoryPage() {
       <PageHeader
         title="Inventory"
         subtitle={`${meta?.total ?? 0} total items`}
-        action={<Button variant="outline" onClick={handleExport}><Download size={15} /> Export</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button onClick={() => setShowAdd(true)}><Plus size={15} /> Add Product</Button>
+            <Button variant="outline" onClick={handleExport}><Download size={15} /> Export</Button>
+          </div>
+        }
       />
 
       <StockAvailabilityWidget />
@@ -114,6 +148,25 @@ export default function InventoryPage() {
           </>
         )}
       </Card>
+
+      {/* Add Product Modal — creates real product records (status: received),
+          which then go through QC before appearing as in_stock / sellable. */}
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Product" width="max-w-2xl">
+        <div className="space-y-4">
+          <Select
+            label="Supplier *"
+            value={addSupplierId}
+            onChange={(e) => setAddSupplierId(e.target.value)}
+            options={[{ value: '', label: 'Select supplier...' }, ...suppliers.map((s: any) => ({ value: String(s.id), label: s.name }))]}
+          />
+          <ReceiveItemsForm items={addItems} setItems={setAddItems} />
+          <p className="text-xs text-gray-500">New products enter as "received" and must pass QC grading before they show as in-stock.</p>
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => addProductMut.mutate()} loading={addProductMut.isPending} disabled={!addSupplierId} className="flex-1 justify-center">Add Product</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)} className="flex-1 justify-center">Cancel</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

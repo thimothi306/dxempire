@@ -3,15 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procurementService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR } from '../../components/ui';
+import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 
 const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'gray', sent: 'blue', received: 'green', partial: 'yellow', cancelled: 'red',
 };
 
 const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', gst_number: '', address: '' };
-const EMPTY_PO = { supplier_id: '', expected_date: '', notes: '' };
-const EMPTY_ITEM = { category: 'phone', brand: '', model: '', purchase_price: '', quantity: '1' };
+const EMPTY_PO = { supplier_id: '' };
 type SupplierFormState = typeof EMPTY_SUPPLIER;
 
 // Defined OUTSIDE the page component: an inline component definition would be
@@ -51,11 +51,13 @@ export default function ProcurementPage() {
   const [tab, setTab] = useState<'orders' | 'suppliers'>('orders');
   const [page, setPage] = useState(1);
 
-  // PO state
+  // PO state — a PO is just a commitment (supplier + expected totals); the
+  // actual per-unit detail (brand/model/IMEI) is recorded at Receive time.
   const [showPO, setShowPO] = useState(false);
-  const [receiveId, setReceiveId] = useState<number | null>(null);
+  const [receivePO, setReceivePO] = useState<any | null>(null);
   const [poForm, setPoForm] = useState(EMPTY_PO);
-  const [poItems, setPoItems] = useState([{ ...EMPTY_ITEM }]);
+  const [poItems, setPoItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
+  const [receiveItems, setReceiveItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
 
   // Supplier state
   const [showSupplier, setShowSupplier] = useState(false);
@@ -75,26 +77,38 @@ export default function ProcurementPage() {
   });
 
   const createPOMut = useMutation({
-    mutationFn: () => procurementService.createPurchaseOrder({
-      supplier_id: Number(poForm.supplier_id),
-      expected_date: poForm.expected_date,
-      notes: poForm.notes,
-      items: poItems.map((i) => ({ ...i, purchase_price: Number(i.purchase_price), quantity: Number(i.quantity) })),
-    }),
+    mutationFn: () => {
+      const units = poItems.reduce((sum, i) => sum + (Number(i.quantity) || 1), 0);
+      const total = poItems.reduce((sum, i) => sum + (Number(i.purchase_price) || 0) * (Number(i.quantity) || 1), 0);
+      return procurementService.createPurchaseOrder({
+        supplier_id: Number(poForm.supplier_id),
+        expected_count: units,
+        total_amount: total,
+      });
+    },
     onSuccess: () => {
       toast.success('Purchase order created');
       qc.invalidateQueries({ queryKey: ['purchase-orders'] });
       setShowPO(false);
       setPoForm(EMPTY_PO);
-      setPoItems([{ ...EMPTY_ITEM }]);
+      setPoItems([{ ...EMPTY_RECEIVE_ITEM }]);
     },
-    onError: () => toast.error('Failed to create PO'),
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to create PO'),
   });
 
   const receiveMut = useMutation({
-    mutationFn: () => procurementService.receivePO(receiveId!, {}),
-    onSuccess: () => { toast.success('Stock received'); qc.invalidateQueries({ queryKey: ['purchase-orders'] }); setReceiveId(null); },
-    onError: () => toast.error('Failed to record receipt'),
+    mutationFn: () => procurementService.receivePO(receivePO!.id, {
+      supplier_id: receivePO!.supplier_id ?? receivePO!.supplier?.id,
+      items: expandReceiveItems(receiveItems),
+    }),
+    onSuccess: () => {
+      toast.success('Stock received — products entered the QC queue');
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] });
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+      setReceivePO(null);
+      setReceiveItems([{ ...EMPTY_RECEIVE_ITEM }]);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to record receipt'),
   });
 
   const createSupplierMut = useMutation({
@@ -133,10 +147,10 @@ export default function ProcurementPage() {
     setEditSupplier(s);
   };
 
-  const addPoItem = () => setPoItems([...poItems, { ...EMPTY_ITEM }]);
-  const removePoItem = (idx: number) => setPoItems(poItems.filter((_, i) => i !== idx));
-  const updatePoItem = (idx: number, field: string, value: string) =>
-    setPoItems(poItems.map((item, i) => i === idx ? { ...item, [field]: value } : item));
+  const openReceive = (po: any) => {
+    setReceiveItems([{ ...EMPTY_RECEIVE_ITEM }]);
+    setReceivePO(po);
+  };
 
   const suppliers: any[] = suppData?.data ?? [];
   const pos: any[] = poData?.data ?? [];
@@ -173,15 +187,14 @@ export default function ProcurementPage() {
             <>
               <Table
                 columns={[
-                  { key: 'po_number', header: 'PO #', render: (p) => <span className="font-mono text-xs">{p.po_number}</span> },
+                  { key: 'id', header: 'PO #', render: (p) => <span className="font-mono text-xs">PO-{String(p.id).padStart(5, '0')}</span> },
                   { key: 'supplier', header: 'Supplier', render: (p) => p.supplier?.name ?? '—' },
                   { key: 'status', header: 'Status', render: (p) => <Badge label={p.status} color={PO_STATUS_COLORS[p.status] ?? 'gray'} /> },
-                  { key: 'expected_count', header: 'Items', render: (p) => `${p.received_count ?? 0}/${p.expected_count ?? '—'}` },
+                  { key: 'expected_count', header: 'Units', render: (p) => `${p.received_count ?? 0}/${p.expected_count ?? '—'} received` },
                   { key: 'total_amount', header: 'Amount', render: (p) => fmtINR(p.total_amount ?? 0) },
-                  { key: 'expected_date', header: 'Expected', render: (p) => fmtDate(p.expected_date ?? '') },
                   {
-                    key: 'actions', header: '', render: (p) => p.status === 'sent' || p.status === 'placed' ? (
-                      <Button size="sm" onClick={(e) => { e.stopPropagation(); setReceiveId(p.id); }}>Receive</Button>
+                    key: 'actions', header: '', render: (p) => p.status !== 'received' ? (
+                      <Button size="sm" onClick={(e) => { e.stopPropagation(); openReceive(p); }}>Receive Stock</Button>
                     ) : null,
                   },
                 ]}
@@ -220,8 +233,10 @@ export default function ProcurementPage() {
         </Card>
       )}
 
-      {/* Create PO Modal */}
-      <Modal open={showPO} onClose={() => setShowPO(false)} title="New Purchase Order">
+      {/* Create PO Modal — a PO is a commitment (supplier + expected totals);
+          items entered here just compute those totals for you. Exact
+          brand/model/IMEI is recorded when you Receive against this PO. */}
+      <Modal open={showPO} onClose={() => setShowPO(false)} title="New Purchase Order" width="max-w-2xl">
         <div className="space-y-4">
           <Select
             label="Supplier *"
@@ -229,52 +244,28 @@ export default function ProcurementPage() {
             onChange={(e) => setPoForm({ ...poForm, supplier_id: e.target.value })}
             options={[{ value: '', label: 'Select supplier...' }, ...suppliers.map((s) => ({ value: String(s.id), label: s.name }))]}
           />
-          <Input label="Expected Delivery Date" type="date" value={poForm.expected_date} onChange={(e) => setPoForm({ ...poForm, expected_date: e.target.value })} />
-          <Input label="Notes" value={poForm.notes} onChange={(e) => setPoForm({ ...poForm, notes: e.target.value })} placeholder="Optional" />
 
-          {/* Line items */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-medium text-gray-600">Items</span>
-              <button onClick={addPoItem} className="text-xs text-primary hover:underline flex items-center gap-1"><Plus size={12} /> Add item</button>
-            </div>
-            <div className="space-y-2">
-              {poItems.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-5 gap-2 items-end bg-gray-50 p-2 rounded-lg">
-                  <Select
-                    label={idx === 0 ? 'Category' : ''}
-                    value={item.category}
-                    onChange={(e) => updatePoItem(idx, 'category', e.target.value)}
-                    options={['phone', 'laptop', 'accessory'].map((c) => ({ value: c, label: c }))}
-                  />
-                  <Input label={idx === 0 ? 'Brand' : ''} value={item.brand} onChange={(e) => updatePoItem(idx, 'brand', e.target.value)} placeholder="Samsung" />
-                  <Input label={idx === 0 ? 'Model' : ''} value={item.model} onChange={(e) => updatePoItem(idx, 'model', e.target.value)} placeholder="Galaxy S22" />
-                  <Input label={idx === 0 ? 'Cost (₹)' : ''} type="number" value={item.purchase_price} onChange={(e) => updatePoItem(idx, 'purchase_price', e.target.value)} placeholder="8000" />
-                  <div className="flex items-end gap-1">
-                    <Input label={idx === 0 ? 'Qty' : ''} type="number" value={item.quantity} onChange={(e) => updatePoItem(idx, 'quantity', e.target.value)} />
-                    {poItems.length > 1 && (
-                      <button onClick={() => removePoItem(idx)} className="mb-0.5 text-red-400 hover:text-red-600"><Trash2 size={14} /></button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <ReceiveItemsForm items={poItems} setItems={setPoItems} />
+          <p className="text-xs text-gray-500">
+            These items are used to calculate the expected unit count and total order value — exact
+            brand/model/IMEI per unit gets recorded when you receive the stock.
+          </p>
 
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => createPOMut.mutate()} loading={createPOMut.isPending} className="flex-1 justify-center">Create PO</Button>
+            <Button onClick={() => createPOMut.mutate()} loading={createPOMut.isPending} disabled={!poForm.supplier_id} className="flex-1 justify-center">Create PO</Button>
             <Button variant="outline" onClick={() => setShowPO(false)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>
       </Modal>
 
-      {/* Receive Stock Modal */}
-      <Modal open={receiveId !== null} onClose={() => setReceiveId(null)} title="Receive Stock">
+      {/* Receive Stock Modal — THIS is where real products get created. */}
+      <Modal open={!!receivePO} onClose={() => setReceivePO(null)} title={`Receive Stock — Supplier: ${receivePO?.supplier?.name ?? ''}`} width="max-w-2xl">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">Confirm stock received for this purchase order. Products will enter the QC queue.</p>
+          <p className="text-sm text-gray-600">Enter exactly what arrived. Each item becomes a real product and enters the QC queue.</p>
+          <ReceiveItemsForm items={receiveItems} setItems={setReceiveItems} />
           <div className="flex gap-3 pt-2">
             <Button onClick={() => receiveMut.mutate()} loading={receiveMut.isPending} className="flex-1 justify-center">Confirm Receipt</Button>
-            <Button variant="outline" onClick={() => setReceiveId(null)} className="flex-1 justify-center">Cancel</Button>
+            <Button variant="outline" onClick={() => setReceivePO(null)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>
       </Modal>
