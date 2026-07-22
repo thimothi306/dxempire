@@ -142,32 +142,42 @@ class DemoExtraSeeder extends Seeder
             ]);
         }
 
-        // ── SALES HIERARCHY (tree) ─────────────────────────────────────────
-        $ceo = DB::table('sales_hierarchy')->insertGetId([
-            'tree_id' => 'CEO001', 'name' => 'Anil Sharma', 'phone' => '9111111101', 'email' => 'anil@dxempire.com',
-            'hierarchy_role' => 'ceo', 'parent_id' => null, 'state' => 'All India', 'area' => null, 'district' => null,
-            'user_id' => $adminId, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
-        ]);
-        $sm = DB::table('sales_hierarchy')->insertGetId([
-            'tree_id' => 'SM001', 'name' => 'Rajesh Kumar', 'phone' => '9111111102', 'email' => 'rajesh@dxempire.com',
-            'hierarchy_role' => 'state_manager', 'parent_id' => $ceo, 'state' => 'Maharashtra', 'area' => null, 'district' => null,
-            'user_id' => $salesIds ? $salesIds[0] : $adminId, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
-        ]);
-        $am = DB::table('sales_hierarchy')->insertGetId([
-            'tree_id' => 'AM001', 'name' => 'Priya Singh', 'phone' => '9111111103', 'email' => 'priya@dxempire.com',
-            'hierarchy_role' => 'area_manager', 'parent_id' => $sm, 'state' => 'Maharashtra', 'area' => 'Mumbai Zone', 'district' => null,
-            'user_id' => null, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
-        ]);
-        $dm = DB::table('sales_hierarchy')->insertGetId([
-            'tree_id' => 'DM001', 'name' => 'Amit Patel', 'phone' => '9111111105', 'email' => 'amit@dxempire.com',
-            'hierarchy_role' => 'district_manager', 'parent_id' => $am, 'state' => 'Maharashtra', 'area' => 'Mumbai Zone', 'district' => 'Dadar',
-            'user_id' => null, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
-        ]);
-        foreach (['SG001' => 'Vikram Singh', 'SG002' => 'Suresh Patel'] as $tid => $nm) {
-            DB::table('sales_hierarchy')->insert([
-                'tree_id' => $tid, 'name' => $nm, 'phone' => '91111111' . rand(10, 99), 'email' => strtolower(explode(' ', $nm)[0]) . '@dxempire.com',
-                'hierarchy_role' => 'salesman', 'parent_id' => $dm, 'state' => 'Maharashtra', 'area' => 'Mumbai Zone', 'district' => 'Dadar',
-                'user_id' => null, 'is_active' => true, 'created_at' => $now, 'updated_at' => $now,
+        // ── SALES HIERARCHY (tree) ───────────────────────────────────────────
+        // tree_id (= "Unique Code" in the admin UI) is kept IDENTICAL to the
+        // matching users.unique_code (used by the mobile Sales-ID login), so
+        // the two systems reference the same people with the same codes —
+        // not two different numbering schemes for the same org chart.
+        $usersByCode = User::whereNotNull('unique_code')->get(['id', 'phone', 'unique_code'])->keyBy('unique_code');
+
+        $nodes = [
+            // code      parent_code  name              role                state          area           district
+            ['CEO001', null,     'Anil Sharma',    'ceo',              'All India',    null,           null],
+            ['SM001',  'CEO001', 'Rajesh Kumar',   'state_manager',    'Maharashtra',  null,           null],
+            ['AM001',  'SM001',  'Priya Singh',    'area_manager',     'Maharashtra',  'Mumbai Zone',  null],
+            ['AM002',  'SM001',  'Ramesh Desai',   'area_manager',     'Maharashtra',  'Pune Zone',    null],
+            ['DM001',  'AM001',  'Amit Patel',     'district_manager', 'Maharashtra',  'Mumbai Zone',  'Dadar'],
+            ['DM002',  'AM002',  'Zara Khan',      'district_manager', 'Maharashtra',  'Pune Zone',    'Kothrud'],
+            ['SG001',  'DM001',  'Vikram Singh',   'salesman',         'Maharashtra',  'Mumbai Zone',  'Dadar'],
+            ['SG002',  'DM001',  'Suresh Patel',   'salesman',         'Maharashtra',  'Mumbai Zone',  'Dadar'],
+            ['SG003',  'DM002',  'Rani Sharma',    'salesman',         'Maharashtra',  'Pune Zone',    'Kothrud'],
+        ];
+
+        $idByCode = [];
+        foreach ($nodes as [$code, $parentCode, $name, $role, $state, $area, $district]) {
+            $user = $usersByCode->get($code);
+            $idByCode[$code] = DB::table('sales_hierarchy')->insertGetId([
+                'tree_id'        => $code,
+                'name'           => $name,
+                'phone'          => $user?->phone ?? '9111111' . rand(100, 999),
+                'email'          => strtolower(explode(' ', $name)[0]) . '@dxempire.com',
+                'hierarchy_role' => $role,
+                'parent_id'      => $parentCode ? ($idByCode[$parentCode] ?? null) : null,
+                'state'          => $state,
+                'area'           => $area,
+                'district'       => $district,
+                'user_id'        => $user?->id,
+                'is_active'      => true,
+                'created_at'     => $now, 'updated_at' => $now,
             ]);
         }
 

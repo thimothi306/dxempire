@@ -12,6 +12,39 @@ const PO_STATUS_COLORS: Record<string, string> = {
 const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', gst_number: '', address: '' };
 const EMPTY_PO = { supplier_id: '', expected_date: '', notes: '' };
 const EMPTY_ITEM = { category: 'phone', brand: '', model: '', purchase_price: '', quantity: '1' };
+type SupplierFormState = typeof EMPTY_SUPPLIER;
+
+// Defined OUTSIDE the page component: an inline component definition would be
+// recreated on every render, causing React to remount the inputs (and lose
+// focus) after every keystroke.
+function SupplierForm({
+  form, setForm, onSubmit, onCancel, loading,
+}: {
+  form: SupplierFormState;
+  setForm: (f: SupplierFormState) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <Input label="Supplier Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Contact Person" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
+        <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <Input label="GST Number" value={form.gst_number} onChange={(e) => setForm({ ...form, gst_number: e.target.value })} />
+      </div>
+      <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+      <div className="flex gap-3 pt-2">
+        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function ProcurementPage() {
   const qc = useQueryClient();
@@ -108,25 +141,6 @@ export default function ProcurementPage() {
   const suppliers: any[] = suppData?.data ?? [];
   const pos: any[] = poData?.data ?? [];
   const meta = poData?.meta;
-
-  const SupplierForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
-    <div className="space-y-4">
-      <Input label="Supplier Name *" value={supplierForm.name} onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })} />
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Contact Person" value={supplierForm.contact_name} onChange={(e) => setSupplierForm({ ...supplierForm, contact_name: e.target.value })} />
-        <Input label="Phone" value={supplierForm.phone} onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Email" type="email" value={supplierForm.email} onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })} />
-        <Input label="GST Number" value={supplierForm.gst_number} onChange={(e) => setSupplierForm({ ...supplierForm, gst_number: e.target.value })} />
-      </div>
-      <Input label="Address" value={supplierForm.address} onChange={(e) => setSupplierForm({ ...supplierForm, address: e.target.value })} />
-      <div className="flex gap-3 pt-2">
-        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
-        <Button variant="outline" onClick={() => { setShowSupplier(false); setEditSupplier(null); }} className="flex-1 justify-center">Cancel</Button>
-      </div>
-    </div>
-  );
 
   return (
     <div>
@@ -267,12 +281,12 @@ export default function ProcurementPage() {
 
       {/* Add Supplier Modal */}
       <Modal open={showSupplier} onClose={() => { setShowSupplier(false); setSupplierForm(EMPTY_SUPPLIER); }} title="Add Supplier">
-        <SupplierForm onSubmit={() => createSupplierMut.mutate()} loading={createSupplierMut.isPending} />
+        <SupplierForm form={supplierForm} setForm={setSupplierForm} onSubmit={() => createSupplierMut.mutate()} onCancel={() => { setShowSupplier(false); setSupplierForm(EMPTY_SUPPLIER); }} loading={createSupplierMut.isPending} />
       </Modal>
 
       {/* Edit Supplier Modal */}
       <Modal open={!!editSupplier} onClose={() => setEditSupplier(null)} title={`Edit — ${editSupplier?.name}`}>
-        <SupplierForm onSubmit={() => updateSupplierMut.mutate()} loading={updateSupplierMut.isPending} />
+        <SupplierForm form={supplierForm} setForm={setSupplierForm} onSubmit={() => updateSupplierMut.mutate()} onCancel={() => setEditSupplier(null)} loading={updateSupplierMut.isPending} />
       </Modal>
 
       {/* Delete Supplier Modal */}

@@ -18,7 +18,7 @@ class LeadController extends Controller
     public function index(Request $request): JsonResponse
     {
         $leads = Lead::with('assignedUser')
-            ->scopeFilter($request)
+            ->filter($request)
             ->orderByDesc('updated_at')
             ->paginate(50);
 

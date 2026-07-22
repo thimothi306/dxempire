@@ -11,6 +11,52 @@ const APPLICABLE_GRADE = [{ value: 'all', label: 'All Grades' }, ...['S1','S2','
 const CUSTOMER_TYPE = [{ value: 'all', label: 'All Customers' }, { value: 'b2b', label: 'B2B Only' }, { value: 'retail', label: 'Retail Only' }];
 
 const EMPTY_FORM = { title: '', code: '', description: '', discount_type: 'percentage', discount_value: '', min_order_amount: '', max_discount_amount: '', applicable_to: 'all', applicable_grade: 'all', customer_type: 'all', valid_from: '', valid_to: '', max_usage: '' };
+type OfferFormState = typeof EMPTY_FORM;
+
+// Defined OUTSIDE the page component: an inline component definition would be
+// recreated on every render, causing React to remount the inputs (and lose
+// focus) after every keystroke.
+function OfferForm({
+  form, setForm, onSubmit, onCancel, loading,
+}: {
+  form: OfferFormState;
+  setForm: (f: OfferFormState) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Offer Title *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+        <Input label="Offer Code *" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. DIWALI20" />
+      </div>
+      <Input label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Discount Type *" value={form.discount_type} onChange={e => setForm({ ...form, discount_type: e.target.value })} options={DISCOUNT_TYPES} />
+        <Input label={form.discount_type === 'percentage' ? 'Discount % *' : 'Discount ₹ *'} type="number" value={form.discount_value} onChange={e => setForm({ ...form, discount_value: e.target.value })} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Min Order Amount (₹)" type="number" value={form.min_order_amount} onChange={e => setForm({ ...form, min_order_amount: e.target.value })} placeholder="0" />
+        <Input label="Max Discount Cap (₹)" type="number" value={form.max_discount_amount} onChange={e => setForm({ ...form, max_discount_amount: e.target.value })} placeholder="Optional" />
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <Select label="Applies To" value={form.applicable_to} onChange={e => setForm({ ...form, applicable_to: e.target.value })} options={APPLICABLE_TO} />
+        <Select label="Grade" value={form.applicable_grade} onChange={e => setForm({ ...form, applicable_grade: e.target.value })} options={APPLICABLE_GRADE} />
+        <Select label="Customer" value={form.customer_type} onChange={e => setForm({ ...form, customer_type: e.target.value })} options={CUSTOMER_TYPE} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Valid From *" type="datetime-local" value={form.valid_from} onChange={e => setForm({ ...form, valid_from: e.target.value })} />
+        <Input label="Valid To *" type="datetime-local" value={form.valid_to} onChange={e => setForm({ ...form, valid_to: e.target.value })} />
+      </div>
+      <Input label="Max Usage (leave blank for unlimited)" type="number" value={form.max_usage} onChange={e => setForm({ ...form, max_usage: e.target.value })} placeholder="Optional" />
+      <div className="flex gap-3 pt-2">
+        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function OffersPage() {
   const qc = useQueryClient();
@@ -53,38 +99,6 @@ export default function OffersPage() {
   const now = new Date();
   const isOfferActive = (o: any) => o.is_active && new Date(o.valid_from) <= now && new Date(o.valid_to) >= now;
 
-  const OfferForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
-    <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Offer Title *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
-        <Input label="Offer Code *" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. DIWALI20" />
-      </div>
-      <Input label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
-      <div className="grid grid-cols-2 gap-3">
-        <Select label="Discount Type *" value={form.discount_type} onChange={e => setForm({ ...form, discount_type: e.target.value })} options={DISCOUNT_TYPES} />
-        <Input label={form.discount_type === 'percentage' ? 'Discount % *' : 'Discount ₹ *'} type="number" value={form.discount_value} onChange={e => setForm({ ...form, discount_value: e.target.value })} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Min Order Amount (₹)" type="number" value={form.min_order_amount} onChange={e => setForm({ ...form, min_order_amount: e.target.value })} placeholder="0" />
-        <Input label="Max Discount Cap (₹)" type="number" value={form.max_discount_amount} onChange={e => setForm({ ...form, max_discount_amount: e.target.value })} placeholder="Optional" />
-      </div>
-      <div className="grid grid-cols-3 gap-3">
-        <Select label="Applies To" value={form.applicable_to} onChange={e => setForm({ ...form, applicable_to: e.target.value })} options={APPLICABLE_TO} />
-        <Select label="Grade" value={form.applicable_grade} onChange={e => setForm({ ...form, applicable_grade: e.target.value })} options={APPLICABLE_GRADE} />
-        <Select label="Customer" value={form.customer_type} onChange={e => setForm({ ...form, customer_type: e.target.value })} options={CUSTOMER_TYPE} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Valid From *" type="datetime-local" value={form.valid_from} onChange={e => setForm({ ...form, valid_from: e.target.value })} />
-        <Input label="Valid To *" type="datetime-local" value={form.valid_to} onChange={e => setForm({ ...form, valid_to: e.target.value })} />
-      </div>
-      <Input label="Max Usage (leave blank for unlimited)" type="number" value={form.max_usage} onChange={e => setForm({ ...form, max_usage: e.target.value })} placeholder="Optional" />
-      <div className="flex gap-3 pt-2">
-        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
-        <Button variant="outline" onClick={() => { setShowCreate(false); setEditTarget(null); }} className="flex-1 justify-center">Cancel</Button>
-      </div>
-    </div>
-  );
-
   return (
     <div>
       <PageHeader
@@ -124,11 +138,11 @@ export default function OffersPage() {
       </Card>
 
       <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Create Offer">
-        <OfferForm onSubmit={() => createMut.mutate()} loading={createMut.isPending} />
+        <OfferForm form={form} setForm={setForm} onSubmit={() => createMut.mutate()} onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); }} loading={createMut.isPending} />
       </Modal>
 
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`Edit — ${editTarget?.title}`}>
-        <OfferForm onSubmit={() => updateMut.mutate()} loading={updateMut.isPending} />
+        <OfferForm form={form} setForm={setForm} onSubmit={() => updateMut.mutate()} onCancel={() => setEditTarget(null)} loading={updateMut.isPending} />
       </Modal>
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Deactivate Offer">

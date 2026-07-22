@@ -148,7 +148,7 @@ class AttendanceController extends Controller
 
         $result = $employees->map(fn($emp) => [
             'employee_id'  => $emp->id,
-            'name'         => $emp->user?->name,
+            'name'         => $emp->name ?? $emp->user?->name,
             'department'   => $emp->department,
             'shift'        => $emp->shift,
             'attendance'   => $emp->attendance->first()?->only(['status', 'check_in', 'check_out']) ?? null,

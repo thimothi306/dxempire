@@ -154,7 +154,7 @@ class PayrollController extends Controller
                 'id'           => $item->id,
                 'employee_id'  => $item->employee_id,
                 'emp_code'     => 'EMP-' . str_pad($item->employee_id, 4, '0', STR_PAD_LEFT),
-                'name'         => $item->employee->user?->name,
+                'name'         => $item->employee->name ?? $item->employee->user?->name,
                 'phone'        => $item->employee->user?->phone,
                 'department'   => $item->employee->department,
                 'days_worked'  => $item->days_worked,
@@ -190,7 +190,7 @@ class PayrollController extends Controller
             }
         }
 
-        $empName = $payrollItem->employee->user?->name ?? 'employee';
+        $empName = $payrollItem->employee->name ?? $payrollItem->employee->user?->name ?? 'employee';
         $filename = "payslip_{$payrollRun->year}_{$payrollRun->month}_{$empName}.pdf";
 
         return response(Storage::get($payrollItem->slip_path), 200, [

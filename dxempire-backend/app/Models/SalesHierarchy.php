@@ -19,6 +19,16 @@ class SalesHierarchy extends Model
 
     protected $casts = ['is_active' => 'boolean'];
 
+    // "Unique Code" in the admin UI is the same thing as tree_id — expose
+    // it under both names so the frontend's existing `unique_code` column
+    // and lookup-by-code flows work without a schema change.
+    protected $appends = ['unique_code'];
+
+    public function getUniqueCodeAttribute(): ?string
+    {
+        return $this->tree_id;
+    }
+
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function parent(): BelongsTo

@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
 use App\Models\Dealer;
 use App\Models\Expense;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\GstExport;
+use App\Services\OrderService;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,61 +73,61 @@ class FinanceController extends Controller
     }
 
     /**
-     * P&L report for a date range.
+     * P&L report — revenue vs expenses broken into monthly or quarterly buckets
+     * for a given year. Used by the admin dashboard's period-toggle P&L page.
      */
     public function profitLoss(Request $request): JsonResponse
     {
         $request->validate([
-            'from' => ['required', 'date'],
-            'to'   => ['required', 'date', 'after_or_equal:from'],
+            'period' => ['nullable', 'in:monthly,quarterly'],
+            'year'   => ['nullable', 'integer', 'min:2020', 'max:2099'],
         ]);
 
-        $from = $request->from;
-        $to   = $request->to;
-        $key  = "finance.pl.{$from}.{$to}";
+        $period = $request->period ?? 'monthly';
+        $year   = (int) ($request->year ?? now()->year);
+        $key    = "finance.pl.{$period}.{$year}";
 
-        $data = Cache::remember($key, 300, function () use ($from, $to) {
-            // Revenue: sum of delivered order totals in period
-            $revenue = Order::whereIn('status', ['delivered', 'dispatched'])
-                ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-                ->sum('total_amount');
+        $data = Cache::remember($key, 300, function () use ($period, $year) {
+            $revenueByBucket = Order::whereIn('status', ['delivered', 'dispatched'])
+                ->whereYear('created_at', $year)
+                ->select(DB::raw('MONTH(created_at) as m'), DB::raw('SUM(total_amount) as total'))
+                ->groupBy('m')
+                ->pluck('total', 'm');
 
-            $gstCollected = Order::whereIn('status', ['delivered', 'dispatched'])
-                ->whereBetween('created_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-                ->sum('gst_amount');
+            $expensesByBucket = Expense::whereYear('incurred_at', $year)
+                ->select(DB::raw('MONTH(incurred_at) as m'), DB::raw('SUM(amount) as total'))
+                ->groupBy('m')
+                ->pluck('total', 'm');
 
-            // COGS: sum of purchase_price of sold products in period
-            $cogs = Product::where('status', 'sold')
-                ->whereBetween('sold_at', [$from . ' 00:00:00', $to . ' 23:59:59'])
-                ->sum('purchase_price');
+            $timeSeries = [];
+            if ($period === 'quarterly') {
+                for ($q = 1; $q <= 4; $q++) {
+                    $months = range(($q - 1) * 3 + 1, $q * 3);
+                    $revenue  = collect($months)->sum(fn($m) => (float) ($revenueByBucket[$m] ?? 0));
+                    $expenses = collect($months)->sum(fn($m) => (float) ($expensesByBucket[$m] ?? 0));
+                    $timeSeries[] = ['period' => "Q{$q} {$year}", 'revenue' => round($revenue, 2), 'expenses' => round($expenses, 2)];
+                }
+            } else {
+                for ($m = 1; $m <= 12; $m++) {
+                    $timeSeries[] = [
+                        'period'   => date('M', mktime(0, 0, 0, $m, 1)) . " {$year}",
+                        'revenue'  => round((float) ($revenueByBucket[$m] ?? 0), 2),
+                        'expenses' => round((float) ($expensesByBucket[$m] ?? 0), 2),
+                    ];
+                }
+            }
 
-            // Operating expenses
-            $expenses = Expense::whereBetween('incurred_at', [$from, $to])->sum('amount');
-
-            // Expense breakdown by category
-            $expenseByCategory = Expense::whereBetween('incurred_at', [$from, $to])
-                ->select('category', DB::raw('SUM(amount) as total'))
-                ->groupBy('category')
-                ->orderByDesc('total')
-                ->get();
-
-            $grossProfit  = round($revenue - $cogs, 2);
-            $netProfit    = round($grossProfit - $expenses, 2);
-            $grossMargin  = $revenue > 0 ? round(($grossProfit / $revenue) * 100, 2) : 0;
-            $netMargin    = $revenue > 0 ? round(($netProfit / $revenue) * 100, 2) : 0;
+            $totalRevenue  = round($revenueByBucket->sum(), 2);
+            $totalExpenses = round($expensesByBucket->sum(), 2);
 
             return [
-                'period'              => ['from' => $from, 'to' => $to],
-                'revenue'             => round($revenue, 2),
-                'gst_collected'       => round($gstCollected, 2),
-                'revenue_ex_gst'      => round($revenue - $gstCollected, 2),
-                'cogs'                => round($cogs, 2),
-                'gross_profit'        => $grossProfit,
-                'gross_margin_pct'    => $grossMargin,
-                'operating_expenses'  => round($expenses, 2),
-                'expense_breakdown'   => $expenseByCategory,
-                'net_profit'          => $netProfit,
-                'net_margin_pct'      => $netMargin,
+                'year'            => $year,
+                'period'          => $period,
+                'total_revenue'   => $totalRevenue,
+                'total_expenses'  => $totalExpenses,
+                'net_profit'      => round($totalRevenue - $totalExpenses, 2),
+                'net_margin_pct'  => $totalRevenue > 0 ? round((($totalRevenue - $totalExpenses) / $totalRevenue) * 100, 2) : 0,
+                'time_series'     => $timeSeries,
             ];
         });
 
@@ -135,50 +135,49 @@ class FinanceController extends Controller
     }
 
     /**
-     * GST summary: total GST collected grouped by month.
+     * GST summary for a single calendar month — invoice-wise CGST/SGST breakup,
+     * used for GST filing. `month` is "YYYY-MM" (matches the frontend's
+     * <input type="month">).
      */
     public function gstSummary(Request $request): JsonResponse
     {
         $request->validate([
-            'year' => ['required', 'integer', 'min:2020', 'max:2099'],
+            'month' => ['required', 'date_format:Y-m'],
         ]);
 
-        $year = $request->year;
-        $key  = "finance.gst.{$year}";
+        [$year, $month] = explode('-', $request->month);
+        $key = "finance.gst.{$year}.{$month}";
 
-        $data = Cache::remember($key, 300, function () use ($year) {
-            $monthly = Order::whereIn('status', ['delivered', 'dispatched', 'approved'])
-                ->whereYear('created_at', $year)
-                ->select(
-                    DB::raw('MONTH(created_at) as month'),
-                    DB::raw('SUM(subtotal) as taxable_value'),
-                    DB::raw('SUM(gst_amount) as gst_collected'),
-                    DB::raw('SUM(total_amount) as gross_total'),
-                    DB::raw('COUNT(*) as order_count')
-                )
-                ->groupBy(DB::raw('MONTH(created_at)'))
-                ->orderBy('month')
+        $data = Cache::remember($key, 300, function () use ($year, $month) {
+            $invoices = Invoice::whereYear('issued_at', $year)
+                ->whereMonth('issued_at', $month)
+                ->with(['dealer:id,business_name,gst_number', 'order:id,billing_state'])
+                ->orderByDesc('issued_at')
                 ->get()
-                ->keyBy('month');
+                ->map(function ($invoice) {
+                    $buyerState = $invoice->billing_state ?? $invoice->order?->billing_state ?? $invoice->dealer?->state;
+                    $split = app(OrderService::class)->calculateGstSplit((float) $invoice->gst_amount, $buyerState);
 
-            $months = [];
-            for ($m = 1; $m <= 12; $m++) {
-                $row = $monthly->get($m);
-                $months[] = [
-                    'month'          => $m,
-                    'month_name'     => date('F', mktime(0, 0, 0, $m, 1)),
-                    'order_count'    => $row?->order_count ?? 0,
-                    'taxable_value'  => round($row?->taxable_value ?? 0, 2),
-                    'gst_collected'  => round($row?->gst_collected ?? 0, 2),
-                    'gross_total'    => round($row?->gross_total ?? 0, 2),
-                ];
-            }
+                    return [
+                        'id'              => $invoice->id,
+                        'invoice_number'  => $invoice->invoice_number,
+                        'dealer_name'     => $invoice->dealer?->business_name,
+                        'dealer_gstin'    => $invoice->dealer?->gst_number,
+                        'taxable_value'   => round((float) $invoice->subtotal, 2),
+                        'cgst'            => $split['cgst_amount'],
+                        'sgst'            => $split['sgst_amount'],
+                        'igst'            => $split['igst_amount'],
+                        'total_amount'    => round((float) $invoice->total, 2),
+                    ];
+                });
 
             return [
-                'year'            => $year,
-                'annual_gst'      => round($monthly->sum('gst_collected'), 2),
-                'annual_revenue'  => round($monthly->sum('gross_total'), 2),
-                'monthly'         => $months,
+                'month'         => "{$year}-{$month}",
+                'taxable_value' => round($invoices->sum('taxable_value'), 2),
+                'cgst'          => round($invoices->sum('cgst'), 2),
+                'sgst'          => round($invoices->sum('sgst'), 2),
+                'igst'          => round($invoices->sum('igst'), 2),
+                'invoices'      => $invoices->values(),
             ];
         });
 
@@ -214,11 +213,50 @@ class FinanceController extends Controller
         ]);
     }
 
+    /**
+     * GST summary as a downloadable CSV (opens fine in Excel/Sheets).
+     * Implemented without maatwebsite/excel — the version pinned in
+     * composer.json (^1.1) predates the Concerns\FromCollection interface
+     * this codebase's export classes were written against, so it 500s.
+     * A native CSV avoids that broken dependency entirely.
+     */
     public function gstExport(Request $request)
     {
-        $request->validate(['year' => ['required', 'integer', 'min:2020']]);
+        $request->validate(['month' => ['required', 'date_format:Y-m']]);
 
-        $filename = 'gst_summary_' . $request->year . '.xlsx';
-        return Excel::download(new GstExport($request->year), $filename);
+        [$year, $month] = explode('-', $request->month);
+
+        $invoices = Invoice::whereYear('issued_at', $year)
+            ->whereMonth('issued_at', $month)
+            ->with(['dealer:id,business_name,gst_number', 'order:id,billing_state'])
+            ->orderBy('issued_at')
+            ->get();
+
+        $orderService = app(OrderService::class);
+        $filename = 'gst_summary_' . $request->month . '.csv';
+
+        return response()->streamDownload(function () use ($invoices, $orderService) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, ['Invoice #', 'Date', 'Dealer', 'GSTIN', 'Taxable Value (Rs)', 'CGST (Rs)', 'SGST (Rs)', 'IGST (Rs)', 'Total (Rs)']);
+
+            foreach ($invoices as $invoice) {
+                $buyerState = $invoice->billing_state ?? $invoice->order?->billing_state ?? $invoice->dealer?->state;
+                $split = $orderService->calculateGstSplit((float) $invoice->gst_amount, $buyerState);
+
+                fputcsv($out, [
+                    $invoice->invoice_number,
+                    $invoice->issued_at?->toDateString(),
+                    $invoice->dealer?->business_name,
+                    $invoice->dealer?->gst_number,
+                    round((float) $invoice->subtotal, 2),
+                    $split['cgst_amount'],
+                    $split['sgst_amount'],
+                    $split['igst_amount'],
+                    round((float) $invoice->total, 2),
+                ]);
+            }
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv']);
     }
 }

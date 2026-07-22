@@ -28,6 +28,60 @@ const INDIAN_STATES = [
 ];
 
 const EMPTY_FORM = { name: '', phone: '', email: '', hierarchy_role: 'salesman', parent_unique_code: '', state: '', area: '', district: '' };
+type HierarchyFormState = typeof EMPTY_FORM;
+
+// Defined OUTSIDE the page component: an inline component definition would be
+// recreated on every render, causing React to remount the inputs (and lose
+// focus) after every keystroke.
+function MemberForm({
+  form, setForm, onSubmit, onCancel, loading,
+}: {
+  form: HierarchyFormState;
+  setForm: (f: HierarchyFormState) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="space-y-3">
+      <Input label="Full Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+        <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+      </div>
+      <Select label="Role *" value={form.hierarchy_role} onChange={e => setForm({ ...form, hierarchy_role: e.target.value })}
+        options={ROLES} />
+
+      <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+        <Input
+          label="Parent's Unique Code *"
+          value={form.parent_unique_code}
+          onChange={e => setForm({ ...form, parent_unique_code: e.target.value })}
+          placeholder="e.g., SM001, DM001, AM001"
+          required
+        />
+        <p className="text-xs text-blue-700 mt-2">👤 Enter the parent's unique code (e.g., SM001). Leave empty only for top-level members.</p>
+      </div>
+
+      {form.parent_unique_code && (
+        <div className="bg-green-50 border border-green-200 p-2 rounded text-sm text-green-700">
+          ✓ Parent code: <code className="font-bold">{form.parent_unique_code}</code>
+        </div>
+      )}
+
+      <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value })}
+        options={[{ value: '', label: 'Select state...' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
+      <div className="grid grid-cols-2 gap-3">
+        <Input label="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Bangalore Zone" />
+        <Input label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} placeholder="e.g. Jayanagar" />
+      </div>
+      <div className="flex gap-3 pt-2">
+        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function HierarchyPage() {
   const qc = useQueryClient();
@@ -86,46 +140,6 @@ export default function HierarchyPage() {
 
   const nodes: any[] = data?.data ?? [];
   const meta = data?.meta;
-
-  const MemberForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
-    <div className="space-y-3">
-      <Input label="Full Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
-        <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-      </div>
-      <Select label="Role *" value={form.hierarchy_role} onChange={e => setForm({ ...form, hierarchy_role: e.target.value })}
-        options={ROLES} />
-
-      <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
-        <Input
-          label="Parent's Unique Code *"
-          value={form.parent_unique_code}
-          onChange={e => setForm({ ...form, parent_unique_code: e.target.value })}
-          placeholder="e.g., SM001, DM001, AM001"
-          required
-        />
-        <p className="text-xs text-blue-700 mt-2">👤 Enter the parent's unique code (e.g., SM001). Leave empty only for top-level members.</p>
-      </div>
-
-      {form.parent_unique_code && (
-        <div className="bg-green-50 border border-green-200 p-2 rounded text-sm text-green-700">
-          ✓ Parent code: <code className="font-bold">{form.parent_unique_code}</code>
-        </div>
-      )}
-
-      <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value })}
-        options={[{ value: '', label: 'Select state...' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
-      <div className="grid grid-cols-2 gap-3">
-        <Input label="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Bangalore Zone" />
-        <Input label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} placeholder="e.g. Jayanagar" />
-      </div>
-      <div className="flex gap-3 pt-2">
-        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
-        <Button variant="outline" onClick={() => { setShowCreate(false); setEditTarget(null); }} className="flex-1 justify-center">Cancel</Button>
-      </div>
-    </div>
-  );
 
   return (
     <div>
@@ -280,12 +294,12 @@ export default function HierarchyPage() {
 
       {/* Add Member Modal */}
       <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Add Hierarchy Member">
-        <MemberForm onSubmit={() => createMut.mutate()} loading={createMut.isPending} />
+        <MemberForm form={form} setForm={setForm} onSubmit={() => createMut.mutate()} onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); }} loading={createMut.isPending} />
       </Modal>
 
       {/* Edit Member Modal */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`Edit — ${editTarget?.name}`}>
-        <MemberForm onSubmit={() => updateMut.mutate()} loading={updateMut.isPending} />
+        <MemberForm form={form} setForm={setForm} onSubmit={() => updateMut.mutate()} onCancel={() => setEditTarget(null)} loading={updateMut.isPending} />
       </Modal>
     </div>
   );

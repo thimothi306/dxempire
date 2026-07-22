@@ -42,18 +42,20 @@ class SalesHierarchyController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'name'           => ['required', 'string', 'max:200'],
-            'phone'          => ['nullable', 'string', 'max:20'],
-            'email'          => ['nullable', 'email'],
-            'hierarchy_role' => ['required', 'in:ceo,state_manager,area_manager,district_manager,salesman'],
-            'parent_id'      => ['nullable', 'exists:sales_hierarchy,id'],
-            'state'          => ['nullable', 'string', 'max:100'],
-            'area'           => ['nullable', 'string', 'max:100'],
-            'district'       => ['nullable', 'string', 'max:100'],
-            'user_id'        => ['nullable', 'exists:users,id'],
+            'name'               => ['required', 'string', 'max:200'],
+            'phone'              => ['nullable', 'string', 'max:20'],
+            'email'              => ['nullable', 'email'],
+            'hierarchy_role'     => ['required', 'in:ceo,state_manager,area_manager,district_manager,salesman'],
+            'parent_id'          => ['nullable', 'exists:sales_hierarchy,id'],
+            'parent_unique_code' => ['nullable', 'string', 'exists:sales_hierarchy,tree_id'],
+            'state'              => ['nullable', 'string', 'max:100'],
+            'area'               => ['nullable', 'string', 'max:100'],
+            'district'           => ['nullable', 'string', 'max:100'],
+            'user_id'            => ['nullable', 'exists:users,id'],
         ]);
 
-        $treeId = SalesHierarchy::generateTreeId($request->hierarchy_role);
+        $parentId = $this->resolveParentId($request);
+        $treeId   = SalesHierarchy::generateTreeId($request->hierarchy_role);
 
         $node = SalesHierarchy::create([
             'tree_id'        => $treeId,
@@ -61,7 +63,7 @@ class SalesHierarchyController extends Controller
             'phone'          => $request->phone,
             'email'          => $request->email,
             'hierarchy_role' => $request->hierarchy_role,
-            'parent_id'      => $request->parent_id,
+            'parent_id'      => $parentId,
             'state'          => $request->state,
             'area'           => $request->area,
             'district'       => $request->district,
@@ -70,6 +72,18 @@ class SalesHierarchyController extends Controller
         ]);
 
         return $this->created($node->load(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member added to hierarchy.');
+    }
+
+    /** Resolve parent_id from parent_unique_code (tree_id lookup) when the numeric parent_id isn't given. */
+    private function resolveParentId(Request $request): ?int
+    {
+        if ($request->filled('parent_id')) {
+            return (int) $request->parent_id;
+        }
+        if ($request->filled('parent_unique_code')) {
+            return SalesHierarchy::where('tree_id', $request->parent_unique_code)->value('id');
+        }
+        return null;
     }
 
     public function show(SalesHierarchy $salesHierarchy): JsonResponse
@@ -87,21 +101,25 @@ class SalesHierarchyController extends Controller
     public function update(Request $request, SalesHierarchy $salesHierarchy): JsonResponse
     {
         $request->validate([
-            'name'      => ['sometimes', 'string', 'max:200'],
-            'phone'     => ['nullable', 'string', 'max:20'],
-            'email'     => ['nullable', 'email'],
-            'parent_id' => ['nullable', 'exists:sales_hierarchy,id'],
-            'state'     => ['nullable', 'string', 'max:100'],
-            'area'      => ['nullable', 'string', 'max:100'],
-            'district'  => ['nullable', 'string', 'max:100'],
-            'user_id'   => ['nullable', 'exists:users,id'],
-            'is_active' => ['boolean'],
+            'name'               => ['sometimes', 'string', 'max:200'],
+            'phone'              => ['nullable', 'string', 'max:20'],
+            'email'              => ['nullable', 'email'],
+            'parent_id'          => ['nullable', 'exists:sales_hierarchy,id'],
+            'parent_unique_code' => ['nullable', 'string', 'exists:sales_hierarchy,tree_id'],
+            'state'              => ['nullable', 'string', 'max:100'],
+            'area'               => ['nullable', 'string', 'max:100'],
+            'district'           => ['nullable', 'string', 'max:100'],
+            'user_id'            => ['nullable', 'exists:users,id'],
+            'is_active'          => ['boolean'],
         ]);
 
-        $salesHierarchy->update($request->only([
-            'name', 'phone', 'email', 'parent_id',
-            'state', 'area', 'district', 'user_id', 'is_active',
-        ]));
+        $data = $request->only(['name', 'phone', 'email', 'state', 'area', 'district', 'user_id', 'is_active']);
+
+        if ($request->filled('parent_id') || $request->filled('parent_unique_code')) {
+            $data['parent_id'] = $this->resolveParentId($request);
+        }
+
+        $salesHierarchy->update($data);
 
         return $this->success($salesHierarchy->fresh(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member updated.');
     }

@@ -9,6 +9,41 @@ import type { Employee } from '../../types';
 const DEPARTMENTS = ['warehouse', 'sales', 'qc', 'accounts', 'hr', 'logistics', 'management'];
 const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract'];
 const EMPTY_FORM = { name: '', phone: '', email: '', department: 'warehouse', designation: '', employment_type: 'full_time', salary: '', joining_date: '' };
+type EmployeeFormState = typeof EMPTY_FORM;
+
+// Defined OUTSIDE the page component: an inline component definition would be
+// recreated on every render, causing React to remount the inputs (and lose
+// focus) after every keystroke.
+function EmployeeForm({
+  form, setForm, onSubmit, onCancel, loading,
+}: {
+  form: EmployeeFormState;
+  setForm: (f: EmployeeFormState) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+      <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      <div className="grid grid-cols-2 gap-3">
+        <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
+          options={DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))} />
+        <Select label="Employment Type" value={form.employment_type} onChange={(e) => setForm({ ...form, employment_type: e.target.value })}
+          options={EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, ' ') }))} />
+      </div>
+      <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+      <Input label="Monthly Salary (₹)" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
+      <Input label="Joining Date" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
+      <div className="flex gap-3 pt-2">
+        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
+      </div>
+    </div>
+  );
+}
 
 export default function EmployeesPage() {
   const qc = useQueryClient();
@@ -71,27 +106,6 @@ export default function EmployeesPage() {
   const employees: Employee[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
 
-  const EmployeeForm = ({ onSubmit, loading }: { onSubmit: () => void; loading: boolean }) => (
-    <div className="space-y-4">
-      <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-      <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-      <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      <div className="grid grid-cols-2 gap-3">
-        <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
-          options={DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))} />
-        <Select label="Employment Type" value={form.employment_type} onChange={(e) => setForm({ ...form, employment_type: e.target.value })}
-          options={EMPLOYMENT_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, ' ') }))} />
-      </div>
-      <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-      <Input label="Monthly Salary (₹)" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
-      <Input label="Joining Date" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
-      <div className="flex gap-3 pt-2">
-        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
-        <Button variant="outline" onClick={() => { setShowCreate(false); setEditTarget(null); }} className="flex-1 justify-center">Cancel</Button>
-      </div>
-    </div>
-  );
-
   return (
     <div>
       <PageHeader
@@ -136,12 +150,12 @@ export default function EmployeesPage() {
 
       {/* Add Employee Modal */}
       <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Add Employee">
-        <EmployeeForm onSubmit={() => createMut.mutate()} loading={createMut.isPending} />
+        <EmployeeForm form={form} setForm={setForm} onSubmit={() => createMut.mutate()} onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); }} loading={createMut.isPending} />
       </Modal>
 
       {/* Edit Employee Modal */}
       <Modal open={!!editTarget} onClose={() => setEditTarget(null)} title={`Edit — ${editTarget?.name}`}>
-        <EmployeeForm onSubmit={() => updateMut.mutate()} loading={updateMut.isPending} />
+        <EmployeeForm form={form} setForm={setForm} onSubmit={() => updateMut.mutate()} onCancel={() => setEditTarget(null)} loading={updateMut.isPending} />
       </Modal>
 
       {/* Delete Confirm Modal */}

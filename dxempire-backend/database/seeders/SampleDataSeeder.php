@@ -412,12 +412,17 @@ class SampleDataSeeder extends Seeder
         ];
 
         $employeeIds = [];
-        foreach ($empUserMap as $em) {
-            $uid = User::where('email', $em['email'])->value('id');
+        foreach ($empUserMap as $i => $em) {
+            $user = User::where('email', $em['email'])->first(['id', 'name', 'phone', 'email']);
             $eid = DB::table('employees')->insertGetId([
-                'user_id' => $uid,
+                'user_id' => $user?->id,
+                'name' => $user?->name,
+                'phone' => $user?->phone,
+                'email' => $user?->email,
+                'employee_code' => 'EMP' . str_pad((string) ($i + 1), 4, '0', STR_PAD_LEFT),
                 'department' => $em['dept'],
                 'designation' => $em['desig'],
+                'employment_type' => 'full_time',
                 'shift' => ['morning', 'evening'][rand(0, 1)],
                 'basic_salary' => $em['salary'],
                 'join_date' => $now->copy()->subYear()->toDateString(),

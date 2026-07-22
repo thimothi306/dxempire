@@ -2,47 +2,57 @@
 
 namespace App\Exports;
 
-use App\Models\Order;
-use Illuminate\Support\Facades\DB;
+use App\Models\Invoice;
+use App\Services\OrderService;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
 
 class GstExport implements FromCollection, WithHeadings, WithTitle
 {
-    public function __construct(private int $year) {}
+    private string $year;
+    private string $month;
+
+    /** @param string $ym "YYYY-MM" */
+    public function __construct(private string $ym)
+    {
+        [$this->year, $this->month] = explode('-', $ym);
+    }
 
     public function collection()
     {
-        return collect(DB::select("
-            SELECT
-                MONTH(created_at) as month_num,
-                DATE_FORMAT(created_at, '%M %Y') as month,
-                COUNT(*) as order_count,
-                SUM(subtotal) as taxable_value,
-                SUM(gst_amount) as gst_collected,
-                SUM(total_amount) as gross_total
-            FROM orders
-            WHERE status IN ('delivered','dispatched','approved')
-              AND YEAR(created_at) = ?
-            GROUP BY MONTH(created_at), DATE_FORMAT(created_at, '%M %Y')
-            ORDER BY month_num
-        ", [$this->year]))->map(fn($r) => [
-            $r->month,
-            $r->order_count,
-            round($r->taxable_value, 2),
-            round($r->gst_collected, 2),
-            round($r->gross_total, 2),
-        ]);
+        $orderService = app(OrderService::class);
+
+        return Invoice::whereYear('issued_at', $this->year)
+            ->whereMonth('issued_at', $this->month)
+            ->with(['dealer:id,business_name,gst_number', 'order:id,billing_state'])
+            ->orderBy('issued_at')
+            ->get()
+            ->map(function ($invoice) use ($orderService) {
+                $buyerState = $invoice->billing_state ?? $invoice->order?->billing_state ?? $invoice->dealer?->state;
+                $split = $orderService->calculateGstSplit((float) $invoice->gst_amount, $buyerState);
+
+                return [
+                    $invoice->invoice_number,
+                    $invoice->issued_at?->toDateString(),
+                    $invoice->dealer?->business_name,
+                    $invoice->dealer?->gst_number,
+                    round((float) $invoice->subtotal, 2),
+                    $split['cgst_amount'],
+                    $split['sgst_amount'],
+                    $split['igst_amount'],
+                    round((float) $invoice->total, 2),
+                ];
+            });
     }
 
     public function headings(): array
     {
-        return ['Month', 'Orders', 'Taxable Value (₹)', 'GST Collected (₹)', 'Gross Total (₹)'];
+        return ['Invoice #', 'Date', 'Dealer', 'GSTIN', 'Taxable Value (₹)', 'CGST (₹)', 'SGST (₹)', 'IGST (₹)', 'Total (₹)'];
     }
 
     public function title(): string
     {
-        return 'GST Summary ' . $this->year;
+        return 'GST Summary ' . $this->ym;
     }
 }
