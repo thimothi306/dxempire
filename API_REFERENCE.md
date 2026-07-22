@@ -711,34 +711,48 @@ In-stock brands for the brand selector. Optional `?category=phone|laptop|accesso
 
 ---
 
-## 2.11 Catalog — Products by Brand/Grade — `GET /partner/catalog`
+## 2.11 Catalog — Models by Brand — `GET /partner/catalog`
 
-**Select a brand → get all grades of that brand's mobiles.** Results are aggregated by model + grade
-(available quantity + price range), so the app shows one row per variant instead of every physical unit.
+**Select a brand → get its models, one row per model**, each listing which grades are in stock.
+`data` is a **plain array** (not wrapped in an object).
 
-**Query params (all optional):** `brand`, `category`, `grade`, `search`
+**Query params (all optional):** `brand`, `category`, `grade` (only include models that have this grade in stock), `search`
 
-**Example:** `GET /partner/catalog?brand=Samsung&category=phone`
+**Example:** `GET /partner/catalog?brand=Apple`
 
 **Response `200`**
 ```json
 {
   "success": true,
   "message": "Success",
-  "data": {
-    "total_variants": 3,
-    "items": [
-      { "brand": "Samsung", "model": "Galaxy S22", "category": "phone", "grade": "S2", "available_qty": 1, "price_from": "80426.00", "price_to": "80426.00", "image_url": "https://placehold.co/600x600/1428a0/ffffff?text=Galaxy+S22" },
-      { "brand": "Samsung", "model": "Galaxy S22", "category": "phone", "grade": "S5", "available_qty": 2, "price_from": "50340.00", "price_to": "74746.00", "image_url": "https://placehold.co/600x600/1428a0/ffffff?text=Galaxy+S22" },
-      { "brand": "Samsung", "model": "Galaxy S23 Ultra", "category": "phone", "grade": "S3", "available_qty": 2, "price_from": "27214.00", "price_to": "58381.00", "image_url": null }
-    ]
-  }
+  "data": [
+    {
+      "brand": "Apple",
+      "model": "iPhone 14 Pro",
+      "category": "phone",
+      "image_url": "https://placehold.co/600x600/1d1d1f/ffffff?text=iPhone+14+Pro",
+      "total_available": 2,
+      "price_from": 38495,
+      "price_to": 63080,
+      "grades_available": ["S2", "S3"],
+      "grades": [
+        { "grade": "S2", "available_qty": 1, "price_from": 38495, "price_to": 38495 },
+        { "grade": "S3", "available_qty": 1, "price_from": 63080, "price_to": 63080 }
+      ]
+    }
+  ]
 }
 ```
 
-- `grade` is one of `S1`–`S5`
-- `price_from` / `price_to` — price range (B2B `selling_price`) across available units of that model+grade
-- `image_url` — **model-level** stock photo (one photo per brand+model+category, not per physical unit). **`null`** if no photo has been uploaded yet for that model — show a placeholder in the UI when null. Currently seeded with placeholder images for demo; real product photography needs to be uploaded via the admin panel (see note below).
+- `grades_available` — flat array of grade codes in stock for this model (`S1`–`S5`)
+- `grades` — same grades with per-grade `available_qty` and price range, for a "choose grade" screen
+- `total_available` / `price_from` / `price_to` — totals across **all** grades of this model
+- `image_url` — **model-level** stock photo (one photo per brand+model+category, not per physical unit). **`null`** if no photo has been uploaded yet — show a placeholder in the UI when null. Currently seeded with placeholder images for demo; real product photography needs to be uploaded via the admin panel (see note below).
+
+> **Changed 2026-07-22:** this endpoint previously returned `{ total_variants, items: [...] }` with
+> one flat row per (model, grade) pair. It now groups by model as shown above — if your app was built
+> against the old shape, update the mapping to read `data` directly and use `grades_available` /
+> `grades` instead of a flat per-grade list.
 
 ---
 

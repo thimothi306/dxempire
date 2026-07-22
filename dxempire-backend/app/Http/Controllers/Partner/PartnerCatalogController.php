@@ -37,12 +37,13 @@ class PartnerCatalogController extends Controller
     }
 
     /**
-     * Catalog listing — aggregated by model + grade.
+     * Catalog listing — ONE row per model, with its available grades listed
+     * inside it (grades_available + a richer per-grade qty/price breakdown).
      * Filters: ?brand=Apple  ?category=phone  ?grade=S1  ?search=iphone
      */
     public function index(Request $request): JsonResponse
     {
-        $items = Product::where('status', 'in_stock')
+        $rows = Product::where('status', 'in_stock')
             ->when($request->brand, fn($q) => $q->where('brand', $request->brand))
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->when($request->grade, fn($q) => $q->where('grade', $request->grade))
@@ -66,15 +67,31 @@ class PartnerCatalogController extends Controller
             ->get();
 
         $images = $this->imageMap();
-        $items->transform(function ($item) use ($images) {
-            $item->image_url = $images[$item->brand . '|' . $item->model . '|' . $item->category] ?? null;
-            return $item;
-        });
 
-        return $this->success([
-            'total_variants' => $items->count(),
-            'items'          => $items,
-        ]);
+        $models = $rows
+            ->groupBy(fn($r) => $r->brand . '|' . $r->model . '|' . $r->category)
+            ->map(function ($group) use ($images) {
+                $first = $group->first();
+                return [
+                    'brand'            => $first->brand,
+                    'model'            => $first->model,
+                    'category'         => $first->category,
+                    'image_url'        => $images[$first->brand . '|' . $first->model . '|' . $first->category] ?? null,
+                    'total_available'  => $group->sum('available_qty'),
+                    'price_from'       => (float) $group->min('price_from'),
+                    'price_to'         => (float) $group->max('price_to'),
+                    'grades_available' => $group->pluck('grade')->values(),
+                    'grades'           => $group->map(fn($r) => [
+                        'grade'         => $r->grade,
+                        'available_qty' => $r->available_qty,
+                        'price_from'    => (float) $r->price_from,
+                        'price_to'      => (float) $r->price_to,
+                    ])->values(),
+                ];
+            })
+            ->values();
+
+        return $this->success($models);
     }
 
     /** brand|model|category => image_url lookup map, built once per request. */
