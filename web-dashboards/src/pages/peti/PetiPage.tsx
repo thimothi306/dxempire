@@ -191,7 +191,7 @@ export default function PetiPage() {
               {items.map((item, idx) => (
                 <div key={idx} className="grid grid-cols-6 gap-2 items-end bg-gray-50 p-2 rounded-lg">
                   <Select label={idx === 0 ? 'Category' : ''} value={item.category} onChange={e => updateItem(idx, 'category', e.target.value)}
-                    options={['phone', 'laptop', 'accessory'].map(c => ({ value: c, label: c }))} />
+                    options={['phone', 'laptop'].map(c => ({ value: c, label: c }))} />
                   <Input label={idx === 0 ? 'Brand' : ''} value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="Apple" />
                   <Input label={idx === 0 ? 'Model' : ''} value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)} placeholder="iPhone 14" />
                   <Select label={idx === 0 ? 'Grade' : ''} value={item.grade} onChange={e => updateItem(idx, 'grade', e.target.value)}

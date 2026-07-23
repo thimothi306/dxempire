@@ -523,7 +523,7 @@ the request body, so a partner can only ever order for themselves.
 - `items` — required, 1–20 lines
 - `items[].brand`, `items[].model` — required, must match a catalog entry
 - `items[].grade` — required, one of `S1`–`S5`
-- `items[].category` — optional (`phone`/`laptop`/`accessory`) — helps disambiguate if the same model name exists across categories
+- `items[].category` — optional (`phone`/`laptop`) — helps disambiguate if the same model name exists across categories
 - `items[].quantity` — required, 1–50
 - `notes` — optional, free text
 
@@ -692,7 +692,10 @@ Outstanding balance + list of unpaid/partial orders.
 
 ## 2.10 Catalog — Brands — `GET /partner/catalog/brands`
 
-In-stock brands for the brand selector. Optional `?category=phone|laptop|accessory`.
+In-stock brands for the brand selector. Optional `?category=phone|laptop`.
+
+> **Changed 2026-07-23:** the `accessory` category has been removed — this catalog now covers only
+> `phone` and `laptop`.
 
 **Response `200`**
 ```json

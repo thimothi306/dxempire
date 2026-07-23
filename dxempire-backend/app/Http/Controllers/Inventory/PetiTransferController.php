@@ -33,7 +33,7 @@ class PetiTransferController extends Controller
             'to_location'   => ['nullable', 'required_if:type,internal', 'string', 'max:200'],
             'to_dealer_id'  => ['nullable', 'required_if:type,dealer', 'exists:dealers,id'],
             'items'         => ['required', 'array', 'min:1'],
-            'items.*.category'       => ['required', 'in:phone,laptop,accessory'],
+            'items.*.category'       => ['required', 'in:phone,laptop'],
             'items.*.brand'          => ['required', 'string'],
             'items.*.model'          => ['required', 'string'],
             'items.*.grade'          => ['required', 'in:S1,S2,S3,S4,S5'],

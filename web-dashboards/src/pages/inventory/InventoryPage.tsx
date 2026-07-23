@@ -27,11 +27,10 @@ function StockAvailabilityWidget() {
   const sections = [
     { key: 'phones', label: 'Phones' },
     { key: 'laptops', label: 'Laptops' },
-    { key: 'accessories', label: 'Accessories' },
   ] as const;
 
   return (
-    <div className="grid grid-cols-3 gap-4 mb-6">
+    <div className="grid grid-cols-2 gap-4 mb-6">
       {sections.map(({ key, label }) => {
         const section = data[key] ?? {};
         const grades = ['S1', 'S2', 'S3', 'S4', 'S5'].filter(g => section[g] !== undefined);
@@ -120,7 +119,7 @@ export default function InventoryPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <Input placeholder="Search IMEI / model..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
         <Select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-          options={[{ value: '', label: 'All Categories' }, { value: 'phone', label: 'Phone' }, { value: 'laptop', label: 'Laptop' }, { value: 'accessory', label: 'Accessory' }]} />
+          options={[{ value: '', label: 'All Categories' }, { value: 'phone', label: 'Phone' }, { value: 'laptop', label: 'Laptop' }]} />
         <Select value={filters.grade} onChange={(e) => setFilters({ ...filters, grade: e.target.value })}
           options={[{ value: '', label: 'All Grades' }, ...['S1','S2','S3','S4','S5'].map((g) => ({ value: g, label: g }))]} />
         <Select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}

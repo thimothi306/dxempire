@@ -22,7 +22,7 @@ class PartnerCatalogController extends Controller
 
     /**
      * List distinct brands available in stock (for the brand selector).
-     * Optional ?category=phone|laptop|accessory
+     * Optional ?category=phone|laptop
      */
     public function brands(Request $request): JsonResponse
     {

@@ -62,7 +62,7 @@ export function ReceiveItemsForm({
                 label={idx === 0 ? 'Category' : ''}
                 value={item.category}
                 onChange={(e) => updateItem(idx, 'category', e.target.value)}
-                options={['phone', 'laptop', 'accessory'].map((c) => ({ value: c, label: c }))}
+                options={['phone', 'laptop'].map((c) => ({ value: c, label: c }))}
               />
               <Input label={idx === 0 ? 'Brand' : ''} value={item.brand} onChange={(e) => updateItem(idx, 'brand', e.target.value)} placeholder="Samsung" />
               <Input label={idx === 0 ? 'Model' : ''} value={item.model} onChange={(e) => updateItem(idx, 'model', e.target.value)} placeholder="Galaxy S22" />

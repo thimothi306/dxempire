@@ -6,7 +6,7 @@ import { offersService } from '../../services/newModules';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtDate } from '../../components/ui';
 
 const DISCOUNT_TYPES = [{ value: 'percentage', label: 'Percentage (%)' }, { value: 'fixed', label: 'Fixed Amount (₹)' }];
-const APPLICABLE_TO = [{ value: 'all', label: 'All Products' }, { value: 'phone', label: 'Phones' }, { value: 'laptop', label: 'Laptops' }, { value: 'accessory', label: 'Accessories' }];
+const APPLICABLE_TO = [{ value: 'all', label: 'All Products' }, { value: 'phone', label: 'Phones' }, { value: 'laptop', label: 'Laptops' }];
 const APPLICABLE_GRADE = [{ value: 'all', label: 'All Grades' }, ...['S1','S2','S3','S4','S5'].map(g => ({ value: g, label: g }))];
 const CUSTOMER_TYPE = [{ value: 'all', label: 'All Customers' }, { value: 'b2b', label: 'B2B Only' }, { value: 'retail', label: 'Retail Only' }];
 

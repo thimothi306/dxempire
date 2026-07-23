@@ -22,9 +22,8 @@ class LowStockCheckJob implements ShouldQueue
     public function handle(ExpoNotificationService $expo): void
     {
         $thresholds = Setting::getJson('low_stock_threshold', [
-            'phone'     => 10,
-            'laptop'    => 5,
-            'accessory' => 20,
+            'phone'  => 10,
+            'laptop' => 5,
         ]);
 
         $counts = Product::inStock()

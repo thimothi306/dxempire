@@ -14,7 +14,7 @@ class ReceiveStockRequest extends FormRequest
             'supplier_id'           => ['required', 'exists:suppliers,id'],
             'purchase_order_id'     => ['nullable', 'exists:purchase_orders,id'],
             'items'                 => ['required', 'array', 'min:1', 'max:200'],
-            'items.*.category'      => ['required', 'in:phone,laptop,accessory'],
+            'items.*.category'      => ['required', 'in:phone,laptop'],
             'items.*.brand'         => ['required', 'string', 'max:100'],
             'items.*.model'         => ['required', 'string', 'max:200'],
             'items.*.purchase_price'=> ['required', 'numeric', 'min:0'],

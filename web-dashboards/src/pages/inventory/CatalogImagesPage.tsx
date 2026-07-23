@@ -8,7 +8,6 @@ import { Card, Button, PageHeader, Spinner, Modal, Input, Select } from '../../c
 const CATEGORIES = [
   { value: 'phone', label: 'Phone' },
   { value: 'laptop', label: 'Laptop' },
-  { value: 'accessory', label: 'Accessory' },
 ];
 
 interface CatalogImage {

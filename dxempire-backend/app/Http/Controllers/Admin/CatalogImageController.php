@@ -28,7 +28,7 @@ class CatalogImageController extends Controller
         $data = $request->validate([
             'brand'     => ['required', 'string'],
             'model'     => ['required', 'string'],
-            'category'  => ['required', 'string', 'in:phone,laptop,accessory'],
+            'category'  => ['required', 'string', 'in:phone,laptop'],
             'image_url' => ['required', 'url', 'max:2048'],
         ]);
 
@@ -51,7 +51,7 @@ class CatalogImageController extends Controller
         $data = $request->validate([
             'brand'    => ['required', 'string'],
             'model'    => ['required', 'string'],
-            'category' => ['required', 'string', 'in:phone,laptop,accessory'],
+            'category' => ['required', 'string', 'in:phone,laptop'],
             'image'    => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
         ]);
 

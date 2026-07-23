@@ -64,8 +64,8 @@ class InventoryController extends Controller
                 ->groupBy('category', 'grade')
                 ->get();
 
-            $result = ['phones' => [], 'laptops' => [], 'accessories' => []];
-            $map    = ['phone' => 'phones', 'laptop' => 'laptops', 'accessory' => 'accessories'];
+            $result = ['phones' => [], 'laptops' => []];
+            $map    = ['phone' => 'phones', 'laptop' => 'laptops'];
 
             foreach ($rows as $row) {
                 $key = $map[$row->category] ?? null;

@@ -39,7 +39,7 @@ export interface Product {
   imei: string;
   brand: string;
   model: string;
-  category: 'phone' | 'laptop' | 'accessory';
+  category: 'phone' | 'laptop';
   grade: string;
   status: string;
   selling_price: number;

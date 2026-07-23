@@ -96,7 +96,7 @@ class PartnerPortalController extends Controller
             'items.*.brand'      => ['required', 'string'],
             'items.*.model'      => ['required', 'string'],
             'items.*.grade'      => ['required', 'string', 'in:S1,S2,S3,S4,S5'],
-            'items.*.category'   => ['nullable', 'string', 'in:phone,laptop,accessory'],
+            'items.*.category'   => ['nullable', 'string', 'in:phone,laptop'],
             'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:50'],
             'notes'              => ['nullable', 'string', 'max:1000'],
         ]);
