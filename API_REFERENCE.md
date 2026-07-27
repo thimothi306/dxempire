@@ -343,6 +343,79 @@ When there are colleagues, each entry looks like:
 `{ "id", "name", "unique_code", "role" }`.
 
 ---
+
+## 1.9 Attendance — Self Check-In / Check-Out (selfie + GPS)
+
+Staff mark their **own** attendance from the app. The employee is resolved from the auth token —
+**do not send an employee_id**. Requests are `multipart/form-data` (because of the selfie file).
+
+> ⚠️ Base path is **`/mobile/attendance/...`** (not `/attendance/...`). Hitting
+> `/mobile/attendance/check-in` without the `mobile` prefix, or `/hr/attendance/check-in`
+> (which is HR-admin-only and takes a raw `employee_id`), is what was returning 404/403.
+
+### 1.9.a Today's status — `GET /mobile/attendance/status`
+Lets the app decide whether to show a Check-In or Check-Out button.
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "employee_id": 17,
+    "name": "Suresh Patel",
+    "date": "2026-07-27",
+    "checked_in": false,
+    "checked_out": false,
+    "attendance": null
+  }
+}
+```
+
+### 1.9.b Check in — `POST /mobile/attendance/check-in`
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `selfie` | image file (jpg/jpeg/png/webp, ≤ 8 MB) | optional | Stored server-side, returned as a public URL |
+| `latitude` | number (−90…90) | optional | e.g. `19.0760` |
+| `longitude` | number (−180…180) | optional | e.g. `72.8777` |
+| `timestamp` | ISO 8601 date string | optional | Used as the check-in time if sent; otherwise server time is used |
+
+> The field names you're already sending — `selfie`, `latitude`, `longitude`, `timestamp` — are
+> **correct**. No renaming needed.
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Checked in successfully.",
+  "data": {
+    "id": 402,
+    "employee_id": 17,
+    "date": "2026-07-27T00:00:00.000000Z",
+    "status": "present",
+    "check_in": "2026-07-27T09:15:00.000000Z",
+    "check_in_selfie": "https://api.dxempire.in/uploads/attendance/att_17_20260727_091500_in_a1B2c3.png",
+    "check_in_lat": "19.0760000",
+    "check_in_lng": "72.8777000",
+    "check_out": null,
+    "check_out_selfie": null,
+    "check_out_lat": null,
+    "check_out_lng": null
+  }
+}
+```
+
+**Error `422`** — already checked in today: `{ "success": false, "message": "You have already checked in today." }`
+**Error `404`** — the logged-in user has no linked employee record: `{ "success": false, "message": "No employee profile is linked to your account. Contact HR." }`
+
+### 1.9.c Check out — `POST /mobile/attendance/check-out`
+Same fields as check-in. Requires an existing check-in for today.
+
+**Response `200`** — same shape, now with `check_out`, `check_out_selfie`, `check_out_lat/lng` populated.
+
+**Error `422`** — `"No check-in found for today. Please check in first."` or `"You have already checked out today."`
+
+---
 ---
 
 # 🤝 PART 2 — PARTNER APP

@@ -379,7 +379,9 @@ the mobile-facing endpoints (Staff app, Partner app, Warehouse app) live in **`A
 ### 7.13 Mobile App (Sales Hierarchy Staff)
 See **`API_REFERENCE.md` Part 1** for full request/response samples.
 `POST /mobile/auth/login` (Sales ID) · `GET /mobile/dashboard` (role-specific) ·
-`GET /mobile/hierarchy/subordinates` / `/tree` / `/team-stats` / `/colleagues`
+`GET /mobile/hierarchy/subordinates` / `/tree` / `/team-stats` / `/colleagues` ·
+`GET /mobile/attendance/status` · `POST /mobile/attendance/check-in` · `POST /mobile/attendance/check-out`
+(self check-in/out with selfie + GPS; employee resolved from token, multipart/form-data)
 
 ### 7.14 Partner Portal / App
 See **`API_REFERENCE.md` Part 2** for full request/response samples.

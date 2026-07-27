@@ -36,6 +36,7 @@ use App\Http\Controllers\Admin\CatalogImageController;
 use App\Http\Controllers\Mobile\AuthController as MobileAuthController;
 use App\Http\Controllers\Mobile\HierarchyController as MobileHierarchyController;
 use App\Http\Controllers\Mobile\DashboardController as MobileDashboardController;
+use App\Http\Controllers\Mobile\AttendanceController as MobileAttendanceController;
 use App\Http\Controllers\Partner\PartnerAuthController;
 use App\Http\Controllers\Partner\PartnerPortalController;
 use App\Http\Controllers\Partner\PartnerCatalogController;
@@ -342,6 +343,13 @@ Route::prefix('v1')->group(function () {
                 Route::get('tree',         [MobileHierarchyController::class, 'tree']);
                 Route::get('team-stats',   [MobileHierarchyController::class, 'teamStats']);
                 Route::get('colleagues',   [MobileHierarchyController::class, 'colleagues']);
+            });
+
+            // Attendance — self check-in/out with selfie + GPS
+            Route::prefix('attendance')->group(function () {
+                Route::get('status',     [MobileAttendanceController::class, 'status']);
+                Route::post('check-in',  [MobileAttendanceController::class, 'checkIn']);
+                Route::post('check-out', [MobileAttendanceController::class, 'checkOut']);
             });
         });
     });
