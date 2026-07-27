@@ -17,14 +17,19 @@ class UserController extends Controller
 {
     use ApiResponse;
 
+    // b2b_partner is deliberately excluded — partner accounts are created and
+    // managed exclusively via Business Partners (New Dealer), which links a
+    // Dealer record at the same time. Allowing partner creation/listing here
+    // would produce accounts with no Dealer row, invisible everywhere.
     private const ROLES = [
         'super_admin', 'warehouse_staff', 'qc_engineer',
-        'sales', 'accounts', 'hr_manager', 'b2b_partner', 'logistics',
+        'sales', 'accounts', 'hr_manager', 'logistics',
     ];
 
     public function index(Request $request): JsonResponse
     {
         $users = User::with('roles:name')
+            ->where('role', '!=', 'b2b_partner')
             ->when($request->role, fn($q) => $q->whereHas('roles', fn($r) => $r->where('name', $request->role)))
             ->when(isset($request->is_active), fn($q) => $q->where('is_active', (bool) $request->is_active))
             ->when($request->search, fn($q) => $q

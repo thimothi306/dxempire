@@ -121,6 +121,23 @@ class DealerController extends Controller
         );
     }
 
+    /** Enable/disable a partner's own login — does not touch KYC or credit. */
+    public function deactivate(Dealer $dealer): JsonResponse
+    {
+        $dealer->loadMissing('user');
+        $dealer->user?->update(['is_active' => false]);
+
+        return $this->success($dealer->fresh('user')->toArray(), 'Partner account deactivated.');
+    }
+
+    public function activate(Dealer $dealer): JsonResponse
+    {
+        $dealer->loadMissing('user');
+        $dealer->user?->update(['is_active' => true]);
+
+        return $this->success($dealer->fresh('user')->toArray(), 'Partner account activated.');
+    }
+
     public function updateCredit(Request $request, Dealer $dealer): JsonResponse
     {
         $request->validate([

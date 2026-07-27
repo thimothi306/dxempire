@@ -164,6 +164,8 @@ Route::prefix('v1')->group(function () {
             Route::post('dealers',                   [DealerController::class, 'store']);
             Route::put('dealers/{dealer}/kyc',       [DealerController::class, 'updateKyc']);
             Route::put('dealers/{dealer}/credit',    [DealerController::class, 'updateCredit']);
+            Route::post('dealers/{dealer}/deactivate', [DealerController::class, 'deactivate']);
+            Route::post('dealers/{dealer}/activate',   [DealerController::class, 'activate']);
         });
 
         // Support tickets — any authenticated user can create, sales/admin can manage

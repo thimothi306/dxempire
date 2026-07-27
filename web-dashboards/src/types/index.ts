@@ -118,7 +118,7 @@ export interface Dealer {
   available_credit?: number;
   orders_count?: number;
   created_at?: string;
-  user?: { id: number; name: string; phone: string };
+  user?: { id: number; name: string; phone: string; is_active?: boolean };
 }
 
 // --- Leads ---

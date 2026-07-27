@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dealersService } from '../../services';
-import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Select, Button, Badge, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate } from '../../components/ui';
 import type { Dealer } from '../../types';
 
 const BLANK_FORM = {
@@ -53,6 +53,18 @@ export default function DealersPage() {
   const creditMut = useMutation({
     mutationFn: (id: number) => dealersService.updateCredit(id, { credit_limit: Number(creditForm.credit_limit) }),
     onSuccess: () => { toast.success('Credit limit updated'); qc.invalidateQueries({ queryKey: ['dealers'] }); setSelected(null); },
+    onError: () => toast.error('Failed'),
+  });
+
+  const activateMut = useMutation({
+    mutationFn: (id: number) => dealersService.activate(id),
+    onSuccess: () => { toast.success('Partner account activated'); qc.invalidateQueries({ queryKey: ['dealers'] }); setSelected(null); },
+    onError: () => toast.error('Failed'),
+  });
+
+  const deactivateMut = useMutation({
+    mutationFn: (id: number) => dealersService.deactivate(id),
+    onSuccess: () => { toast.success('Partner account deactivated'); qc.invalidateQueries({ queryKey: ['dealers'] }); setSelected(null); },
     onError: () => toast.error('Failed'),
   });
 
@@ -117,6 +129,7 @@ export default function DealersPage() {
                 { key: 'phone', header: 'Phone', render: (d) => d.phone ?? d.user?.phone ?? '—' },
                 { key: 'city', header: 'City/State', render: (d) => d.city ?? d.state ?? '—' },
                 { key: 'kyc_status', header: 'KYC', render: (d) => kycBadge(d.kyc_status) },
+                { key: 'status', header: 'Status', render: (d) => d.user?.is_active === false ? <Badge label="Inactive" color="red" /> : <Badge label="Active" color="green" /> },
                 { key: 'credit_limit', header: 'Credit Limit', render: (d) => fmtINR(d.credit_limit ?? 0) },
                 { key: 'credit_used', header: 'Used', render: (d) => <span className={(d.credit_used ?? 0) > 0 ? 'text-red-600 font-medium' : ''}>{fmtINR(d.credit_used ?? d.outstanding_balance ?? 0)}</span> },
               ]}
@@ -193,6 +206,7 @@ export default function DealersPage() {
                   <div><span className="text-gray-500 block text-xs">GST</span><span className="font-mono text-xs">{dealerDetail?.gst_number ?? '—'}</span></div>
                   <div><span className="text-gray-500 block text-xs">State</span>{dealerDetail?.state ?? dealerDetail?.city ?? '—'}</div>
                   <div><span className="text-gray-500 block text-xs">KYC</span>{kycBadge(dealerDetail?.kyc_status ?? selected.kyc_status)}</div>
+                  <div><span className="text-gray-500 block text-xs">Login Status</span>{(dealerDetail?.user?.is_active ?? selected.user?.is_active) === false ? <Badge label="Inactive" color="red" /> : <Badge label="Active" color="green" />}</div>
                   <div><span className="text-gray-500 block text-xs">Credit Limit</span><span className="font-semibold">{fmtINR(dealerDetail?.credit_limit ?? selected.credit_limit ?? 0)}</span></div>
                   <div><span className="text-gray-500 block text-xs">Credit Used</span><span className="font-semibold text-red-600">{fmtINR(dealerDetail?.credit_used ?? dealerDetail?.outstanding_balance ?? 0)}</span></div>
                   <div><span className="text-gray-500 block text-xs">Available</span><span className="font-semibold text-green-700">{fmtINR(dealerDetail?.available_credit ?? 0)}</span></div>
@@ -206,6 +220,15 @@ export default function DealersPage() {
                     <Button size="sm" variant="danger" onClick={() => kycRejectMut.mutate(selected.id)} loading={kycRejectMut.isPending}>Reject KYC</Button>
                   </div>
                 )}
+
+                {/* Login activate/deactivate */}
+                <div className="flex gap-2 pt-2 border-t mt-2">
+                  {(dealerDetail?.user?.is_active ?? selected.user?.is_active) === false ? (
+                    <Button size="sm" onClick={() => activateMut.mutate(selected.id)} loading={activateMut.isPending}>Activate Account</Button>
+                  ) : (
+                    <Button size="sm" variant="danger" onClick={() => deactivateMut.mutate(selected.id)} loading={deactivateMut.isPending}>Deactivate Account</Button>
+                  )}
+                </div>
 
                 {/* Credit limit update */}
                 <div className="border-t pt-4">

@@ -89,6 +89,8 @@ export const dealersService = {
   rejectKyc: (id: number, reason?: string) => DEMO_MODE ? mock({}) : api.put(`/dealers/${id}/kyc`, { kyc_status: 'rejected', reason }).then((r) => r.data),
   updateCredit: (id: number, data: { credit_limit: number }) => DEMO_MODE ? mock({}) : api.put(`/dealers/${id}/credit`, data).then((r) => r.data),
   ledger: (id: number, params?: Record<string, string>) => DEMO_MODE ? mock([]) : api.get(`/dealers/${id}/ledger`, { params }).then((r) => r.data.data),
+  activate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/activate`).then((r) => r.data),
+  deactivate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/deactivate`).then((r) => r.data),
 };
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
