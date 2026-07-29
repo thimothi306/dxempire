@@ -70,12 +70,11 @@ export default function LoginPage() {
       <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-primary-500/30 blur-3xl" />
 
       <div className="w-full max-w-sm relative">
-        <div className="text-center mb-8">
-          <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-16 w-auto mx-auto mb-3" />
-          <h1 className="text-3xl font-bold text-white">
-            DX<span className="text-accent">EMPIRE</span>
-          </h1>
-          <p className="text-primary-100 text-sm mt-1">Admin Panel</p>
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <div className="bg-white rounded-2xl p-2 shadow-lg flex-shrink-0">
+            <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-14 w-14 object-contain" />
+          </div>
+          <p className="text-white text-lg font-semibold">Admin Panel</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-xl border border-white/20 p-8">

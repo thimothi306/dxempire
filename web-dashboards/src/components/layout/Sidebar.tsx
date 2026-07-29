@@ -79,12 +79,11 @@ export function Sidebar() {
   return (
     <aside className="w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen sticky top-0">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-navy-600 flex items-center gap-2.5">
-        <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-8 w-auto" />
-        <div>
-          <span className="text-lg font-bold text-white tracking-tight leading-none block">DXEMPIRE</span>
-          <p className="text-[11px] text-primary-200 mt-0.5">Admin Panel</p>
+      <div className="px-5 py-5 border-b border-navy-600 flex items-center gap-3">
+        <div className="bg-white rounded-xl p-1.5 flex-shrink-0">
+          <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-11 w-11 object-contain" />
         </div>
+        <p className="text-sm font-semibold text-primary-200">Admin Panel</p>
       </div>
 
       {/* Nav */}

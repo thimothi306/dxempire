@@ -30,7 +30,7 @@
 
 @layer base {
   * { box-sizing: border-box; }
-  body { background-color: #f9fafb; color: #111827; font-family: 'Inter', sans-serif; }
+  body { background-color: #EAF3FB; color: #111827; font-family: 'Inter', sans-serif; }
 }
 
 @layer utilities {
