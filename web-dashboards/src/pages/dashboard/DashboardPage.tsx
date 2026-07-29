@@ -221,7 +221,7 @@ function AdminDashboard() {
               <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => fmtINR(Number(v))} />
-              <Bar dataKey="revenue" fill="#E8593C" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="revenue" fill="#3183CC" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -235,7 +235,7 @@ function AdminDashboard() {
             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`} />
             <Tooltip formatter={(v: any) => fmtINR(Number(v))} />
-            <Bar dataKey="revenue" name="Revenue" fill="#E8593C" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="revenue" name="Revenue" fill="#3183CC" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>
@@ -543,7 +543,7 @@ function AccountsDashboard() {
             <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 100000).toFixed(1)}L`} />
             <Tooltip formatter={(v: any) => fmtINR(Number(v))} />
             <Legend />
-            <Bar dataKey="revenue" name="Revenue" fill="#E8593C" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="revenue" name="Revenue" fill="#3183CC" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </Card>

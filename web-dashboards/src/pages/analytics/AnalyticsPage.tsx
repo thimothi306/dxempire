@@ -7,7 +7,7 @@ import {
   CartesianGrid, LineChart, Line, PieChart, Pie, Cell,
 } from 'recharts';
 
-const COLORS = ['#E8593C', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+const COLORS = ['#3183CC', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
 
 function fmtISO(daysAgo: number) {
   const d = new Date(); d.setDate(d.getDate() - daysAgo); return d.toISOString().slice(0, 10);
@@ -69,7 +69,7 @@ function RevenueTab() {
               <XAxis dataKey="period" tick={{ fontSize: 11 }} tickFormatter={(v) => String(v).slice(5)} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
               <Tooltip formatter={(v: any) => fmtINR(Number(v))} />
-              <Line type="monotone" dataKey="revenue" stroke="#E8593C" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="revenue" stroke="#3183CC" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </Card>
@@ -84,7 +84,7 @@ function RevenueTab() {
                 <XAxis type="number" tick={{ fontSize: 10 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="model" tick={{ fontSize: 11 }} width={80} />
                 <Tooltip formatter={(v: any) => fmtINR(Number(v))} />
-                <Bar dataKey="revenue" fill="#E8593C" radius={[0, 3, 3, 0]} />
+                <Bar dataKey="revenue" fill="#3183CC" radius={[0, 3, 3, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -122,7 +122,7 @@ function SalesTab() {
 
   const channelPieData = channel
     ? [
-        { name: 'B2B', value: Number(channel.b2b_revenue ?? 0), color: '#E8593C' },
+        { name: 'B2B', value: Number(channel.b2b_revenue ?? 0), color: '#3183CC' },
         { name: 'Retail', value: Number(channel.retail_revenue ?? 0), color: '#3B82F6' },
       ].filter((d) => d.value > 0)
     : [];

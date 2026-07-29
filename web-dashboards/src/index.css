@@ -2,11 +2,29 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #E8593C;
-  --color-primary-50: #FFF0ED;
-  --color-primary-100: #FFD5CC;
-  --color-primary-500: #E8593C;
-  --color-primary-600: #C94A2F;
+  /* Brand blue — from the DXEmpire logo. Primary actions, links, focus rings. */
+  --color-primary: #3183CC;
+  --color-primary-50: #EAF3FB;
+  --color-primary-100: #CFE4F5;
+  --color-primary-200: #9EC9EB;
+  --color-primary-500: #3183CC;
+  --color-primary-600: #256BA8;
+  --color-primary-700: #1D5486;
+
+  /* Brand navy — the logo's dark outline. Sidebar / dark surfaces. */
+  --color-navy: #032252;
+  --color-navy-50: #E9EDF5;
+  --color-navy-600: #0A3570;
+  --color-navy-700: #062A5E;
+  --color-navy-800: #032252;
+  --color-navy-900: #011738;
+
+  /* Brand amber — the logo's X accent. Sparingly: highlights, active markers, CTAs. */
+  --color-accent: #FC9D0D;
+  --color-accent-50: #FFF4E0;
+  --color-accent-100: #FFE3B0;
+  --color-accent-600: #DB8600;
+
   --font-family-sans: 'Inter', sans-serif;
 }
 

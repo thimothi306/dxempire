@@ -65,16 +65,20 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-navy-900 via-navy-800 to-primary-600 relative overflow-hidden">
+      <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-accent/20 blur-3xl" />
+      <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-primary-500/30 blur-3xl" />
+
+      <div className="w-full max-w-sm relative">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            DX<span className="text-primary">EMPIRE</span>
+          <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-16 w-auto mx-auto mb-3" />
+          <h1 className="text-3xl font-bold text-white">
+            DX<span className="text-accent">EMPIRE</span>
           </h1>
-          <p className="text-gray-500 text-sm mt-1">Admin Panel</p>
+          <p className="text-primary-100 text-sm mt-1">Admin Panel</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-white/20 p-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input

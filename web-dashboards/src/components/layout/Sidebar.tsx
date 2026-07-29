@@ -77,11 +77,14 @@ export function Sidebar() {
   const visible = NAV.filter((n) => role && n.roles.includes(role as Role));
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-gray-900 text-gray-300 flex flex-col h-screen sticky top-0">
+    <aside className="w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen sticky top-0">
       {/* Logo */}
-      <div className="px-5 py-5 border-b border-gray-800">
-        <span className="text-xl font-bold text-white tracking-tight">DX<span className="text-primary">EMPIRE</span></span>
-        <p className="text-xs text-gray-500 mt-0.5">Admin Panel</p>
+      <div className="px-5 py-5 border-b border-navy-600 flex items-center gap-2.5">
+        <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-8 w-auto" />
+        <div>
+          <span className="text-lg font-bold text-white tracking-tight leading-none block">DXEMPIRE</span>
+          <p className="text-[11px] text-primary-200 mt-0.5">Admin Panel</p>
+        </div>
       </div>
 
       {/* Nav */}
@@ -93,8 +96,10 @@ export function Sidebar() {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  `relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary text-white before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-1 before:rounded-full before:bg-accent before:-ml-3'
+                      : 'text-blue-100/60 hover:bg-navy-600 hover:text-white'
                   }`
                 }
               >
@@ -113,7 +118,7 @@ export function Sidebar() {
               <button
                 onClick={() => toggleMenu(item.label)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isGroupActive ? 'text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  isGroupActive ? 'text-white' : 'text-blue-100/60 hover:bg-navy-600 hover:text-white'
                 }`}
               >
                 {item.icon}
@@ -122,14 +127,14 @@ export function Sidebar() {
               </button>
 
               {isOpen && (
-                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-700 pl-3">
+                <div className="ml-4 mt-0.5 space-y-0.5 border-l border-navy-600 pl-3">
                   {item.children.map((child) => (
                     <NavLink
                       key={child.to}
                       to={child.to}
                       className={({ isActive }) =>
                         `flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          isActive ? 'bg-primary text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                          isActive ? 'bg-primary text-white' : 'text-blue-100/60 hover:bg-navy-600 hover:text-white'
                         }`
                       }
                     >
@@ -145,19 +150,19 @@ export function Sidebar() {
       </nav>
 
       {/* User footer */}
-      <div className="px-4 py-4 border-t border-gray-800">
+      <div className="px-4 py-4 border-t border-navy-600">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-navy-800 text-sm font-bold">
             {user?.name?.charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-white truncate">{user?.name}</p>
-            <p className="text-xs text-gray-500 truncate capitalize">{user?.role?.replace(/_/g, ' ')}</p>
+            <p className="text-xs text-blue-100/50 truncate capitalize">{user?.role?.replace(/_/g, ' ')}</p>
           </div>
         </div>
         <button
           onClick={logout}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-red-400 transition-colors w-full"
+          className="flex items-center gap-2 text-sm text-blue-100/60 hover:text-accent transition-colors w-full"
         >
           <LogOut size={15} /> Logout
         </button>
