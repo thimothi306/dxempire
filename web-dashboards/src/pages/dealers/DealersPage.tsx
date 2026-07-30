@@ -85,7 +85,11 @@ export default function DealersPage() {
   const dealers: Dealer[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
   const dealerDetail = detail?.data ?? selected;
-  const ledger = ledgerData?.transactions ?? ledgerData?.data ?? [];
+  const ledger: any[] = Array.isArray(ledgerData?.transactions)
+    ? ledgerData.transactions
+    : Array.isArray(ledgerData?.transactions?.data)
+      ? ledgerData.transactions.data
+      : [];
   const ledgerSummary = ledgerData?.summary ?? null;
 
   const openDealer = (d: Dealer) => {
