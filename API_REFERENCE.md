@@ -1,7 +1,14 @@
-# DXEmpire — Mobile API Reference
+# DXEmpire — Complete API Reference
 
-Complete reference for the mobile app developer building the **Staff (Sales) App** and the **Partner App**.
-All responses below are **real samples** captured from the live production API.
+Full reference for every API in the system — the 3 apps (Staff, Partner, Warehouse), the admin
+web dashboard's back-office endpoints, the not-yet-consumed B2C storefront, and Delhivery's direct
+courier API — organized so any endpoint can be tested standalone in Postman.
+
+**Parts 1–3** (mobile-facing) responses are **real samples captured from the live production API.**
+**Parts 4–6** (admin back-office, retail storefront, Delhivery direct) are **derived directly from
+the current controller/validation code** — accurate to the field names and shapes the code actually
+produces, but not all individually re-captured live; where something *has* been confirmed against
+a real request, that's called out explicitly (see Known Gaps at the end).
 
 ---
 
@@ -1305,6 +1312,609 @@ approved (by admin) → picking → packed → dispatched → delivered
 ---
 ---
 
+# 📋 PART 4 — ADMIN / BACK-OFFICE APIs (Web Dashboard only)
+
+Everything below is consumed by `admin.dxempire.in` (the React admin dashboard), **not** by any of
+the 3 apps in Parts 1–3. Auth is the same admin Bearer token from `POST /auth/admin/login` (3.1).
+Roles noted per section are enforced server-side — calling with the wrong role returns `403`.
+
+---
+
+## 4.1 Users & Roles (`super_admin` only)
+
+**List** — `GET /admin/users` — filters: `role`, `is_active`, `search` (name/phone). Paginated.
+Excludes `b2b_partner` accounts (those live under Business Partners, 3.x Dealers section).
+
+**Create** — `POST /admin/users`
+```json
+{ "name": "Priya Singh", "phone": "9876543210", "email": "priya@dxempire.com", "password": "secret123", "role": "warehouse_staff", "parent_unique_code": null, "is_active": true }
+```
+- `role` — one of `super_admin,warehouse_staff,qc_engineer,sales,accounts,hr_manager,logistics`
+- `password` optional — if omitted, user has no password set yet (staff app login is Sales-ID-only anyway)
+
+Response `201`:
+```json
+{ "success": true, "message": "User created with Unique Code: SG004", "data": { "user": { "id": 12, "name": "Priya Singh", "phone": "9876543210", "role": "warehouse_staff", "unique_code": "SG004", "roles": [{"name": "warehouse_staff"}] }, "unique_code": "SG004" } }
+```
+
+**Detail** — `GET /admin/users/{id}` — includes `roles`, `permissions`, `employee`, `dealer` relations if present.
+
+**Update** — `PUT /admin/users/{id}`
+```json
+{ "name": "Priya S.", "email": "priya.s@dxempire.com", "is_active": true }
+```
+
+**Assign role** — `PUT /admin/users/{id}/role`
+```json
+{ "role": "accounts" }
+```
+Blocks removing the last remaining `super_admin` (`422` if attempted).
+
+**Activate / Deactivate** — `POST /admin/users/{id}/activate`, `POST /admin/users/{id}/deactivate` (no body).
+Deactivating also revokes all of that user's Sanctum tokens (forces logout everywhere). Cannot deactivate your own account (`422`).
+
+**List all roles** — `GET /admin/roles`
+```json
+{ "success": true, "data": [ { "id": 1, "name": "super_admin", "users_count": 1 }, { "id": 2, "name": "sales", "users_count": 5 } ] }
+```
+
+---
+
+## 4.2 Settings (`super_admin` only)
+
+**List all** — `GET /admin/settings`
+```json
+{
+  "success": true,
+  "data": [
+    { "key": "company_name", "value": "DXEMPIRE TECHBUZZ PRIVATE LIMITED", "raw": "...", "editable": true, "updated_at": "..." },
+    { "key": "warehouse_pincode", "value": "799286", "raw": "799286", "editable": true, "updated_at": "..." }
+  ]
+}
+```
+`editable: false` marks settings that exist in the DB but aren't in the whitelist below — attempting
+to update one of those returns `403`.
+
+**Editable keys** (whitelist enforced server-side): `grade_price_rules`, `low_stock_threshold`,
+`logistics_provider` (`shiprocket|delhivery|dtdc`), `whatsapp_provider` (`interakt|twilio`),
+`company_name`, `company_address`, `company_gst`, `company_phone`, `company_email`,
+`warehouse_name`, `warehouse_contact`, `warehouse_phone`, `warehouse_email`, `warehouse_address`,
+`warehouse_city`, `warehouse_state`, `warehouse_pincode`.
+
+**Get one** — `GET /admin/settings/{key}`
+
+**Update one** — `PUT /admin/settings/{key}`
+```json
+{ "value": "delhivery" }
+```
+
+**Bulk update** — `PUT /admin/settings` (this is what the Settings page's "Save Changes" button calls)
+```json
+{ "settings": [ { "key": "warehouse_pincode", "value": "799286" }, { "key": "logistics_provider", "value": "delhivery" } ] }
+```
+```json
+{ "success": true, "message": "2 setting(s) updated.", "data": null }
+```
+> ⚠️ Every `key` in the array must be in the editable whitelist above, or the **entire** batch is
+> rejected with `422` — there is no partial success.
+
+---
+
+## 4.3 Catalog Images (`super_admin` only)
+
+Already documented in the "Catalog Images — Admin Upload" appendix section further below — see that
+section for the full upload/list/delete flow (`GET/POST /admin/catalog-images`, `POST /admin/catalog-images/upload`, `DELETE /admin/catalog-images/{id}`).
+
+---
+
+## 4.4 Audit Logs — `GET /admin/audit-logs` (`super_admin` only)
+
+Filters: `user_id`, `action` (partial match), `model` (partial match on model class name), `from`, `to`. Paginated.
+```json
+{
+  "success": true,
+  "data": [
+    { "id": 501, "user": { "id": 1, "name": "Anil Sharma", "phone": "9111111100" }, "action": "order.dispatched", "model_type": "App\\Models\\Order", "model_id": 15, "old_values": [], "new_values": { "awb": "AWB123", "provider": "Shiprocket" }, "created_at": "2026-07-21T06:25:38.000000Z" }
+  ],
+  "meta": { "current_page": 1, "per_page": 50, "total": 1, "last_page": 1 }
+}
+```
+
+---
+
+## 4.5 Analytics (`super_admin`, `sales`, `accounts`)
+
+**Dashboard summary** — `GET /analytics/dashboard`
+```json
+{ "success": true, "data": { "today_revenue": 0, "week_revenue": 0, "month_revenue": 1355545, "active_orders": 5, "pending_qc": 7, "pending_dispatch": 2, "in_refurbishment": 5, "total_in_stock": 13 } }
+```
+
+**Revenue over time** — `GET /analytics/revenue?period=daily&from=2026-06-01&to=2026-07-01&channel=b2b`
+`period`: `daily|weekly|monthly`. `channel`: `b2b|retail` (omit for both).
+```json
+{
+  "success": true,
+  "data": {
+    "period": { "from": "2026-06-01", "to": "2026-07-01", "group_by": "daily" },
+    "summary": { "total_orders": 42, "total_revenue": 1355545, "avg_order_value": 32275.0 },
+    "time_series": [ { "period": "2026-06-15", "order_count": 3, "revenue": 96000, "avg_order_value": 32000 } ],
+    "top_products": [ { "brand": "Apple", "model": "iPhone 13", "category": "phone", "grade": "S2", "units_sold": 12, "revenue": 384000 } ],
+    "top_dealers": [ { "business_name": "Sharma Electronics", "gst_number": "27AAAPL...", "order_count": 8, "revenue": 256000 } ]
+  }
+}
+```
+
+**Sales breakdown** — `GET /analytics/sales?from=...&to=...&group_by=category` (`group_by`: `category|brand|grade`)
+```json
+{
+  "success": true,
+  "data": {
+    "period": { "from": "2026-06-01", "to": "2026-07-01", "group_by": "category" },
+    "breakdown": [ { "segment": "phone", "units_sold": 30, "revenue": 900000, "gst_collected": 162000, "avg_unit_price": 30000 } ],
+    "channel_split": { "b2b_revenue": 1000000, "retail_revenue": 355545, "b2b_orders": 30, "retail_orders": 12 }
+  }
+}
+```
+
+**Inventory health** — `GET /analytics/inventory`
+```json
+{
+  "success": true,
+  "data": {
+    "summary": { "total_in_stock": 13, "total_stock_value": 416000, "pending_qc": 7, "in_refurbishment": 5 },
+    "stock_matrix": [ { "category": "phone", "grade": "S2", "count": 5 } ],
+    "aging_buckets": [ { "age_bucket": "0-30 days", "count": 8, "stock_value": 256000 } ],
+    "slow_movers": [ { "id": 22, "brand": "Samsung", "model": "Galaxy S21", "category": "phone", "grade": "S3", "selling_price": "18000.00", "created_at": "...", "days_in_stock": 65 } ]
+  }
+}
+```
+
+**Stock movement history** — `GET /analytics/stock-movements?product_id=&bin_id=&from=&to=` — paginated bin-transfer audit trail.
+
+**Partner/dealer performance** — `GET /analytics/partners?from=&to=`
+```json
+{
+  "success": true,
+  "data": {
+    "period": { "from": "2026-04-30", "to": "2026-07-29" },
+    "dealers": [ { "id": 3, "business_name": "Sharma Electronics", "price_tier": "A", "credit_limit": "300000.00", "credit_used": "206423.00", "order_count": 8, "total_revenue": 256000, "avg_order_value": 32000, "amount_paid": 200000, "amount_outstanding": 56000, "last_order_at": "...", "payment_rate_pct": 78.1, "credit_utilisation_pct": 68.8 } ]
+  }
+}
+```
+
+**Demand forecast** — `GET /analytics/forecast` — 3-month rolling average per category, cached hourly.
+```json
+{
+  "success": true,
+  "data": {
+    "generated_at": "2026-07-29 10:00:00",
+    "forecast_month": "2026-08",
+    "method": "3-month rolling average",
+    "categories": [ { "category": "phone", "history": { "2026-05": 20, "2026-06": 25, "2026-07": 30 }, "forecast_month": "2026-08", "forecast_units": 25, "current_stock": 10 } ]
+  }
+}
+```
+
+---
+
+## 4.6 Finance (`super_admin`, `accounts`)
+
+**Dealer ledger** — `GET /finance/dealers/{id}/ledger?from=&to=`
+```json
+{
+  "success": true,
+  "data": {
+    "dealer": { "id": 3, "business_name": "Sharma Electronics", "user": { "id": 10, "name": "...", "phone": "..." } },
+    "summary": { "total_orders": 8, "total_billed": 256000, "total_paid": 200000, "total_refunded": 0, "outstanding": 56000, "credit_limit": "300000.00", "credit_used": "206423.00", "credit_available": 93577 },
+    "transactions": [ { "order_number": "DX-2026-00015", "date": "2026-07-15", "status": "delivered", "payment_status": "paid", "total_amount": "32000.00", "invoice_number": "INV-2026-00015", "payments": [ { "amount": "32000.00", "status": "captured", "method": "razorpay", "paid_at": "..." } ] } ]
+  }
+}
+```
+
+**Invoices** — `GET /finance/invoices?dealer_id=&from=&to=` — paginated, each with `order`, `dealer.user` loaded.
+
+**Generate invoice** — `POST /finance/invoices/orders/{orderId}/generate` (no body) — order must be `approved`, `dispatched`, or `delivered`.
+```json
+{ "success": true, "message": "Invoice generated.", "data": { "id": 15, "invoice_number": "INV-2026-00015", "order_id": 15, "subtotal": "27118.64", "gst_amount": "4881.36", "total": "32000.00", "status": "unpaid" } }
+```
+
+**Invoice detail** — `GET /finance/invoices/{id}` — includes `order.items.product`, `dealer.user`.
+
+**Record a payment** — `POST /finance/invoices/{id}/payment`
+```json
+{ "amount": 32000, "method": "razorpay", "note": "Paid via UPI" }
+```
+`method`: `cash|bank_transfer|razorpay|cheque|upi`. Auto-flips the order's `payment_status` to `paid`/`partial` based on cumulative captured payments.
+
+**Download invoice PDF** — `GET /finance/invoices/{id}/download` — binary PDF, `404` if not yet generated.
+
+**Expenses** — `GET /finance/expenses?category=&from=&to=`, `POST /finance/expenses` (multipart if attaching a receipt):
+```json
+{ "category": "Rent", "amount": 25000, "vendor": "Landlord", "description": "July office rent", "incurred_at": "2026-07-01", "receipt": "<file, optional>" }
+```
+`GET /finance/expenses/{id}`, `POST /finance/expenses/{id}` (update — same fields, method-spoofed PUT via POST), `DELETE /finance/expenses/{id}`, `GET /finance/expenses/categories` (distinct category list).
+
+**P&L report** — `GET /finance/profit-loss?period=monthly&year=2026` (`period`: `monthly|quarterly`)
+```json
+{
+  "success": true,
+  "data": {
+    "year": 2026, "period": "monthly", "total_revenue": 1355545, "total_expenses": 125000,
+    "net_profit": 1230545, "net_margin_pct": 90.78,
+    "time_series": [ { "period": "Jan 2026", "revenue": 0, "expenses": 0 }, { "period": "Jul 2026", "revenue": 1355545, "expenses": 25000 } ]
+  }
+}
+```
+
+**GST summary** — `GET /finance/gst-summary?month=2026-07`
+```json
+{
+  "success": true,
+  "data": {
+    "month": "2026-07", "taxable_value": 27118.64, "cgst": 2440.68, "sgst": 2440.68, "igst": 0,
+    "invoices": [ { "id": 15, "invoice_number": "INV-2026-00015", "dealer_name": "Sharma Electronics", "dealer_gstin": "27AAAPL...", "taxable_value": 27118.64, "cgst": 2440.68, "sgst": 2440.68, "igst": 0, "total_amount": 32000 } ]
+  }
+}
+```
+
+**GST export (CSV)** — `GET /finance/gst-export?month=2026-07` — triggers a file download (`Content-Type: text/csv`), not a JSON envelope. In Postman, use "Send and Download."
+
+**Receivables** — `GET /finance/receivables`
+```json
+{ "success": true, "data": { "total_outstanding": 206423, "dealers": [ { "dealer_id": 3, "business_name": "Sharma Electronics", "contact": "...", "phone": "...", "credit_limit": "300000.00", "credit_used": "206423.00", "credit_available": 93577, "utilisation_pct": 68.8 } ] } }
+```
+
+**Vendor payments** — `GET /finance/vendor-payments?supplier_id=&from=&to=`, `POST /finance/vendor-payments`:
+```json
+{ "supplier_id": 2, "amount": 50000, "method": "bank_transfer", "reference_number": "TXN12345", "note": "July stock payment", "paid_at": "2026-07-15" }
+```
+`method`: `cash|bank_transfer|cheque|upi`.
+
+---
+
+## 4.7 HR (`super_admin`, `hr_manager`)
+
+**Employees** — `GET /hr/employees?department=&shift=&is_active=&search=` — paginated.
+
+**Create** — `POST /hr/employees`
+```json
+{ "name": "Rahul Verma", "phone": "9123456780", "email": "rahul@dxempire.com", "department": "Warehouse", "designation": "Picker", "employment_type": "full_time", "shift": "morning", "salary": 18000, "joining_date": "2026-07-01" }
+```
+`employment_type`: `full_time|part_time|contract`. `shift`: `morning|evening`. Server auto-generates `employee_code`.
+
+**Detail** — `GET /hr/employees/{id}` — includes `payrollItems.payrollRun`.
+**Update** — `PUT /hr/employees/{id}` (same fields as create, all `sometimes`).
+**Deactivate** — `DELETE /hr/employees/{id}` (soft — sets inactive, doesn't hard-delete).
+**Departments list** — `GET /hr/employees/departments` — distinct department names.
+
+**Attendance list** — `GET /hr/attendance?employee_id=&date=&month=&year=&status=` — paginated.
+
+**Bulk mark** — `POST /hr/attendance/bulk`
+```json
+{ "records": [ { "employee_id": 5, "date": "2026-07-29", "status": "present", "check_in": "09:05", "check_out": "18:10" } ] }
+```
+`status`: `present|absent|late|half_day|holiday|leave`. Upserts by (employee_id, date).
+
+**Check-in / check-out (admin-triggered, distinct from the mobile self check-in in Part 1.9)** —
+`POST /hr/attendance/check-in` / `POST /hr/attendance/check-out`
+```json
+{ "employee_id": 5 }
+```
+
+**Today's status (all employees)** — `GET /hr/attendance/today`
+```json
+{ "success": true, "data": { "date": "2026-07-29", "total": 12, "marked": 9, "unmarked": 3, "records": [ { "employee_id": 5, "name": "Rahul Verma", "department": "Warehouse", "shift": "morning", "attendance": { "status": "present", "check_in": "...", "check_out": null } } ] } }
+```
+
+**Monthly summary for one employee** — `GET /hr/attendance/{employeeId}/summary?month=7&year=2026`
+```json
+{ "success": true, "data": { "employee": {...}, "month": 7, "year": 2026, "days_worked": 22.5, "present": 22, "half_day": 1, "absent": 2, "leave": 1, "records": [...] } }
+```
+
+**Payroll runs** — `GET /hr/payroll?year=2026` — paginated.
+
+**Create draft run** — `POST /hr/payroll`
+```json
+{ "month": 7, "year": 2026 }
+```
+`422` if a run for that month/year already exists.
+
+**Create + process in one call** — `POST /hr/payroll/process` (same body) — creates the run if it doesn't exist, then immediately processes it.
+
+**Process an existing draft** — `POST /hr/payroll/{runId}/process` (no body) — only allowed while `status: draft`.
+
+**Run detail** — `GET /hr/payroll/{runId}` — includes `items.employee.user`.
+
+**Mark paid** — `POST /hr/payroll/{runId}/mark-paid` (no body) — only from `status: processed`.
+
+**Run's line items** — `GET /hr/payroll/{runId}/items`
+```json
+{ "success": true, "data": { "run": { "id": 3, "month": 7, "year": 2026, "status": "processed", "total_payout": 180000 }, "employee_count": 10, "items": [ { "id": 30, "employee_id": 5, "emp_code": "EMP-0005", "name": "Rahul Verma", "phone": "9123456780", "department": "Warehouse", "days_worked": 22.5, "basic": 18000, "deductions": 500, "net_salary": 17500, "slip_path": "payslips/..." } ] } }
+```
+
+**Generate all pay slips for a run** — `POST /hr/payroll/{runId}/generate-slips` (no body)
+```json
+{ "success": true, "message": "10 pay slip(s) generated.", "data": { "generated": 10, "failed": [] } }
+```
+
+**Download one pay slip** — `GET /hr/payroll/{runId}/slips/{payrollItemId}` — binary PDF (auto-generates on first request if missing).
+
+---
+
+## 4.8 CRM extras — Dealers, Leads, Support Tickets
+
+**Dealer admin actions** (beyond the customer-facing dealer list already in 3.x): `super_admin`, `sales`.
+
+- `POST /dealers` — create dealer + linked user in one call:
+  ```json
+  { "name": "Owner Name", "phone": "9876543210", "email": "owner@biz.com", "business_name": "Sharma Electronics", "gst_number": "27AAAPL1234C1ZV", "state": "Maharashtra", "pincode": "400001", "credit_limit": 300000, "price_tier": "A" }
+  ```
+  `price_tier`: `A|B|C`. `422` if a dealer already exists for that phone.
+- `GET /dealers/{id}` — includes `available_credit`, `orders_count`.
+- `PUT /dealers/{id}/kyc` — `{ "kyc_status": "approved", "reason": "Docs verified" }` — `kyc_status` accepts `verified,approved,rejected` (`approved` is normalized to `verified` internally); sends a push notification to the dealer on approval.
+- `POST /dealers/{id}/activate`, `POST /dealers/{id}/deactivate` — toggles the dealer's own login (not KYC/credit).
+- `PUT /dealers/{id}/credit` — `{ "credit_limit": 350000 }`.
+- `GET /dealers/{id}/ledger?from=&to=` — same shape as 4.6's finance ledger.
+
+**Leads** (`super_admin`, `sales`):
+- `GET /leads` — filters via query params handled by the Lead model's `filter()` scope (stage, source, assigned_to, search).
+- `POST /leads` — `{ "source": "website", "contact_name": "Amit Patel", "phone": "9988776655", "business_name": "New Electronics Hub", "notes": "Interested in bulk phones", "assigned_to": 7 }` — `source`: `b2b_inquiry|website|referral|walk_in|marketplace`.
+- `GET /leads/{id}`, `PUT /leads/{id}` (partial update — contact_name/phone/business_name/source/assigned_to/notes).
+- `PUT /leads/{id}/stage` — `{ "stage": "qualified", "notes": "Follow-up call done" }` — `stage`: `new|contacted|qualified|proposal|negotiation|won|lost`.
+- `POST /leads/{id}/convert` — no body, sets `stage: won`. `422` if already won.
+
+**Support Tickets** (`super_admin`, `sales`, `accounts`, `warehouse_staff`):
+- `GET /support/tickets?status=&priority=&assigned_to=` — paginated.
+- `POST /support/tickets` — `{ "subject": "Damaged unit received", "description": "IMEI ... arrived cracked", "order_id": 15, "priority": "high" }` — `priority`: `low|medium|high` (defaults if omitted).
+- `PUT /support/tickets/{id}` — `{ "status": "resolved", "assigned_to": 3, "priority": "high" }` — `status`: `open|in_progress|resolved|closed`; auto-stamps `resolved_at` on first transition to `resolved`.
+
+**Retail Customers (B2B admin view of B2C customers)** (`super_admin`, `sales`, `accounts`):
+- `GET /customers?search=&state=` — paginated, `orders_count` included.
+- `GET /customers/{id}` — returns `customer`, `orders_count`, `total_spent`, full `orders` list.
+- `PUT /customers/{id}` — `{ "name": "...", "email": "...", "is_active": false }`.
+
+---
+
+## 4.9 Sales Hierarchy — Admin View (`super_admin`, `sales`)
+
+Distinct from the app's own read-only `/mobile/hierarchy/*` (Part 1.5–1.8) — this is full CRUD for
+building/editing the org tree from the admin dashboard.
+
+- `GET /sales/hierarchy?role=&state=&search=&parent_id=` — paginated flat list.
+- `GET /sales/hierarchy/tree` — full nested tree from the root(s) down (4 levels deep).
+- `POST /sales/hierarchy` — `{ "name": "Vikram Singh", "phone": "9111111107", "hierarchy_role": "salesman", "parent_unique_code": "DM001", "state": "Tripura", "district": "Dhalai" }` — `hierarchy_role`: `ceo|state_manager|area_manager|district_manager|salesman`. Auto-generates `tree_id` (this is the "unique_code" the mobile app logs in with, e.g. `SG004`).
+- `GET /sales/hierarchy/{id}` — includes `parent`, nested `children`, `user`, `dealers`.
+- `PUT /sales/hierarchy/{id}` — partial update, same fields as create.
+- `DELETE /sales/hierarchy/{id}` — soft (sets `is_active: false`).
+- `POST /sales/hierarchy/{id}/assign-dealer` — `{ "dealer_id": 3 }` — only valid when the target node's `hierarchy_role` is `salesman`.
+- `GET /sales/hierarchy/{id}/downline` — total members/dealers/orders/revenue under this node.
+- `GET /sales/hierarchy/{id}/performance` — per-dealer revenue breakdown for this node's whole downline.
+
+---
+
+## 4.10 Offers / Promo Codes (`super_admin`, `sales`)
+
+- `GET /offers?is_active=&customer_type=` — paginated.
+- `POST /offers` —
+  ```json
+  { "title": "Diwali Sale", "code": "DIWALI10", "discount_type": "percentage", "discount_value": 10, "min_order_amount": 5000, "max_discount_amount": 2000, "applicable_to": "phone", "applicable_grade": "all", "customer_type": "all", "valid_from": "2026-10-01", "valid_to": "2026-11-01", "max_usage": 500 }
+  ```
+  `discount_type`: `percentage|fixed`. `applicable_to`: `all|phone|laptop`. `applicable_grade`: `all|S1..S5`. `customer_type`: `all|b2b|retail`.
+- `GET /offers/{id}`, `PUT /offers/{id}` (partial), `DELETE /offers/{id}` (soft — sets `is_active: false`).
+- `GET /offers/active` — currently valid, non-expired, under-usage-limit offers (public listing).
+- `POST /offers/validate` — `{ "code": "DIWALI10", "order_total": 32000 }` →
+  ```json
+  { "success": true, "message": "Offer applied.", "data": { "offer": { "id": 4, "title": "Diwali Sale", "code": "DIWALI10", "discount_type": "percentage", "discount_value": 10 }, "discount": 2000, "final_total": 30000 } }
+  ```
+
+---
+
+## 4.11 Procurement — Suppliers & Purchase Orders (`super_admin`, `warehouse_staff`)
+
+**Suppliers**: `GET /suppliers?type=&is_active=&search=`, `POST /suppliers` — `{ "name": "ABC Traders", "phone": "9876543210", "email": "abc@traders.com", "gst_number": "27AAAPL1234C1ZV", "address": "...", "type": "dealer" }` (`type`: `dealer|importer|buyback_partner`), `GET /suppliers/{id}` (includes `purchase_orders_count`, `products_count`), `PUT /suppliers/{id}`, `DELETE /suppliers/{id}` (soft).
+
+**Purchase Orders**: `GET /purchase-orders?status=&supplier_id=`, `POST /purchase-orders` — `{ "supplier_id": 2, "total_amount": 450000, "expected_count": 10, "notes": "10 units iPhone 13" }` (starts as `status: draft`), `GET /purchase-orders/{id}` (includes `products` — units already received against it), `PUT /purchase-orders/{id}` — `{ "status": "placed" }` (`draft|placed|received`; `422` once `received`).
+
+**Receive stock** — see 3.7/3.8 in Part 3 (same endpoints, shared with the warehouse app) — `POST /procurement/receive` and `POST /purchase-orders/{id}/receive` (auto-links the PO), `GET /procurement/history`.
+
+---
+
+## 4.12 QC — Refurbishment Queue (`super_admin`, `warehouse_staff`, `qc_engineer`)
+
+Pending/grade/records/stats already covered in Part 3 (3.9–3.11, shared with the warehouse app).
+Admin-only extras:
+
+- `POST /qc/refurbishment` — `{ "product_id": 41, "condition_notes": "Screen replacement needed" }` — sends a unit straight to refurbishment (bypassing a full grade decision); allowed only from `received`/`in_stock`.
+- `GET /qc/refurbishment` — paginated list of units currently `status: refurbishment`, with `qcRecords.engineer` history.
+- `PUT /qc/refurbishment/{productId}` (no body) — marks refurbishment complete, sends the unit back into the QC queue (`status → received`).
+
+---
+
+## 4.13 Bins (`super_admin`, `warehouse_staff`)
+
+Move/list/products-in-bin already covered in Part 3 (3.4–3.6). Admin-only:
+
+- `POST /bins` — `{ "code": "A1-R2-S3", "zone": "A", "row": "2", "shelf": "3", "capacity": 50 }` — creates a new warehouse bin location.
+
+---
+---
+
+# 🛍️ PART 5 — RETAIL (B2C) STOREFRONT API
+
+Distinct customer type (`Customer` model, not `Dealer`/B2B) — a direct-to-consumer storefront.
+**No live frontend/app consumes this today** as far as this codebase shows; documented here in full
+in case a consumer-facing site/app is planned. Uses its own OTP auth, separate from every other
+login in this document, and its own Bearer token (cached, not Sanctum).
+
+## 5.1 Send OTP — `POST /retail/auth/send-otp`
+```json
+{ "phone": "9876543210" }
+```
+```json
+{ "success": true, "message": "OTP sent successfully.", "data": { "otp": "482913" } }
+```
+> ⚠️ The OTP is currently returned **in the response body** (`data.otp`) — there is no SMS provider
+> wired up yet (logged via `Log::info` instead). Fine for testing now; must be removed from the
+> response before any real launch.
+
+## 5.2 Verify OTP — `POST /retail/auth/verify-otp`
+```json
+{ "phone": "9876543210", "otp": "482913" }
+```
+```json
+{ "success": true, "message": "Login successful.", "data": { "token": "aBc123...60charRandomString", "customer": { "id": 1, "name": "Customer 9876543210", "phone": "9876543210", "is_active": true } } }
+```
+First-ever OTP verify for a phone number auto-creates the `Customer` row. Token cached for 30 days.
+
+## 5.3 My Profile — `GET /retail/auth/me`
+## 5.4 Update Profile — `PUT /retail/auth/profile`
+```json
+{ "name": "Rohit Kumar", "email": "rohit@gmail.com", "address": "123 MG Road", "city": "Pune", "state": "Maharashtra", "pincode": "411001" }
+```
+## 5.5 Logout — `POST /retail/auth/logout` (no body)
+
+## 5.6 Catalog — `GET /retail/catalog?category=&grade=&brand=&search=`
+Only `status: in_stock` products, retail pricing.
+```json
+{ "success": true, "data": [ { "id": 41, "brand": "Apple", "model": "iPhone 13", "category": "phone", "grade": "S2", "retail_price": "33750.00", "color": "Blue", "storage": "128GB", "ram": null } ], "meta": {...} }
+```
+
+## 5.7 Product Detail — `GET /retail/catalog/{productId}` — `404` if not `in_stock`.
+
+## 5.8 Cart — view / add / remove one / clear all
+- `GET /retail/cart` → `{ "items": [...], "count": 2, "total": 79650.0 }` (total includes 18% GST, and auto-purges items whose product went out of stock)
+- `POST /retail/cart` — `{ "product_id": 41 }`
+- `DELETE /retail/cart/{productId}`
+- `DELETE /retail/cart` (clears everything)
+
+## 5.9 My Orders — `GET /retail/orders` (paginated, 10/page) · `GET /retail/orders/{id}`
+
+## 5.10 Place Order — `POST /retail/orders`
+```json
+{ "product_ids": [41, 42], "shipping_state": "Maharashtra", "shipping_address": "123 MG Road, Pune - 411001" }
+```
+Locks stock on the selected products (`status → reserved`), computes GST-inclusive totals, clears those items from the cart.
+```json
+{ "success": true, "message": "Order placed successfully.", "data": { "id": 88, "order_number": "DX-2026-00088", "status": "pending", "total_amount": "63750.00", "items": [...] } }
+```
+`422` if any product went out of stock between cart-add and checkout.
+
+---
+---
+
+# 🚚 PART 6 — DELHIVERY DIRECT API (for Postman — calling Delhivery itself, not our backend)
+
+These are Delhivery's own endpoints, called directly (not through our `/logistics/*` or
+`/orders/pincode-check` wrappers documented in 3.13 — that section explains how *our backend* uses
+these; this section is the raw external contract, for testing straight against Delhivery in Postman).
+
+**Auth for all of them**: header `Authorization: Token <your_delhivery_token>`.
+**Base URL — Production**: `https://track.delhivery.com` · **Staging**: `https://staging-express.delhivery.com`
+(a few endpoints live on a different subdomain — noted per-API below).
+
+We are on the **B2C** product line (individual parcel shipments) — Delhivery's separate B2B API
+family (LTL freight/trucking, "LR" documents) does not apply to this business and is intentionally
+excluded.
+
+## 6.1 Pincode Serviceability
+`GET /c/api/pin-codes/json/?filter_codes={pincode}`
+Empty `delivery_codes` array = not serviceable. A `remark: "Embargo"` on a code = temporarily non-serviceable.
+```json
+{ "delivery_codes": [ { "postal_code": { "pin": 110001, "cod": "Y", "pre_paid": "Y", "pickup": "Y", "district": "New Delhi", "state_code": "DL", "is_oda": "N" } } ] }
+```
+
+## 6.2 Fetch Waybill (bulk, up to 10,000 at once)
+`GET /waybill/api/bulk/json/?count={n}` — response is a raw JSON array of waybill number strings (or a single string if `count=1`).
+
+## 6.3 Fetch Single Waybill
+`GET /waybill/api/fetch/json/` — returns one waybill number per call.
+
+## 6.4 Shipment Manifestation (create)
+`POST /api/cmu/create.json` — **body must be form-urlencoded**, not JSON:
+```
+format=json&data={"shipments":[{"name":"...","add":"...","pin":"...","city":"...","state":"...","country":"India","phone":"...","order":"ORDER123","payment_mode":"Prepaid","weight":"500","total_amount":"32000","shipment_height":"10","shipment_width":"20","shipment_length":"30","products_desc":"iPhone 13","seller_name":"DXEMPIRE"}],"pickup_location":{"name":"warehouse_name"}}
+```
+- `payment_mode`: `Prepaid` (forward) · `COD` (forward, cash on delivery) · `Pickup` (reverse/RVP) · `REPL` (replacement/exchange)
+- `pickup_location.name` **must exactly match** (case/space-sensitive) the name registered via 6.10
+```json
+{ "success": true, "packages": [ { "waybill": "1234567890123", "status": "Success" } ] }
+```
+
+## 6.5 Shipment Updation/Edit
+`POST /api/p/edit` — only while status is `Manifested`/`In Transit`/`Pending` (blocked once Dispatched/Delivered/terminal):
+```json
+{ "waybill": "1234567890123", "pt": "COD", "cod": 500, "add": "New address", "gm": 600, "shipment_height": 12 }
+```
+
+## 6.6 Shipment Cancellation
+`POST /api/p/edit`
+```json
+{ "waybill": "1234567890123", "cancellation": "true" }
+```
+(Note: `cancellation` is the **string** `"true"`, not a boolean.)
+
+## 6.7 E-way Bill Update (mandatory once shipment value > ₹50,000)
+`PUT /api/rest/ewaybill/{waybill}/`
+```json
+{ "data": [ { "dcn": "INV-2026-00015", "ewbn": "141234567890" } ] }
+```
+
+## 6.8 Shipment Tracking
+`GET /api/v1/packages/json/?waybill={waybill}&ref_ids={order_id}` — up to 50 comma-separated waybills per call.
+```json
+{ "ShipmentData": [ { "Shipment": { "Status": { "Status": "In Transit" }, "PromisedDeliveryDate": "2026-08-02", "Scans": [ { "ScanDetail": { "Scan": "In Transit", "ScanDateTime": "..." } } ] } } ] }
+```
+
+## 6.9 Calculate Shipping Cost
+`GET /api/kinko/v1/invoice/charges/.json?md=E&ss=Delivered&o_pin={origin}&d_pin={dest}&cgm={grams}&pt=Pre-paid`
+- `md`: `E` (Express) or `S` (Surface). `ss`: `Delivered|RTO|DTO`. `pt`: `Pre-paid|COD`.
+```json
+[ { "status": "Delivered", "zone": "C", "total_amount": 76.28, "gross_amount": 64.64, "tax_data": { "SGST": 5.82, "CGST": 5.82, "IGST": 0 }, "charged_weight": 500 } ]
+```
+
+## 6.10 Client Warehouse Creation (one-time per pickup location)
+`POST /api/backend/clientwarehouse/create/`
+```json
+{ "name": "DXEMPIRE TECHBUZZ PRIVATE LIMITED", "phone": "8787635196", "email": "dxempire2610@gmail.com", "address": "C/O Subasish Das, Halhali, Halahali, Halahali", "city": "Dhalai", "pin": "799286", "country": "India", "registered_name": "DXEMPIRE TECHBUZZ PRIVATE LIMITED", "return_address": "C/O Subasish Das, Halhali, Halahali, Halahali", "return_pin": "799286", "return_city": "Dhalai", "return_state": "Tripura", "return_country": "India" }
+```
+> Rate-limited to **10 requests/minute** — far stricter than the other APIs. `name` becomes the
+> exact string every future shipment must reference in `pickup_location.name` (6.4).
+
+## 6.11 Client Warehouse Updation
+`POST /api/backend/clientwarehouse/edit/` — `name` and `pin` required; warehouse name itself cannot be changed.
+```json
+{ "name": "DXEMPIRE TECHBUZZ PRIVATE LIMITED", "pin": "799286", "phone": "8787635196", "address": "Updated address line" }
+```
+
+## 6.12 Generate Shipping Label
+`GET /api/p/packing_slip?wbns={waybill}&pdf=true&pdf_size=A4` (`pdf_size`: `A4` or `4R`)
+Response shape isn't fully documented by Delhivery for `pdf=true` — expect an S3 PDF link in the
+response somewhere near `pdf_download_link`; pass `pdf=false` instead to get a raw JSON packing-slip
+payload you can render yourself.
+
+## 6.13 Pickup Request Creation
+`POST /fm/request/new/` — raised **per warehouse**, not per waybill (one request covers everything ready at that location today):
+```json
+{ "pickup_time": "18:00:00", "pickup_date": "2026-07-30", "pickup_location": "DXEMPIRE TECHBUZZ PRIVATE LIMITED", "expected_package_count": 3 }
+```
+Only one open pickup request per warehouse per day — a second attempt before the first closes will fail.
+
+## 6.14 Download Document API
+`GET /api/rest/fetch/pkg/document/?doc_type={type}&waybill={awb}`
+`doc_type`: `SIGNATURE_URL | RVP_QC_IMAGE | EPOD | SELLER_RETURN_IMAGE` — only populated after the shipment reaches a terminal state (delivered/returned).
+
+---
+
+### Not implemented (need Delhivery BD/integration-team coordination first, not just code)
+- **Webhook Functionality** — real-time push instead of polling Tracking; requires filling out and
+  emailing Delhivery's Webhook Requirement Document (`lastmile-integration@delhivery.com`) before any
+  code can receive it.
+- **RVP QC 3.0** — doorstep quality-check questions for reverse pickups; requires a one-time question-ID
+  mapping session with Delhivery's BD team before the `custom_qc` payload in 6.4 means anything.
+- **Expected TAT API**, **MPS (multi-box) Manifestation**, **Heavy-product-type Pincode Check** — not
+  relevant to current order patterns; straightforward to add later if needed.
+
+---
 # Common Errors
 
 | Code | Meaning | Body |
@@ -1480,16 +2090,20 @@ Flagging these now so nothing is a surprise later:
    directly). Any model still showing a placeholder simply hasn't had a real photo uploaded yet.
 4. **Order-lifecycle push notifications** — only "approved" and "dispatched" currently notify;
    picking/packed/delivered do not yet.
-5. **Out of scope for this document, but exist on the backend** (admin-web-only today, not used by
-   any of the 3 apps this doc covers — ask if one of them needs to become app-facing):
-   `/support/tickets` (support ticket CRUD), `/offers` (promo codes), `/sales/hierarchy` (admin-side
-   hierarchy management — different from the app's own `/mobile/hierarchy/*` in Part 1),
-   `/suppliers`, `/purchase-orders`, `/finance/*`, `/hr/*`, `/analytics/*`, `/admin/*`.
-6. **`/retail/*` — a separate, currently-undocumented B2C storefront API** (OTP login, cart,
-   catalog, order placement for individual consumers, distinct from the B2B Partner App in Part 2).
-   Exists and is wired up on the backend but has no live frontend/app consuming it yet as far as
-   this doc's scope goes — flag if there's a consumer-facing app in development that needs it
-   documented in full.
+5. **`/retail/*` (Part 5) has no live frontend/app consuming it yet** — fully built and documented,
+   but nothing in this codebase calls it today. Its OTP endpoint also returns the OTP directly in
+   the response body for testing (no SMS provider wired up) — remove that before any real launch.
+6. **Delhivery Warehouse Creation (6.10) has not actually been executed against the live account
+   yet** — real business details are saved in Settings (4.2) and the code is ready, but nothing
+   auto-fires it. Until a warehouse is registered, Shipment Manifestation (6.4), Pickup Request
+   (6.13), and therefore Tracking/Cancellation/Labels on a *real* AWB cannot be exercised end-to-end.
+7. **Delhivery Webhooks and RVP QC 3.0 need one-time coordination with Delhivery's BD/integration
+   team** (question-ID mapping, signed webhook agreement) before any code against them means
+   anything — see the note at the end of Part 6.
+8. **Most Delhivery Part 6 response samples are transcribed from Delhivery's own documentation, not
+   captured live** — only Pincode Serviceability (6.1), Fetch Waybill (6.2), and Calculate Shipping
+   Cost (6.9) have been confirmed against the real production API as of this writing. Treat the rest
+   as "should be right" until independently verified in Postman.
 
 ---
 
