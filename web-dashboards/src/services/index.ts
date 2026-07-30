@@ -157,7 +157,9 @@ export const adminService = {
   roles: () => DEMO_MODE ? mock(['super_admin', 'warehouse_staff', 'qc_engineer', 'sales', 'accounts', 'hr_manager', 'logistics']) : api.get('/admin/roles').then((r) => r.data.data),
   auditLogs: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_AUDIT_LOGS) : api.get('/admin/audit-logs', { params }).then((r) => r.data),
   settings: () => DEMO_MODE ? mock({ company_name: 'DXEMPIRE', gst_number: '27AABCD1234E1ZB', address: 'Mumbai, Maharashtra', phone: '9000000000', email: 'admin@dxempire.com' }) : api.get('/admin/settings').then((r) => r.data.data),
-  updateSettings: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.put('/admin/settings', data).then((r) => r.data),
+  updateSettings: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.put('/admin/settings', {
+    settings: Object.entries(data).map(([key, value]) => ({ key, value })),
+  }).then((r) => r.data),
   updateSetting: (key: string, value: string) => DEMO_MODE ? mock({}) : api.put(`/admin/settings/${key}`, { value }).then((r) => r.data),
 };
 

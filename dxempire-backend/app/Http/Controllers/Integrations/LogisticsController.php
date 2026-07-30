@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Integrations;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Integrations\Logistics\DelhiveryService;
 use App\Integrations\Logistics\LogisticsFactory;
 use App\Models\AuditLog;
 use App\Models\Order;
@@ -125,5 +126,122 @@ class LogisticsController extends Controller
         }
 
         return $this->success(null, "Shipment {$awb} cancelled.");
+    }
+
+    /**
+     * One-time pickup-location registration with Delhivery. super_admin only —
+     * this registers real business info with a live courier account.
+     */
+    public function createWarehouse(Request $request): JsonResponse
+    {
+        $data = array_merge($this->warehouseFromSettings(), $request->all());
+
+        $validator = \Illuminate\Support\Facades\Validator::make($data, [
+            'name'    => ['required', 'string', 'max:100'],
+            'phone'   => ['required', 'string', 'max:20'],
+            'address' => ['required', 'string', 'max:255'],
+            'city'    => ['required', 'string', 'max:100'],
+            'state'   => ['required', 'string', 'max:100'],
+            'pincode' => ['required', 'string', 'max:10'],
+            'email'   => ['nullable', 'email'],
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error('Missing warehouse details — fill them in under Settings first.', 422, $validator->errors()->toArray());
+        }
+
+        try {
+            $result = (new DelhiveryService())->createWarehouse($validator->validated());
+        } catch (\RuntimeException $e) {
+            Log::error('Delhivery warehouse creation failed: ' . $e->getMessage());
+            return $this->error('Warehouse registration failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result, 'Warehouse registered with Delhivery.');
+    }
+
+    private function warehouseFromSettings(): array
+    {
+        return array_filter([
+            'name'    => \App\Models\Setting::get('warehouse_name'),
+            'phone'   => \App\Models\Setting::get('warehouse_phone'),
+            'email'   => \App\Models\Setting::get('warehouse_email'),
+            'address' => \App\Models\Setting::get('warehouse_address'),
+            'city'    => \App\Models\Setting::get('warehouse_city'),
+            'state'   => \App\Models\Setting::get('warehouse_state'),
+            'pincode' => \App\Models\Setting::get('warehouse_pincode'),
+        ]);
+    }
+
+    public function updateWarehouse(Request $request): JsonResponse
+    {
+        $request->validate(['name' => ['required', 'string', 'max:100']]);
+
+        try {
+            $result = (new DelhiveryService())->updateWarehouse($request->all());
+        } catch (\RuntimeException $e) {
+            Log::error('Delhivery warehouse update failed: ' . $e->getMessage());
+            return $this->error('Warehouse update failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result, 'Warehouse updated.');
+    }
+
+    public function calculateShippingCost(Request $request): JsonResponse
+    {
+        $request->validate([
+            'origin_pincode' => ['required', 'string'],
+            'dest_pincode'   => ['required', 'string'],
+            'weight_grams'   => ['nullable', 'numeric', 'min:1'],
+            'payment_mode'   => ['nullable', 'in:Pre-paid,COD'],
+        ]);
+
+        try {
+            $result = (new DelhiveryService())->calculateShippingCost($request->all());
+        } catch (\RuntimeException $e) {
+            return $this->error('Shipping cost calculation failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result);
+    }
+
+    public function fetchWaybill(): JsonResponse
+    {
+        try {
+            $waybill = (new DelhiveryService())->fetchWaybill();
+        } catch (\RuntimeException $e) {
+            return $this->error('Fetch waybill failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success(['waybill' => $waybill]);
+    }
+
+    public function generateLabel(string $awb): JsonResponse
+    {
+        try {
+            $result = (new DelhiveryService())->generateShippingLabel($awb);
+        } catch (\RuntimeException $e) {
+            return $this->error('Label generation failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result);
+    }
+
+    public function raisePickupRequest(Request $request): JsonResponse
+    {
+        $request->validate([
+            'pickup_date'            => ['nullable', 'date'],
+            'pickup_time'            => ['nullable', 'string'],
+            'pickup_location'        => ['nullable', 'string'],
+            'expected_package_count' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $result = (new DelhiveryService())->raisePickupRequest($request->all());
+        } catch (\RuntimeException $e) {
+            return $this->error('Pickup request failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result, 'Pickup requested.');
     }
 }

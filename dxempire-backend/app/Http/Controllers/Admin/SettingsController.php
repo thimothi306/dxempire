@@ -23,6 +23,14 @@ class SettingsController extends Controller
         'company_gst',
         'company_phone',
         'company_email',
+        'warehouse_name',
+        'warehouse_contact',
+        'warehouse_phone',
+        'warehouse_email',
+        'warehouse_address',
+        'warehouse_city',
+        'warehouse_state',
+        'warehouse_pincode',
     ];
 
     public function index(): JsonResponse
@@ -84,7 +92,7 @@ class SettingsController extends Controller
         $request->validate([
             'settings'       => ['required', 'array'],
             'settings.*.key' => ['required', 'string', 'in:' . implode(',', self::EDITABLE_KEYS)],
-            'settings.*.value' => ['required'],
+            'settings.*.value' => ['present'],
         ]);
 
         foreach ($request->settings as $item) {

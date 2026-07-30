@@ -16,6 +16,17 @@ const SETTING_KEYS = [
   { key: 'whatsapp_provider', label: 'WhatsApp Provider', type: 'select', options: ['interakt', 'twilio'] },
 ];
 
+const WAREHOUSE_KEYS = [
+  { key: 'warehouse_name', label: 'Pickup Location Name', type: 'text' },
+  { key: 'warehouse_contact', label: 'Contact Person (C/O)', type: 'text' },
+  { key: 'warehouse_phone', label: 'Phone', type: 'text' },
+  { key: 'warehouse_email', label: 'Email', type: 'text' },
+  { key: 'warehouse_address', label: 'Address', type: 'text' },
+  { key: 'warehouse_city', label: 'City / District', type: 'text' },
+  { key: 'warehouse_state', label: 'State', type: 'text' },
+  { key: 'warehouse_pincode', label: 'Pincode', type: 'text' },
+];
+
 export default function SettingsPage() {
   const { data: settings, isLoading } = useQuery({ queryKey: ['settings'], queryFn: adminService.settings });
   const [values, setValues] = useState<Record<string, string>>({});
@@ -32,8 +43,14 @@ export default function SettingsPage() {
     }
   }, [settings]);
 
+  const editableKeys = [...SETTING_KEYS, ...WAREHOUSE_KEYS].map((s) => s.key);
+
   const saveMut = useMutation({
-    mutationFn: () => adminService.updateSettings(values),
+    mutationFn: () => {
+      const payload: Record<string, string> = {};
+      editableKeys.forEach((k) => { payload[k] = values[k] ?? ''; });
+      return adminService.updateSettings(payload);
+    },
     onSuccess: () => toast.success('Settings saved'),
     onError: () => toast.error('Failed to save settings'),
   });
@@ -69,6 +86,25 @@ export default function SettingsPage() {
               />
             )
           )}
+        </div>
+      </Card>
+
+      <Card className="p-6 mt-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Pickup Warehouse (Courier)</h2>
+        <p className="text-xs text-gray-500 mb-5">
+          Used to register a pickup location with your logistics provider (e.g. Delhivery) and to
+          build the ship-from address on shipping labels.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {WAREHOUSE_KEYS.map((s) => (
+            <Input
+              key={s.key}
+              label={s.label}
+              type={s.type}
+              value={values[s.key] ?? ''}
+              onChange={(e) => setValues({ ...values, [s.key]: e.target.value })}
+            />
+          ))}
         </div>
       </Card>
     </div>

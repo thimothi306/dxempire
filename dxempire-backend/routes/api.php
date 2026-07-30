@@ -68,6 +68,8 @@ Route::prefix('v1')->group(function () {
         Route::patch('/notifications/read-all',    [NotificationController::class, 'markAllRead']);
         Route::get('/notifications/unread-count',  [NotificationController::class, 'unreadCount']);
         Route::patch('/notifications/{notification}', [NotificationController::class, 'markRead']);
+        Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy']);
+        Route::delete('/notifications',                [NotificationController::class, 'destroyAll']);
 
         // ── Super admin only ───────────────────────────────────────────────
         Route::middleware('role:super_admin')->prefix('admin')->group(function () {
@@ -182,6 +184,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/{order}',                       [OrderController::class, 'show']);
             Route::get('/{order}/payments',              [OrderController::class, 'payments']);
             Route::get('/{order}/invoice/download',      [OrderController::class, 'downloadInvoice']);
+            Route::get('/{order}/track',                 [OrderController::class, 'track']);
 
             // Dealers / sales can create orders
             Route::middleware('role:super_admin,sales,b2b_partner')->group(function () {
@@ -196,6 +199,7 @@ Route::prefix('v1')->group(function () {
                 Route::post('/{order}/dispatch',         [OrderController::class, 'dispatchOrder']);
                 Route::post('/{order}/deliver',          [OrderController::class, 'deliver']);
                 Route::post('/{order}/return',           [OrderController::class, 'processReturn']);
+                Route::get('pincode-check/{pincode}',    [OrderController::class, 'checkPincode']);
             });
 
             // Only super_admin can approve or cancel
@@ -275,6 +279,15 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{order}/shipment',  [LogisticsController::class, 'createShipment']);
             Route::get('track/{awb}',               [LogisticsController::class, 'track']);
             Route::delete('shipment/{awb}',         [LogisticsController::class, 'cancel']);
+            Route::get('shipping-cost',             [LogisticsController::class, 'calculateShippingCost']);
+            Route::get('waybill/fetch',             [LogisticsController::class, 'fetchWaybill']);
+            Route::get('shipment/{awb}/label',      [LogisticsController::class, 'generateLabel']);
+            Route::post('pickup-request',           [LogisticsController::class, 'raisePickupRequest']);
+        });
+
+        Route::middleware('role:super_admin')->prefix('logistics')->group(function () {
+            Route::post('warehouse',   [LogisticsController::class, 'createWarehouse']);
+            Route::put('warehouse',    [LogisticsController::class, 'updateWarehouse']);
         });
 
         // ── Analytics ─────────────────────────────────────────────────────

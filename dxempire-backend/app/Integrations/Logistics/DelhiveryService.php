@@ -48,6 +48,36 @@ class DelhiveryService implements LogisticsProviderInterface
         ];
     }
 
+    public function checkPincodeServiceability(string $pincode): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info("Delhivery pincode check mock: {$pincode}");
+            return ['pincode' => $pincode, 'serviceable' => true, 'cod' => true, 'prepaid' => true];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->get('https://track.delhivery.com/c/api/pin-codes/json/', ['filter_codes' => $pincode]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery pincode check failed: ' . $res->body());
+        }
+
+        $codes = $res->json('delivery_codes') ?? [];
+        if (empty($codes)) {
+            return ['pincode' => $pincode, 'serviceable' => false, 'cod' => false, 'prepaid' => false];
+        }
+
+        $postal = $codes[0]['postal_code'] ?? [];
+
+        return [
+            'pincode'     => $pincode,
+            'serviceable' => true,
+            'cod'         => ($postal['cod'] ?? 'N') === 'Y',
+            'prepaid'     => ($postal['pre_paid'] ?? 'N') === 'Y',
+        ];
+    }
+
     public function trackShipment(string $awb): array
     {
         if (app()->environment('local', 'testing')) {
@@ -97,6 +127,181 @@ class DelhiveryService implements LogisticsProviderInterface
             ]);
 
         return $res->successful();
+    }
+
+    /**
+     * One-time setup — registers a pickup location with Delhivery.
+     * NOTE: endpoint/field names below are the commonly-documented Delhivery
+     * "Client Warehouse" API — verify against your account's actual developer
+     * portal docs before relying on this in production; some accounts get a
+     * slightly different contract from Delhivery's onboarding team.
+     */
+    public function createWarehouse(array $data): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info('Delhivery createWarehouse mock: ' . ($data['name'] ?? ''));
+            return ['success' => true, 'name' => $data['name'] ?? null];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->post('https://track.delhivery.com/api/backend/clientwarehouse/create/', [
+                'name'            => $data['name'],
+                'email'           => $data['email'] ?? '',
+                'phone'           => $data['phone'],
+                'address'         => $data['address'],
+                'city'            => $data['city'],
+                'state'           => $data['state'],
+                'country'         => 'India',
+                'pin'             => $data['pincode'],
+                'registered_name' => $data['registered_name'] ?? $data['name'],
+                'return_address'  => $data['return_address'] ?? $data['address'],
+                'return_pin'      => $data['return_pincode'] ?? $data['pincode'],
+                'return_city'     => $data['return_city'] ?? $data['city'],
+                'return_state'    => $data['return_state'] ?? $data['state'],
+                'return_country'  => 'India',
+            ]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery warehouse creation failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
+    }
+
+    public function updateWarehouse(array $data): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info('Delhivery updateWarehouse mock: ' . ($data['name'] ?? ''));
+            return ['success' => true, 'name' => $data['name'] ?? null];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->post('https://track.delhivery.com/api/backend/clientwarehouse/edit/', $data);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery warehouse update failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
+    }
+
+    /**
+     * Estimate freight cost before checkout/dispatch.
+     * $params: origin_pincode, dest_pincode, weight_grams, payment_mode (Pre-paid|COD)
+     */
+    public function calculateShippingCost(array $params): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info('Delhivery calculateShippingCost mock: ' . json_encode($params));
+            return ['total_amount' => 65.0, 'currency' => 'INR'];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->get('https://track.delhivery.com/api/kinko/v1/invoice/charges/.json', [
+                'md'    => 'E',
+                'ss'    => 'Delivered',
+                'o_pin' => $params['origin_pincode'],
+                'd_pin' => $params['dest_pincode'],
+                'cgm'   => $params['weight_grams'] ?? 500,
+                'pt'    => $params['payment_mode'] ?? 'Pre-paid',
+            ]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery shipping cost calculation failed: ' . $res->body());
+        }
+
+        $data = $res->json();
+        $first = is_array($data) ? ($data[0] ?? []) : [];
+
+        return [
+            'total_amount' => $first['total_amount'] ?? null,
+            'raw'          => $first,
+        ];
+    }
+
+    /**
+     * Pre-generate a waybill number before booking a shipment with it (optional —
+     * createShipment() already gets one back inline in most cases).
+     */
+    public function fetchWaybill(): string
+    {
+        if (app()->environment('local', 'testing')) {
+            $wb = 'MOCKWB' . rand(100000, 999999);
+            Log::info("Delhivery fetchWaybill mock: {$wb}");
+            return $wb;
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->get('https://track.delhivery.com/waybill/api/bulk/json/', ['count' => 1]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery fetch waybill failed: ' . $res->body());
+        }
+
+        $body = trim($res->body(), "[]\" \n\t");
+        if (empty($body)) {
+            throw new \RuntimeException('Delhivery returned no waybill: ' . $res->body());
+        }
+
+        return $body;
+    }
+
+    /**
+     * Printable shipping label / packing slip for an already-booked AWB.
+     */
+    public function generateShippingLabel(string $awb): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info("Delhivery generateShippingLabel mock: {$awb}");
+            return ['awb' => $awb, 'label_url' => "https://mock.local/labels/{$awb}.pdf"];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->get('https://track.delhivery.com/api/p/packing_slip', ['wbns' => $awb, 'pdf' => 'true']);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery label generation failed: ' . $res->body());
+        }
+
+        $lines = $res->json('packages_data') ?? $res->json('package_lines') ?? [];
+        $first = is_array($lines) ? ($lines[0] ?? []) : [];
+
+        return [
+            'awb'       => $awb,
+            'label_url' => $first['pdf_download_link'] ?? $res->json('pdf_download_link') ?? null,
+        ];
+    }
+
+    /**
+     * Tell Delhivery to actually come collect the packages (without this,
+     * a booked shipment just sits there — nothing tells the courier to pick up).
+     */
+    public function raisePickupRequest(array $data): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info('Delhivery raisePickupRequest mock: ' . json_encode($data));
+            return ['success' => true, 'pickup_date' => $data['pickup_date'] ?? now()->toDateString()];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->post('https://track.delhivery.com/fm/request/new/', [
+                'pickup_time'             => $data['pickup_time'] ?? '18:00:00',
+                'pickup_date'             => $data['pickup_date'] ?? now()->toDateString(),
+                'pickup_location'         => $data['pickup_location'] ?? config('services.delhivery.seller_name', 'DXEMPIRE'),
+                'expected_package_count'  => $data['expected_package_count'] ?? 1,
+            ]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery pickup request failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
     }
 
     private function buildDelhiveryPayload(array $payload): array
