@@ -46,7 +46,9 @@ class LogisticsController extends Controller
                 'name'    => $dealer?->user?->name ?? 'Customer',
                 'phone'   => $dealer?->user?->phone ?? '',
                 'line1'   => $dealer?->business_name ?? 'N/A',
-                'city'    => $dealer?->state ?? '',
+                // Dealer model has no dedicated `city` column today — left blank
+                // rather than guessing, since a wrong city can misroute delivery.
+                'city'    => '',
                 'state'   => $dealer?->state ?? '',
                 'pincode' => $dealer?->pincode ?? '',
             ],
@@ -175,7 +177,12 @@ class LogisticsController extends Controller
 
     public function updateWarehouse(Request $request): JsonResponse
     {
-        $request->validate(['name' => ['required', 'string', 'max:100']]);
+        $request->validate([
+            'name'    => ['required', 'string', 'max:100'],
+            'pin'     => ['required', 'string', 'max:10'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'phone'   => ['nullable', 'string', 'max:20'],
+        ]);
 
         try {
             $result = (new DelhiveryService())->updateWarehouse($request->all());
@@ -185,6 +192,70 @@ class LogisticsController extends Controller
         }
 
         return $this->success($result, 'Warehouse updated.');
+    }
+
+    /**
+     * Edit an already-booked shipment (blocked once Dispatched/Delivered — Delhivery
+     * only allows this while Manifested/In Transit/Pending).
+     */
+    public function updateShipment(Request $request, string $awb): JsonResponse
+    {
+        $request->validate([
+            'name'            => ['nullable', 'string'],
+            'phone'           => ['nullable', 'string'],
+            'pt'              => ['nullable', 'in:COD,Pre-paid'],
+            'add'             => ['nullable', 'string'],
+            'products_desc'   => ['nullable', 'string'],
+            'gm'              => ['nullable', 'numeric', 'min:1'],
+            'shipment_height' => ['nullable', 'numeric'],
+            'shipment_width'  => ['nullable', 'numeric'],
+            'shipment_length' => ['nullable', 'numeric'],
+        ]);
+
+        try {
+            $result = (new DelhiveryService())->updateShipment(array_merge(['waybill' => $awb], $request->all()));
+        } catch (\RuntimeException $e) {
+            return $this->error('Shipment update failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result, 'Shipment updated.');
+    }
+
+    /**
+     * Attach a GST e-way bill to a shipment — required once shipment value exceeds ₹50,000.
+     */
+    public function updateEwaybill(Request $request, string $awb): JsonResponse
+    {
+        $request->validate([
+            'invoice_number'  => ['required', 'string'],
+            'ewaybill_number' => ['required', 'string'],
+        ]);
+
+        try {
+            $result = (new DelhiveryService())->updateEwaybill($awb, $request->invoice_number, $request->ewaybill_number);
+        } catch (\RuntimeException $e) {
+            return $this->error('E-way bill update failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result, 'E-way bill updated.');
+    }
+
+    /**
+     * Fetch a document Delhivery holds for a shipment (POD, RVP QC image, etc).
+     */
+    public function fetchDocument(Request $request, string $awb): JsonResponse
+    {
+        $request->validate([
+            'doc_type' => ['required', 'in:SIGNATURE_URL,RVP_QC_IMAGE,EPOD,SELLER_RETURN_IMAGE'],
+        ]);
+
+        try {
+            $result = (new DelhiveryService())->fetchDocument($awb, $request->doc_type);
+        } catch (\RuntimeException $e) {
+            return $this->error('Document fetch failed: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result);
     }
 
     public function calculateShippingCost(Request $request): JsonResponse

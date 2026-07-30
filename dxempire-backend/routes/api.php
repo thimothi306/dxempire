@@ -283,6 +283,9 @@ Route::prefix('v1')->group(function () {
             Route::get('waybill/fetch',             [LogisticsController::class, 'fetchWaybill']);
             Route::get('shipment/{awb}/label',      [LogisticsController::class, 'generateLabel']);
             Route::post('pickup-request',           [LogisticsController::class, 'raisePickupRequest']);
+            Route::put('shipment/{awb}',             [LogisticsController::class, 'updateShipment']);
+            Route::put('shipment/{awb}/ewaybill',    [LogisticsController::class, 'updateEwaybill']);
+            Route::get('shipment/{awb}/document',    [LogisticsController::class, 'fetchDocument']);
         });
 
         Route::middleware('role:super_admin')->prefix('logistics')->group(function () {

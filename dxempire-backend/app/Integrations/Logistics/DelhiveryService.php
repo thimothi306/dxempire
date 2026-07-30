@@ -21,11 +21,13 @@ class DelhiveryService implements LogisticsProviderInterface
             ];
         }
 
-        $token   = config('services.delhivery.token');
-        $payload = $this->buildDelhiveryPayload($payload);
+        $token = config('services.delhivery.token');
+        $body  = $this->buildDelhiveryPayload($payload);
 
-        $res = Http::withHeaders(['Authorization' => "Token {$token}"])
-            ->post("{$this->baseUrl}/cmu/create.json", $payload);
+        // Delhivery's create.json expects a literal form-urlencoded body
+        // ("format=json&data={...}"), NOT a JSON content-type request.
+        $res = Http::asForm()->withHeaders(['Authorization' => "Token {$token}"])
+            ->post("{$this->baseUrl}/cmu/create.json", $body);
 
         if (!$res->successful()) {
             throw new \RuntimeException('Delhivery shipment creation failed: ' . $res->body());
@@ -122,11 +124,86 @@ class DelhiveryService implements LogisticsProviderInterface
         $token = config('services.delhivery.token');
         $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
             ->post("{$this->baseUrl}/p/edit", [
-                'waybill' => $awb,
-                'cancellation' => true,
+                'waybill'      => $awb,
+                'cancellation' => 'true',
             ]);
 
         return $res->successful();
+    }
+
+    /**
+     * Edit a shipment already booked (only while Manifested/In Transit/Pending —
+     * Delhivery blocks edits once Dispatched or in a terminal status).
+     * $data: waybill (required) + any of name, phone, pt, add, products_desc, gm, shipment_height/width/length
+     */
+    public function updateShipment(array $data): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info('Delhivery updateShipment mock: ' . json_encode($data));
+            return ['success' => true];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->post("{$this->baseUrl}/p/edit", $data);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery shipment update failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
+    }
+
+    /**
+     * Attach/update the GST e-way bill number on a shipment — required by Indian
+     * law once shipment value exceeds ₹50,000.
+     */
+    public function updateEwaybill(string $awb, string $invoiceNumber, string $ewaybillNumber): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info("Delhivery updateEwaybill mock: {$awb}");
+            return ['success' => true];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->put("https://track.delhivery.com/api/rest/ewaybill/{$awb}/", [
+                'data' => [[
+                    'dcn'  => $invoiceNumber,
+                    'ewbn' => $ewaybillNumber,
+                ]],
+            ]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery e-way bill update failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
+    }
+
+    /**
+     * Fetch a document Delhivery holds for a shipment (proof of delivery, RVP QC image, etc).
+     * $docType: SIGNATURE_URL | RVP_QC_IMAGE | EPOD | SELLER_RETURN_IMAGE
+     */
+    public function fetchDocument(string $awb, string $docType): array
+    {
+        if (app()->environment('local', 'testing')) {
+            Log::info("Delhivery fetchDocument mock: {$awb} / {$docType}");
+            return ['awb' => $awb, 'doc_type' => $docType, 'url' => "https://mock.local/docs/{$awb}.pdf"];
+        }
+
+        $token = config('services.delhivery.token');
+        $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
+            ->get('https://track.delhivery.com/api/rest/fetch/pkg/document/', [
+                'doc_type' => $docType,
+                'waybill'  => $awb,
+            ]);
+
+        if (!$res->successful()) {
+            throw new \RuntimeException('Delhivery document fetch failed: ' . $res->body());
+        }
+
+        return $res->json() ?? [];
     }
 
     /**
@@ -262,13 +339,15 @@ class DelhiveryService implements LogisticsProviderInterface
 
         $token = config('services.delhivery.token');
         $res   = Http::withHeaders(['Authorization' => "Token {$token}"])
-            ->get('https://track.delhivery.com/api/p/packing_slip', ['wbns' => $awb, 'pdf' => 'true']);
+            ->get('https://track.delhivery.com/api/p/packing_slip', ['wbns' => $awb, 'pdf' => 'true', 'pdf_size' => 'A4']);
 
         if (!$res->successful()) {
             throw new \RuntimeException('Delhivery label generation failed: ' . $res->body());
         }
 
-        $lines = $res->json('packages_data') ?? $res->json('package_lines') ?? [];
+        // Delhivery's docs don't spell out the exact JSON shape for pdf=true —
+        // checking a few plausible field names defensively until confirmed live.
+        $lines = $res->json('packages_data') ?? $res->json('package_lines') ?? $res->json('packages') ?? [];
         $first = is_array($lines) ? ($lines[0] ?? []) : [];
 
         return [
@@ -306,23 +385,34 @@ class DelhiveryService implements LogisticsProviderInterface
 
     private function buildDelhiveryPayload(array $payload): array
     {
-        $addr = $payload['address'] ?? [];
+        $addr        = $payload['address'] ?? [];
+        $paymentMode = $payload['payment_mode'] ?? 'Prepaid'; // 'Prepaid' | 'COD' | 'Pickup' | 'REPL'
+        $weightGrams = isset($payload['weight_kg']) ? $payload['weight_kg'] * 1000 : 500;
+
         $data = [
             'shipments' => [[
-                'name'       => $addr['name'] ?? '',
-                'add'        => $addr['line1'] ?? '',
-                'city'       => $addr['city'] ?? '',
-                'state'      => $addr['state'] ?? '',
-                'country'    => 'India',
-                'pin'        => $addr['pincode'] ?? '',
-                'phone'      => $addr['phone'] ?? '',
-                'order'      => $payload['order_number'],
-                'payment_mode' => 'Prepaid',
-                'cod_amount' => 0,
-                'total_amount' => $payload['total'] ?? 0,
-                'weight'     => $payload['weight_kg'] ?? 0.5,
-                'seller_name' => config('services.delhivery.seller_name', 'DXEMPIRE'),
+                'name'          => $addr['name'] ?? '',
+                'add'           => $addr['line1'] ?? '',
+                'city'          => $addr['city'] ?? '',
+                'state'         => $addr['state'] ?? '',
+                'country'       => 'India',
+                'pin'           => $addr['pincode'] ?? '',
+                'phone'         => $addr['phone'] ?? '',
+                'order'         => $payload['order_number'],
+                'payment_mode'  => $paymentMode,
+                'cod_amount'    => $paymentMode === 'COD' ? ($payload['total'] ?? 0) : 0,
+                'total_amount'  => $payload['total'] ?? 0,
+                'weight'        => $weightGrams,
+                'shipment_height' => $payload['height_cm'] ?? 10,
+                'shipment_width'  => $payload['breadth_cm'] ?? 20,
+                'shipment_length' => $payload['length_cm'] ?? 30,
+                'shipping_mode' => 'Surface',
+                'products_desc' => $payload['products_desc'] ?? '',
+                'seller_name'   => config('services.delhivery.seller_name', 'DXEMPIRE'),
             ]],
+            'pickup_location' => [
+                'name' => \App\Models\Setting::get('warehouse_name', config('services.delhivery.seller_name', 'DXEMPIRE')),
+            ],
         ];
 
         return ['format' => 'json', 'data' => json_encode($data)];
