@@ -1091,7 +1091,37 @@ above). `stats` returns pass/repair/reject counts for a dashboard tile.
 `super_admin` or `warehouse_staff`. Lifecycle: `draft → approved → completed` (or `cancelled` from
 either of the first two states).
 
+> ⚠️ **Data-integrity note (found while verifying this doc against live production data):** some
+> existing rows were seeded directly into the database before this endpoint existed, with a
+> `transfer_number` of `PT-00001` (not the `PTR-`-prefixed format `PetiTransfer::generateTransferNumber()`
+> actually produces) and a simplified `items` shape of `{ "grade": "S1", "qty": 18 }` — missing
+> `category`/`brand`/`model`/`quantity`/`unit_price` that `POST /peti-transfers` requires and always
+> writes going forward. **Anything created through this API from now on will match the documented
+> shape below** (`PTR-00001` prefix, full `items` objects) — only pre-existing legacy rows look
+> different. If the app renders `items`, handle both shapes defensively (check for `qty` vs `quantity`).
+
 **3.12.a List** — `GET /peti-transfers` — filters: `status`, `type`, `from`, `to` (date range on `created_at`). Paginated.
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": [
+    {
+      "id": 7, "transfer_number": "PTR-00007", "type": "dealer", "status": "draft",
+      "from_location": null, "to_location": null, "to_dealer_id": 3,
+      "total_units": 5, "total_value": "160000.00", "notes": "Bulk consignment for Diwali stock-up",
+      "transferred_at": null,
+      "created_at": "2026-07-29T09:10:00.000000Z", "updated_at": "2026-07-29T09:10:00.000000Z",
+      "created_by": { "id": 2, "name": "Mohan Kumar" },
+      "approved_by": null,
+      "to_dealer": { "id": 3, "business_name": "Sharma Electronics" }
+    }
+  ],
+  "meta": { "current_page": 1, "per_page": 20, "total": 1, "last_page": 1 }
+}
+```
+- `transfer_number` format is `PTR-` + a 5-digit zero-padded sequence (e.g. `PTR-00007`), not date-based
+- `items` (the line-item array) is **not** included in the list response, only in detail/create — fetch `GET /peti-transfers/{id}` for that
 
 **3.12.b Create** — `POST /peti-transfers`
 ```json
@@ -1115,24 +1145,65 @@ either of the first two states).
   "success": true,
   "message": "Peti transfer created.",
   "data": {
-    "id": 7, "transfer_number": "PT-2026-0007", "type": "dealer", "status": "draft",
-    "total_units": 5, "total_value": "160000.00",
-    "items": [ { "category": "phone", "brand": "Apple", "model": "iPhone 13", "grade": "S2", "quantity": 5, "unit_price": 32000 } ]
+    "id": 7, "transfer_number": "PTR-00007", "type": "dealer", "status": "draft",
+    "from_location": null, "to_location": null, "to_dealer_id": 3,
+    "items": [ { "category": "phone", "brand": "Apple", "model": "iPhone 13", "grade": "S2", "quantity": 5, "unit_price": 32000 } ],
+    "total_units": 5, "total_value": 160000, "notes": "Bulk consignment for Diwali stock-up",
+    "created_by": { "id": 2, "name": "Mohan Kumar" },
+    "to_dealer": { "id": 3, "business_name": "Sharma Electronics" },
+    "created_at": "2026-07-29T09:10:00.000000Z"
   }
 }
 ```
 
 **3.12.c Detail** — `GET /peti-transfers/{id}`
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "id": 7, "transfer_number": "PTR-00007", "type": "dealer", "status": "draft",
+    "from_location": null, "to_location": null, "to_dealer_id": 3,
+    "items": [ { "category": "phone", "brand": "Apple", "model": "iPhone 13", "grade": "S2", "quantity": 5, "unit_price": 32000 } ],
+    "total_units": 5, "total_value": "160000.00", "notes": "Bulk consignment for Diwali stock-up",
+    "created_by": { "id": 2, "name": "Mohan Kumar" },
+    "approved_by": null,
+    "to_dealer": { "id": 3, "business_name": "Sharma Electronics", "gst_number": "27AAAPL1234C1ZV" },
+    "transferred_at": null,
+    "created_at": "2026-07-29T09:10:00.000000Z", "updated_at": "2026-07-29T09:10:00.000000Z"
+  }
+}
+```
 
 **3.12.d Approve** — `POST /peti-transfers/{id}/approve` (no body) — `draft → approved` only
+```json
+{
+  "success": true,
+  "message": "Transfer approved.",
+  "data": { "id": 7, "transfer_number": "PTR-00007", "status": "approved", "approved_by": 1, "...": "..." }
+}
+```
 
 **3.12.e Complete** — `POST /peti-transfers/{id}/complete` (no body) — `approved → completed` only, stamps `transferred_at`
+```json
+{
+  "success": true,
+  "message": "Transfer completed.",
+  "data": { "id": 7, "transfer_number": "PTR-00007", "status": "completed", "transferred_at": "2026-07-29T09:45:00.000000Z", "...": "..." }
+}
+```
 
 **3.12.f Cancel** — `POST /peti-transfers/{id}/cancel` (no body) — allowed from `draft` or `approved`, blocked once `completed`
+```json
+{ "success": true, "message": "Transfer cancelled.", "data": null }
+```
 
 **Error `422`** — wrong-state transition, same pattern as order fulfillment:
 ```json
 { "success": false, "message": "Only draft transfers can be approved. Current status: completed." }
+```
+```json
+{ "success": false, "message": "Completed transfers cannot be cancelled." }
 ```
 
 ---
