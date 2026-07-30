@@ -72,7 +72,7 @@ export default function RetailCustomersPage() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.name ?? 'Customer'}>
         {detailLoading ? <Spinner /> : detail && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-xs text-gray-500 block">Phone</span>{detail.customer?.phone}</div>
               <div><span className="text-xs text-gray-500 block">Email</span>{detail.customer?.email ?? '—'}</div>
               <div><span className="text-xs text-gray-500 block">City</span>{detail.customer?.city ?? '—'}</div>

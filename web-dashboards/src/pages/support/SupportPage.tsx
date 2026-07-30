@@ -162,7 +162,7 @@ export default function SupportPage() {
               placeholder="Detailed description..."
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Select
               label="Priority"
               value={createForm.priority}
@@ -204,7 +204,7 @@ export default function SupportPage() {
               <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{selected.description}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-xs text-gray-500 block">Created by</span>{selected.creator?.name ?? '—'}</div>
               <div><span className="text-xs text-gray-500 block">Assigned to</span>{selected.assignee?.name ?? 'Unassigned'}</div>
               <div><span className="text-xs text-gray-500 block">Order</span>{selected.order?.order_number ?? '—'}</div>
@@ -214,7 +214,7 @@ export default function SupportPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-3 border-t">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
               <Select
                 label="Update Status"
                 value={updateForm.status}

@@ -116,7 +116,7 @@ export default function PetiPage() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={`Transfer ${selected?.transfer_number}`}>
         {selected && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-xs text-gray-500 block">Type</span><Badge label={detail?.type ?? selected.type} color="blue" /></div>
               <div><span className="text-xs text-gray-500 block">Status</span><Badge label={detail?.status ?? selected.status} color={STATUS_COLORS[detail?.status ?? selected.status]} /></div>
               <div><span className="text-xs text-gray-500 block">From</span>{detail?.from_location ?? selected.from_location ?? '—'}</div>
@@ -189,7 +189,7 @@ export default function PetiPage() {
             </div>
             <div className="space-y-2">
               {items.map((item, idx) => (
-                <div key={idx} className="grid grid-cols-6 gap-2 items-end bg-gray-50 p-2 rounded-lg">
+                <div key={idx} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 items-end bg-gray-50 p-2 rounded-lg">
                   <Select label={idx === 0 ? 'Category' : ''} value={item.category} onChange={e => updateItem(idx, 'category', e.target.value)}
                     options={['phone', 'laptop'].map(c => ({ value: c, label: c }))} />
                   <Input label={idx === 0 ? 'Brand' : ''} value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="Apple" />

@@ -46,7 +46,7 @@ function RevenueTab() {
       </div>
 
       {summary && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: 'Total Revenue', value: fmtINR(Number(summary.total_revenue ?? 0)) },
             { label: 'Total Orders', value: summary.total_orders ?? 0 },

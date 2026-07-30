@@ -155,7 +155,7 @@ export default function OrdersPage() {
 
             {activeTab === 'details' && (
               <>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div><span className="text-xs text-gray-500 block">Status</span>{orderStatusBadge(orderDetail?.status ?? selected.status)}</div>
                   <div><span className="text-xs text-gray-500 block">Dealer</span><span className="font-medium">{orderDetail?.dealer?.business_name ?? selected.dealer?.business_name ?? '—'}</span></div>
                   <div><span className="text-xs text-gray-500 block">Subtotal</span>{fmtINR(orderDetail?.subtotal ?? selected.subtotal ?? 0)}</div>

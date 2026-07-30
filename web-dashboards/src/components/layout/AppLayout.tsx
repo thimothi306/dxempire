@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Bell, Menu } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
 import { notificationService } from '../../services';
@@ -81,7 +81,7 @@ function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+        <div className="absolute right-0 top-full mt-2 w-80 max-w-[90vw] bg-white rounded-xl shadow-xl border border-gray-100 z-50 overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <span className="text-sm font-semibold text-gray-800">Notifications</span>
             {unreadCount > 0 && (
@@ -128,19 +128,26 @@ function NotificationBell() {
 
 export function AppLayout() {
   const { token } = useAuthStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   if (!token) return <Navigate to="/login" replace />;
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div
-        className="flex-1 flex flex-col overflow-hidden bg-cover bg-center bg-fixed"
+        className="flex-1 flex flex-col overflow-hidden bg-cover bg-center bg-fixed min-w-0"
         style={{ backgroundImage: "url('/background.jpeg')" }}
       >
-        <header className="bg-white/90 backdrop-blur-sm border-b border-primary-100 px-6 h-12 flex items-center justify-end">
+        <header className="bg-white/90 backdrop-blur-sm border-b border-primary-100 px-4 sm:px-6 h-12 flex items-center justify-between md:justify-end gap-3">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="md:hidden p-2 -ml-2 rounded-lg text-gray-600 hover:bg-gray-100"
+          >
+            <Menu size={20} />
+          </button>
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-auto">
-          <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             <Outlet />
           </div>
         </main>

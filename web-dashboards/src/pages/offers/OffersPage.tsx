@@ -27,25 +27,25 @@ function OfferForm({
 }) {
   return (
     <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Offer Title *" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
         <Input label="Offer Code *" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="e.g. DIWALI20" />
       </div>
       <Input label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Optional" />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Discount Type *" value={form.discount_type} onChange={e => setForm({ ...form, discount_type: e.target.value })} options={DISCOUNT_TYPES} />
         <Input label={form.discount_type === 'percentage' ? 'Discount % *' : 'Discount ₹ *'} type="number" value={form.discount_value} onChange={e => setForm({ ...form, discount_value: e.target.value })} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Min Order Amount (₹)" type="number" value={form.min_order_amount} onChange={e => setForm({ ...form, min_order_amount: e.target.value })} placeholder="0" />
         <Input label="Max Discount Cap (₹)" type="number" value={form.max_discount_amount} onChange={e => setForm({ ...form, max_discount_amount: e.target.value })} placeholder="Optional" />
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Select label="Applies To" value={form.applicable_to} onChange={e => setForm({ ...form, applicable_to: e.target.value })} options={APPLICABLE_TO} />
         <Select label="Grade" value={form.applicable_grade} onChange={e => setForm({ ...form, applicable_grade: e.target.value })} options={APPLICABLE_GRADE} />
         <Select label="Customer" value={form.customer_type} onChange={e => setForm({ ...form, customer_type: e.target.value })} options={CUSTOMER_TYPE} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Valid From *" type="datetime-local" value={form.valid_from} onChange={e => setForm({ ...form, valid_from: e.target.value })} />
         <Input label="Valid To *" type="datetime-local" value={form.valid_to} onChange={e => setForm({ ...form, valid_to: e.target.value })} />
       </div>

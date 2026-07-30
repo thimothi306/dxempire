@@ -45,7 +45,7 @@ function MemberForm({
   return (
     <div className="space-y-3">
       <Input label="Full Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
         <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
       </div>
@@ -71,7 +71,7 @@ function MemberForm({
 
       <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value })}
         options={[{ value: '', label: 'Select state...' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Bangalore Zone" />
         <Input label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} placeholder="e.g. Jayanagar" />
       </div>
@@ -207,7 +207,7 @@ export default function HierarchyPage() {
             </div>
 
             {activeTab === 'details' && (
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div><span className="text-xs text-gray-500 block">Tree ID</span><code className="font-bold text-primary">{selectedNode.tree_id}</code></div>
                 <div><span className="text-xs text-gray-500 block">Role</span><Badge label={selectedNode.hierarchy_role.replace(/_/g, ' ')} color={ROLE_COLORS[selectedNode.hierarchy_role]} /></div>
                 <div><span className="text-xs text-gray-500 block">Phone</span>{selectedNode.phone ?? '—'}</div>
@@ -223,7 +223,7 @@ export default function HierarchyPage() {
               <div>
                 {!downlineData ? <Spinner /> : (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
                         { label: 'Team Members', value: downlineData.total_members, icon: <Users size={16} /> },
                         { label: 'Total Dealers', value: downlineData.total_dealers, icon: <Users size={16} /> },
@@ -258,7 +258,7 @@ export default function HierarchyPage() {
               <div>
                 {!perfData ? <Spinner /> : (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[
                         { label: 'Team Size', value: perfData.team_size },
                         { label: 'Total Dealers', value: perfData.total_dealers },

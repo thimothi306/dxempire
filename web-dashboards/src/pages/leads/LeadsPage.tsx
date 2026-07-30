@@ -90,7 +90,7 @@ export default function LeadsPage() {
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected?.business_name ?? 'Lead'}>
         {selected && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div><span className="text-gray-500 block text-xs">Contact</span>{selected.contact_name ?? '—'}</div>
               <div><span className="text-gray-500 block text-xs">Phone</span>{selected.phone}</div>
               <div><span className="text-gray-500 block text-xs">Email</span>{selected.email ?? '—'}</div>

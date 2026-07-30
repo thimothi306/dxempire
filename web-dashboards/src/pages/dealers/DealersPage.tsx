@@ -145,7 +145,7 @@ export default function DealersPage() {
       {/* Create Dealer Modal */}
       <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="New Dealer">
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input label="Owner Name *" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} placeholder="Full name" />
             <Input label="Phone *" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} placeholder="10-digit mobile" />
             <Input label="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="Optional" />
@@ -199,7 +199,7 @@ export default function DealersPage() {
 
             {activeTab === 'info' && (
               <>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div><span className="text-gray-500 block text-xs">Owner</span>{dealerDetail?.owner_name ?? dealerDetail?.user?.name ?? '—'}</div>
                   <div><span className="text-gray-500 block text-xs">Phone</span>{dealerDetail?.phone ?? dealerDetail?.user?.phone ?? '—'}</div>
                   <div><span className="text-gray-500 block text-xs">Email</span>{dealerDetail?.email ?? dealerDetail?.user?.email ?? '—'}</div>
@@ -250,7 +250,7 @@ export default function DealersPage() {
               <div>
                 {/* Ledger summary */}
                 {ledgerSummary && (
-                  <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                     {[
                       { label: 'Total Billed', value: fmtINR(ledgerSummary.total_billed ?? 0), color: '' },
                       { label: 'Total Paid', value: fmtINR(ledgerSummary.total_paid ?? 0), color: 'text-green-700' },

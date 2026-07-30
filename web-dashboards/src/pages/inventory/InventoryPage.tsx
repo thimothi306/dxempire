@@ -30,7 +30,7 @@ function StockAvailabilityWidget() {
   ] as const;
 
   return (
-    <div className="grid grid-cols-2 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       {sections.map(({ key, label }) => {
         const section = data[key] ?? {};
         const grades = ['S1', 'S2', 'S3', 'S4', 'S5'].filter(g => section[g] !== undefined);

@@ -28,7 +28,7 @@ function EmployeeForm({
       <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
           options={DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))} />
         <Select label="Employment Type" value={form.employment_type} onChange={(e) => setForm({ ...form, employment_type: e.target.value })}

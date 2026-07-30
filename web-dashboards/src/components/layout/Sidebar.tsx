@@ -58,7 +58,12 @@ const NAV: NavItem[] = [
   { label: 'Settings',  to: '/settings',  icon: <Settings size={18} />,  roles: ['super_admin'] },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const role = user?.role;
   const location = useLocation();
@@ -77,23 +82,37 @@ export function Sidebar() {
   const visible = NAV.filter((n) => role && n.roles.includes(role as Role));
 
   return (
-    <aside className="w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen sticky top-0">
-      {/* Logo */}
-      <div className="px-5 py-5 border-b border-navy-600 flex items-center gap-3">
-        <div className="bg-white rounded-xl p-1.5 flex-shrink-0">
-          <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-11 w-11 object-contain" />
-        </div>
-        <p className="text-sm font-semibold text-primary-200">Admin Panel</p>
-      </div>
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 scrollbar-thin">
+      <aside
+        className={`w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen fixed md:sticky top-0 left-0 z-50 transition-transform duration-200 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:translate-x-0`}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-navy-600 flex items-center gap-3">
+          <div className="bg-white rounded-xl p-1.5 flex-shrink-0">
+            <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-11 w-11 object-contain" />
+          </div>
+          <p className="text-sm font-semibold text-primary-200">Admin Panel</p>
+        </div>
+
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5 scrollbar-thin">
         {visible.map((item) => {
           if (!item.children) {
             return (
               <NavLink
                 key={item.to}
                 to={item.to}
+                onClick={onClose}
                 className={({ isActive }) =>
                   `relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                     isActive
@@ -131,6 +150,7 @@ export function Sidebar() {
                     <NavLink
                       key={child.to}
                       to={child.to}
+                      onClick={onClose}
                       className={({ isActive }) =>
                         `flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                           isActive ? 'bg-primary text-white' : 'text-blue-100/60 hover:bg-navy-600 hover:text-white'
@@ -165,7 +185,8 @@ export function Sidebar() {
         >
           <LogOut size={15} /> Logout
         </button>
-      </div>
-    </aside>
+        </div>
+      </aside>
+    </>
   );
 }
