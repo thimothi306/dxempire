@@ -65,10 +65,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-navy-900 via-navy-800 to-primary-600 relative overflow-hidden">
-      <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-accent/20 blur-3xl" />
-      <div className="absolute -bottom-24 -left-24 w-96 h-96 rounded-full bg-primary-500/30 blur-3xl" />
-
+    <div
+      className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden bg-cover bg-center"
+      style={{ backgroundImage: "url('/login-bg.png')" }}
+    >
       <div className="w-full max-w-sm relative">
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="bg-white rounded-2xl p-2 shadow-lg flex-shrink-0">
@@ -77,14 +77,15 @@ export default function LoginPage() {
           <p className="text-white text-lg font-semibold">Admin Panel</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-white/20 p-8">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Sign in</h2>
+        <div className="bg-primary-50/95 backdrop-blur-sm rounded-2xl shadow-xl border border-primary-100 p-8">
+          <h2 className="text-lg font-semibold text-navy-800 mb-6">Sign in</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <Input
               label="Email"
               type="email"
               placeholder="admin@dxempire.com"
               error={errors.email?.message}
+              className="bg-white border-primary-200 placeholder:text-primary-300 hover:border-primary-400 hover:bg-primary-50 transition-colors"
               {...register('email')}
             />
             <Input
@@ -92,6 +93,7 @@ export default function LoginPage() {
               type="password"
               placeholder="••••••••"
               error={errors.password?.message}
+              className="bg-white border-primary-200 placeholder:text-primary-300 hover:border-primary-400 hover:bg-primary-50 transition-colors"
               {...register('password')}
             />
             <Button type="submit" loading={loading} className="w-full justify-center mt-2">
@@ -101,15 +103,15 @@ export default function LoginPage() {
 
           {/* Test mode role picker — hidden when connecting to a real backend */}
           {DEMO_MODE && (
-            <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
-              <p className="text-xs text-gray-400 text-center mb-3">Test mode — login as role</p>
+            <div className="mt-4 pt-4 border-t border-dashed border-primary-200">
+              <p className="text-xs text-primary-400 text-center mb-3">Test mode — login as role</p>
               <div className="grid grid-cols-2 gap-2">
                 {TEST_ROLES.map(({ role, label }) => (
                   <button
                     key={role}
                     type="button"
                     onClick={() => loginAsRole(role)}
-                    className="text-xs px-3 py-2 rounded-lg border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition-colors text-left"
+                    className="text-xs px-3 py-2 rounded-lg border border-primary-200 bg-white text-primary-600 hover:border-accent hover:bg-accent-50 hover:text-accent-600 transition-colors text-left"
                   >
                     {label}
                   </button>
