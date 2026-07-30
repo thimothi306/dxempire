@@ -18,6 +18,7 @@ use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -221,6 +222,40 @@ class OrderController extends Controller
         event(new OrderDispatched($order->fresh()));
 
         return $this->success($order->fresh(), 'Order dispatched.');
+    }
+
+    public function checkPincode(string $pincode): JsonResponse
+    {
+        try {
+            $result = (new \App\Integrations\Logistics\DelhiveryService())->checkPincodeServiceability($pincode);
+        } catch (\Throwable $e) {
+            Log::warning('Pincode check failed: ' . $e->getMessage());
+            return $this->error('Could not check pincode serviceability right now.', 502);
+        }
+
+        return $this->success($result, 'Pincode checked.');
+    }
+
+    public function track(Order $order): JsonResponse
+    {
+        if (!$order->awb_number || !$order->logistics_provider) {
+            return $this->error('Order has not been dispatched with a courier yet.', 422);
+        }
+
+        try {
+            $provider = match ($order->logistics_provider) {
+                'delhivery' => new \App\Integrations\Logistics\DelhiveryService(),
+                'dtdc'      => new \App\Integrations\Logistics\DtdcService(),
+                default     => new \App\Integrations\Logistics\ShiprocketService(),
+            };
+
+            $tracking = $provider->trackShipment($order->awb_number);
+        } catch (\Throwable $e) {
+            Log::warning('Shipment tracking failed: ' . $e->getMessage());
+            return $this->error('Could not fetch live tracking right now.', 502);
+        }
+
+        return $this->success($tracking, 'Tracking fetched.');
     }
 
     public function deliver(Order $order): JsonResponse

@@ -48,4 +48,22 @@ class NotificationController extends Controller
 
         return $this->success(['count' => $count]);
     }
+
+    public function destroy(Request $request, Notification $notification): JsonResponse
+    {
+        if ($notification->user_id !== $request->user()->id) {
+            return $this->error('Not found.', 404);
+        }
+
+        $notification->delete();
+
+        return $this->success(null, 'Notification deleted.');
+    }
+
+    public function destroyAll(Request $request): JsonResponse
+    {
+        Notification::where('user_id', $request->user()->id)->delete();
+
+        return $this->success(null, 'All notifications deleted.');
+    }
 }
