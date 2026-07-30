@@ -1253,6 +1253,50 @@ On any `401`, clear the stored token and route the user to the login screen.
 
 ---
 
+# Notification Inbox
+
+In-app notifications (separate from the Expo push alerts below — this is the persisted list a user
+sees in a bell/inbox screen). Available on the general authenticated API — works with a staff,
+warehouse, or partner token. All calls scoped to the logged-in user; you never see anyone else's.
+
+**List** — `GET /notifications` — paginated, newest first
+```json
+{
+  "success": true,
+  "data": [
+    { "id": 41, "title": "Order Dispatched", "body": "Your order DX-2026-00015 has been dispatched.", "type": "order_dispatched", "data": { "order_id": "15" }, "is_read": false, "created_at": "2026-07-29T10:15:00.000000Z" }
+  ],
+  "meta": { "current_page": 1, "per_page": 20, "total": 1, "last_page": 1 }
+}
+```
+
+**Unread count** — `GET /notifications/unread-count`
+```json
+{ "success": true, "data": { "count": 3 } }
+```
+
+**Mark one read** — `PATCH /notifications/{id}` — returns the updated notification. Does **not** delete it.
+
+**Mark all read** — `PATCH /notifications/read-all`
+```json
+{ "success": true, "message": "All notifications marked as read.", "data": null }
+```
+
+**Delete one** — `DELETE /notifications/{id}` — permanently removes it (404 if it isn't yours)
+```json
+{ "success": true, "message": "Notification deleted.", "data": null }
+```
+
+**Delete all** — `DELETE /notifications` — permanently removes every notification for the logged-in user
+```json
+{ "success": true, "message": "All notifications deleted.", "data": null }
+```
+
+> ⚠️ Deleting is permanent — unlike mark-read, deleted notifications do **not** come back on the
+> next fetch. Use mark-read for a "seen" state and delete only when the user explicitly wants it gone.
+
+---
+
 # Push Notifications (Expo)
 
 All three apps share the same push-token registration, under the general authenticated API
