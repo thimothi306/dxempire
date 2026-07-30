@@ -1084,7 +1084,100 @@ above). `stats` returns pass/repair/reject counts for a dashboard tile.
 
 ---
 
-## 3.12 Order Fulfillment Lifecycle
+## 3.12 Peti to Peti — Bulk Stock Transfers
+
+"Peti" (crate) transfers move a batch of units either between internal warehouse locations
+(`type: internal`) or out to a dealer as a bulk consignment (`type: dealer`). Requires
+`super_admin` or `warehouse_staff`. Lifecycle: `draft → approved → completed` (or `cancelled` from
+either of the first two states).
+
+**3.12.a List** — `GET /peti-transfers` — filters: `status`, `type`, `from`, `to` (date range on `created_at`). Paginated.
+
+**3.12.b Create** — `POST /peti-transfers`
+```json
+{
+  "type": "dealer",
+  "to_dealer_id": 3,
+  "items": [
+    { "category": "phone", "brand": "Apple", "model": "iPhone 13", "grade": "S2", "quantity": 5, "unit_price": 32000 }
+  ],
+  "notes": "Bulk consignment for Diwali stock-up"
+}
+```
+- `type: internal` requires `to_location` (free-text warehouse/bin area name) instead of `to_dealer_id`
+- `items[].grade` — one of `S1`–`S5`
+- Server computes `total_units` (sum of quantities) and `total_value` (sum of quantity × unit_price) — don't send these
+- Starts at `status: "draft"`
+
+**Response `201`**
+```json
+{
+  "success": true,
+  "message": "Peti transfer created.",
+  "data": {
+    "id": 7, "transfer_number": "PT-2026-0007", "type": "dealer", "status": "draft",
+    "total_units": 5, "total_value": "160000.00",
+    "items": [ { "category": "phone", "brand": "Apple", "model": "iPhone 13", "grade": "S2", "quantity": 5, "unit_price": 32000 } ]
+  }
+}
+```
+
+**3.12.c Detail** — `GET /peti-transfers/{id}`
+
+**3.12.d Approve** — `POST /peti-transfers/{id}/approve` (no body) — `draft → approved` only
+
+**3.12.e Complete** — `POST /peti-transfers/{id}/complete` (no body) — `approved → completed` only, stamps `transferred_at`
+
+**3.12.f Cancel** — `POST /peti-transfers/{id}/cancel` (no body) — allowed from `draft` or `approved`, blocked once `completed`
+
+**Error `422`** — wrong-state transition, same pattern as order fulfillment:
+```json
+{ "success": false, "message": "Only draft transfers can be approved. Current status: completed." }
+```
+
+---
+
+## 3.13 Logistics — Pincode Check, Auto-Booking & Tracking
+
+Two overlapping route groups exist here — use the right one for the job:
+
+**Delhivery-specific pincode check** (no generic equivalent for other couriers yet):
+`GET /orders/pincode-check/{pincode}` — call this **before** accepting an order to validate the
+delivery address is serviceable.
+```json
+{ "success": true, "message": "Pincode checked.", "data": { "pincode": "110001", "serviceable": true, "cod": true, "prepaid": true } }
+```
+
+**Generic auto-booking** (works with whichever courier is set in Settings → `logistics_provider`,
+defaulting to Shiprocket — Delhivery and DTDC also supported): `POST /logistics/orders/{order}/shipment`
+```json
+{ "weight_kg": 0.5, "length_cm": 30, "breadth_cm": 20, "height_cm": 10 }
+```
+All fields optional (sensible defaults applied). Order must be `approved` or `packed`. Builds the
+shipping address from the order's dealer (`business_name`, `state`, `pincode`) — there is currently
+no separate street-address field, so this is an approximation, not a full postal address. On success,
+saves the returned AWB onto the order automatically (`awb_number`, `logistics_provider`).
+```json
+{ "success": true, "message": "Shipment created successfully.", "data": { "order_number": "DX-2026-00015", "awb": "1234567890", "tracking_url": "https://...", "label_url": null } }
+```
+
+**Generic tracking by AWB** — `GET /logistics/track/{awb}` — looks up whichever courier is
+currently configured. Alternatively, `GET /orders/{order}/track` looks up the courier that was
+actually used for *that* order (reads `logistics_provider` off the order row itself, so it still
+works correctly even if the global Settings default has since changed).
+```json
+{ "success": true, "data": { "awb": "1234567890", "status": "Transit", "estimated_delivery": "2026-07-24", "events": [ { "date": "...", "activity": "Package received at origin" } ], "provider": "delhivery" } }
+```
+
+**Cancel a shipment** — `POST /logistics/shipment/{awb}` — cancels with the courier and clears `awb_number` off the matching order if one is found.
+
+**Manual dispatch** (existing, courier-agnostic — use this if you're *not* using auto-booking and
+already have an AWB from booking manually on the courier's own dashboard): `POST /orders/{id}/dispatch`
+— see 3.14.c below.
+
+---
+
+## 3.14 Order Fulfillment Lifecycle
 
 Warehouse staff move an order through these statuses, **in order**. Each endpoint validates the
 current status server-side and rejects out-of-sequence calls with a `422`.
@@ -1101,17 +1194,18 @@ approved (by admin) → picking → packed → dispatched → delivered
 | Mark delivered | `POST /orders/{id}/deliver` | `dispatched` | `delivered` |
 | Process a return | `POST /orders/{id}/return` | `delivered` | `returned` |
 
-**3.12.a Start picking** — `POST /orders/{id}/picking` (no body)
+**3.14.a Start picking** — `POST /orders/{id}/picking` (no body)
 ```json
 { "success": true, "message": "Picking started.", "data": { "id": 15, "order_number": "DX-2026-00015", "status": "picking", "...": "..." } }
 ```
 
-**3.12.b Complete packing** — `POST /orders/{id}/packing-complete` (no body)
+**3.14.b Complete packing** — `POST /orders/{id}/packing-complete` (no body)
 ```json
 { "success": true, "message": "Packing completed.", "data": { "id": 15, "status": "packed", "...": "..." } }
 ```
 
-**3.12.c Dispatch** — `POST /orders/{id}/dispatch`
+**3.14.c Dispatch (manual)** — `POST /orders/{id}/dispatch` — use this when you already have an AWB
+(from booking manually on the courier's dashboard, or from a prior call to 3.13's auto-booking).
 ```json
 { "logistics_provider": "Shiprocket", "awb_number": "AWB12345678" }
 ```
@@ -1127,7 +1221,7 @@ approved (by admin) → picking → packed → dispatched → delivered
 }
 ```
 
-**3.12.d Mark delivered** — `POST /orders/{id}/deliver` (no body)
+**3.14.d Mark delivered** — `POST /orders/{id}/deliver` (no body)
 ```json
 { "success": true, "message": "Order marked as delivered.", "data": { "id": 15, "status": "delivered", "delivered_at": "2026-07-21T06:25:38.000000Z" } }
 ```
@@ -1172,7 +1266,7 @@ needs the **Expo SDK** (`expo-notifications`), no separate Firebase project requ
 
 **Currently wired to fire on:** order approved (notifies partner + warehouse), order dispatched
 (notifies dealer), stock added (notifies partners), product received (notifies QC team). Order
-placement/fulfillment triggers (3.12) do not yet push a notification for every step — only
+placement/fulfillment triggers (3.14) do not yet push a notification for every step — only
 approval and dispatch do, today.
 
 **⚠️ `EXPO_ACCESS_TOKEN` status: confirmed NOT configured in production `.env` as of this writing.**
@@ -1240,7 +1334,7 @@ POST /api/v1/admin/catalog-images          (JSON — set a URL directly instead 
 3. `GET /qc/pending` → `POST /qc/grade` → grading screen
 4. `GET /bins` → `POST /bins/move` → put-away screen
 5. `POST /procurement/receive` → receiving screen
-6. `GET /orders?status=approved` → pick list → walk through 3.12 (picking → packed → dispatch → deliver)
+6. `GET /orders?status=approved` → pick list → walk through 3.14 (picking → packed → dispatch → deliver)
 7. `POST /users/push-token` → register for push
 8. `POST /auth/logout` on sign-out
 
@@ -1271,7 +1365,17 @@ Flagging these now so nothing is a surprise later:
    directly). Any model still showing a placeholder simply hasn't had a real photo uploaded yet.
 4. **Order-lifecycle push notifications** — only "approved" and "dispatched" currently notify;
    picking/packed/delivered do not yet.
+5. **Out of scope for this document, but exist on the backend** (admin-web-only today, not used by
+   any of the 3 apps this doc covers — ask if one of them needs to become app-facing):
+   `/support/tickets` (support ticket CRUD), `/offers` (promo codes), `/sales/hierarchy` (admin-side
+   hierarchy management — different from the app's own `/mobile/hierarchy/*` in Part 1),
+   `/suppliers`, `/purchase-orders`, `/finance/*`, `/hr/*`, `/analytics/*`, `/admin/*`.
+6. **`/retail/*` — a separate, currently-undocumented B2C storefront API** (OTP login, cart,
+   catalog, order placement for individual consumers, distinct from the B2B Partner App in Part 2).
+   Exists and is wired up on the backend but has no live frontend/app consuming it yet as far as
+   this doc's scope goes — flag if there's a consumer-facing app in development that needs it
+   documented in full.
 
 ---
 
-_Last updated: 2026-07-21 • Base URL: `https://api.dxempire.in/api/v1`_
+_Last updated: 2026-07-30 • Base URL: `https://api.dxempire.in/api/v1`_
