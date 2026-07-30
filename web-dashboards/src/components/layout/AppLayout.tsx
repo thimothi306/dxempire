@@ -130,10 +130,13 @@ export function AppLayout() {
   const { token } = useAuthStore();
   if (!token) return <Navigate to="/login" replace />;
   return (
-    <div className="flex min-h-screen bg-primary-50">
+    <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="bg-white border-b border-primary-100 px-6 h-12 flex items-center justify-end">
+      <div
+        className="flex-1 flex flex-col overflow-hidden bg-cover bg-center bg-fixed"
+        style={{ backgroundImage: "url('/background.jpeg')" }}
+      >
+        <header className="bg-white/90 backdrop-blur-sm border-b border-primary-100 px-6 h-12 flex items-center justify-end">
           <NotificationBell />
         </header>
         <main className="flex-1 overflow-auto">
