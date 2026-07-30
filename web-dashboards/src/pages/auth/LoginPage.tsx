@@ -75,8 +75,7 @@ export default function LoginPage() {
             <img src="/DX_EmpireLogo.png" alt="DXEmpire" className="h-20 w-20 object-contain" />
           </div>
           <div>
-            <p className="text-white text-3xl font-bold leading-tight">DXEmpire</p>
-            <p className="text-white/80 text-lg font-medium">Admin Panel</p>
+            <p className="text-white text-lg font-medium">Admin Panel</p>
           </div>
         </div>
 
