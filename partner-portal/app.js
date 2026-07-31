@@ -9,6 +9,8 @@ const CONFIG = {
   //   Local (XAMPP): http://localhost/dxempire/dxempire-backend/public/api/v1
   //   Production:    https://api.dxempire.in/api/v1
   API_BASE: 'https://api.dxempire.in/api/v1',
+  // Must match the backend's CASHFREE_MODE — flip both together when going live.
+  CASHFREE_MODE: 'sandbox',
 };
 
 const TOKEN_KEY = 'dx_partner_token';
@@ -83,7 +85,21 @@ function showApp() {
   $('#partnerInitial').textContent = (p.business_name || p.name || 'P').charAt(0).toUpperCase();
   $('#loginScreen').classList.add('hidden');
   $('#app').classList.remove('hidden');
-  navigate('dashboard');
+
+  if (window.__pendingPaymentOrder) {
+    const orderNumber = window.__pendingPaymentOrder;
+    window.__pendingPaymentOrder = null;
+    navigate('dues');
+    setTimeout(() => {
+      const content = $('#content');
+      if (content) {
+        content.insertAdjacentHTML('afterbegin',
+          `<div class="note" style="margin-bottom:16px">⏳ Verifying payment for order <strong>${orderNumber}</strong>… if it doesn't update within a minute, refresh this page.</div>`);
+      }
+    }, 300);
+  } else {
+    navigate('dashboard');
+  }
 }
 
 function navigate(view) {
@@ -171,7 +187,8 @@ async function renderDues() {
         <td>${badge(o.status)}</td>
         <td>${badge(o.payment_status)}</td>
         <td><strong>${inr(o.total_amount)}</strong></td>
-      </tr>`).join('') : emptyRow(5, 'No outstanding orders 🎉');
+        <td><button class="pay-now-btn" data-order-id="${o.id}" data-order-number="${o.order_number}">Pay Now</button></td>
+      </tr>`).join('') : emptyRow(6, 'No outstanding orders 🎉');
 
     $('#content').innerHTML = `
       <div class="stat-grid">
@@ -182,12 +199,51 @@ async function renderDues() {
       <div class="card">
         <div class="card-head">Unpaid / Partial Orders</div>
         <div class="table-wrap"><table>
-          <thead><tr><th>Order #</th><th>Date</th><th>Status</th><th>Payment</th><th>Amount</th></tr></thead>
+          <thead><tr><th>Order #</th><th>Date</th><th>Status</th><th>Payment</th><th>Amount</th><th></th></tr></thead>
           <tbody>${body}</tbody>
         </table></div>
       </div>
       <div class="note">💡 ${d.note}</div>`;
+
+    document.querySelectorAll('.pay-now-btn').forEach((btn) =>
+      btn.addEventListener('click', () => payNow(btn.dataset.orderId, btn)));
   } catch (ex) { showError(ex); }
+}
+
+/* ── payment (Cashfree) ───────────────────────────────────────────────────── */
+async function payNow(orderId, btn) {
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Loading…';
+  try {
+    const { data } = await api(`/partner/orders/${orderId}/pay`, { method: 'POST' });
+    if (!data.payment_session_id) throw new Error('Could not start payment.');
+
+    const cashfree = Cashfree({ mode: CONFIG.CASHFREE_MODE });
+    cashfree.checkout({
+      paymentSessionId: data.payment_session_id,
+      redirectTarget: '_self',
+    });
+  } catch (ex) {
+    alert('Payment could not be started: ' + ex.message);
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+}
+
+/**
+ * After Cashfree redirects back here (return_url = "/?order={order_id}"),
+ * show a "checking payment status" banner and land on Dues so the updated
+ * payment_status (set by the webhook) is visible. The webhook is the source
+ * of truth for whether payment actually succeeded — this is just UX.
+ */
+function checkReturnFromPayment() {
+  const params = new URLSearchParams(window.location.search);
+  const orderNumber = params.get('order');
+  if (!orderNumber) return;
+
+  window.history.replaceState({}, '', window.location.pathname);
+  window.__pendingPaymentOrder = orderNumber;
 }
 
 /* ── render helpers ───────────────────────────────────────────────────────── */
@@ -225,6 +281,8 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#logoutBtn').addEventListener('click', logout);
   document.querySelectorAll('.nav-item').forEach((el) =>
     el.addEventListener('click', () => navigate(el.dataset.view)));
+
+  checkReturnFromPayment();
 
   if (token()) showApp();
   else { $('#loginScreen').classList.remove('hidden'); }

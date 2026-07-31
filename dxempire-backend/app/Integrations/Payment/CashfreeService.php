@@ -68,6 +68,35 @@ class CashfreeService
     }
 
     /**
+     * Fetch an existing Cashfree order's status/session — used to avoid creating a
+     * duplicate session if the customer re-opens checkout for the same order.
+     * Returns null if no such order exists yet (safe to create a fresh one then).
+     */
+    public function getOrder(string $orderNumber): ?array
+    {
+        if (app()->environment('local', 'testing')) {
+            return null;
+        }
+
+        $response = Http::withHeaders([
+            'x-client-id'     => $this->appId,
+            'x-client-secret' => $this->secretKey,
+            'x-api-version'   => '2023-08-01',
+        ])->get("{$this->baseUrl}/orders/{$orderNumber}");
+
+        if ($response->status() === 404) {
+            return null;
+        }
+
+        if ($response->failed()) {
+            Log::error('Cashfree getOrder failed: ' . $response->body());
+            return null;
+        }
+
+        return $response->json();
+    }
+
+    /**
      * Fetch current status/payments for an order (poll fallback if webhook is delayed).
      */
     public function getOrderPayments(string $orderNumber): ?array

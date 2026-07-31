@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Partner;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Integrations\Payment\CashfreeService;
 use App\Models\AuditLog;
 use App\Models\Dealer;
 use App\Models\Order;
@@ -13,6 +14,7 @@ use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -179,6 +181,61 @@ class PartnerPortalController extends Controller
         }
     }
 
+    /**
+     * Start (or resume) an online payment for one of the partner's own orders.
+     * Reuses an existing active Cashfree session if one was already created for
+     * this order and hasn't been paid/expired yet, instead of always minting a
+     * fresh one (e.g. if the dealer closed the checkout popup and reopened it).
+     */
+    public function initiatePayment(Request $request, Order $order, CashfreeService $cashfree): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer || $order->dealer_id !== $dealer->id) {
+            return $this->error('Order not found.', 404);
+        }
+
+        if (!in_array($order->payment_status, ['unpaid', 'partial'])) {
+            return $this->error('This order is already paid.', 422);
+        }
+
+        try {
+            $existing = $cashfree->getOrder($order->order_number);
+
+            if ($existing && ($existing['order_status'] ?? null) === 'ACTIVE' && !empty($existing['payment_session_id'])) {
+                return $this->success([
+                    'cf_order_id'        => $existing['cf_order_id'] ?? null,
+                    'payment_session_id' => $existing['payment_session_id'],
+                    'order_amount'       => $existing['order_amount'] ?? $order->total_amount,
+                ], 'Resuming existing payment session.');
+            }
+
+            $dealer->loadMissing('user');
+            $result = $cashfree->createOrder(
+                (float) $order->total_amount,
+                $order->order_number,
+                [
+                    'id'    => $dealer->id,
+                    'name'  => $dealer->user?->name,
+                    'phone' => $dealer->user?->phone,
+                    'email' => $dealer->user?->email,
+                ]
+            );
+
+            if (!$result || empty($result['payment_session_id'])) {
+                return $this->error('Could not start payment right now. Please try again.', 502);
+            }
+
+            return $this->success([
+                'cf_order_id'        => $result['cf_order_id'] ?? null,
+                'payment_session_id' => $result['payment_session_id'],
+                'order_amount'       => $result['order_amount'] ?? $order->total_amount,
+            ], 'Payment session created.');
+        } catch (\Throwable $e) {
+            Log::error("Cashfree initiatePayment failed for order {$order->order_number}: " . $e->getMessage());
+            return $this->error('Could not start payment right now. Please try again.', 502);
+        }
+    }
+
     /** Detail of a single order — guarded to the partner's own dealer_id. */
     public function orderShow(Request $request, Order $order): JsonResponse
     {
@@ -231,7 +288,7 @@ class PartnerPortalController extends Controller
             'available_credit'   => max(0, $creditLimit - $creditUsed),
             'outstanding_amount' => $creditUsed,
             'unpaid_orders'      => $unpaidOrders,
-            'note'               => 'To make a payment, please use the DXEmpire mobile app or contact your sales representative.',
+            'note'               => 'Click Pay Now next to an order below to pay online.',
         ]);
     }
 }

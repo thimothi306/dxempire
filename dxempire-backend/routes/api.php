@@ -389,6 +389,7 @@ Route::prefix('v1')->group(function () {
             Route::get('orders',          [PartnerPortalController::class, 'orders']);
             Route::post('orders',         [PartnerPortalController::class, 'store']);
             Route::get('orders/{order}',  [PartnerPortalController::class, 'orderShow']);
+            Route::post('orders/{order}/pay', [PartnerPortalController::class, 'initiatePayment']);
             Route::get('invoices',        [PartnerPortalController::class, 'invoices']);
             Route::get('dues',            [PartnerPortalController::class, 'dues']);
 
