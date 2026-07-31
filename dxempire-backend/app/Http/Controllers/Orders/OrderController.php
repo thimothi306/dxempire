@@ -174,26 +174,37 @@ class OrderController extends Controller
             return $this->error("Order must be packed before creating a shipment. Current status: {$order->status}.", 422);
         }
 
-        // Razorpay order creation for online payment
-        $razorpayOrderId = null;
+        // Cashfree order creation for online payment
+        $paymentSessionId = null;
+        $cfOrderId        = null;
         if ($order->dealer_id) {
             try {
-                $rpService = app(\App\Integrations\Payment\RazorpayService::class);
-                $rpOrder = $rpService->createOrder(
-                    (int) round($order->total_amount * 100),
-                    'INR',
-                    ['order_number' => $order->order_number, 'order_id' => $order->id]
+                $order->loadMissing('dealer.user');
+                $dealer = $order->dealer;
+
+                $cfService = app(\App\Integrations\Payment\CashfreeService::class);
+                $cfOrder = $cfService->createOrder(
+                    (float) $order->total_amount,
+                    $order->order_number,
+                    [
+                        'id'    => $dealer?->id,
+                        'name'  => $dealer?->user?->name,
+                        'phone' => $dealer?->user?->phone,
+                        'email' => $dealer?->user?->email,
+                    ]
                 );
-                $razorpayOrderId = $rpOrder['id'] ?? null;
+                $cfOrderId        = $cfOrder['cf_order_id'] ?? null;
+                $paymentSessionId = $cfOrder['payment_session_id'] ?? null;
             } catch (\Throwable $e) {
                 // Non-fatal: log and proceed; payment can be collected later
-                \Illuminate\Support\Facades\Log::warning('Razorpay order creation failed: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Log::warning('Cashfree order creation failed: ' . $e->getMessage());
             }
         }
 
         return $this->success([
-            'order'             => $order,
-            'razorpay_order_id' => $razorpayOrderId,
+            'order'               => $order,
+            'cf_order_id'         => $cfOrderId,
+            'payment_session_id'  => $paymentSessionId,
         ], 'Shipment ready. Proceed to dispatch.');
     }
 

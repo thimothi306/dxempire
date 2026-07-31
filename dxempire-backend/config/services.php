@@ -42,6 +42,13 @@ return [
         'webhook_secret' => env('RAZORPAY_WEBHOOK_SECRET'),
     ],
 
+    'cashfree' => [
+        'app_id'      => env('CASHFREE_APP_ID'),
+        'secret_key'  => env('CASHFREE_SECRET_KEY'),
+        'mode'        => env('CASHFREE_MODE', 'sandbox'), // sandbox | production
+        'return_url'  => env('PARTNER_PORTAL_URL', env('APP_URL')),
+    ],
+
     'shiprocket' => [
         'email'           => env('SHIPROCKET_EMAIL'),
         'password'        => env('SHIPROCKET_PASSWORD'),

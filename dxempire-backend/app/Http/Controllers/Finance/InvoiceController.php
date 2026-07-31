@@ -55,7 +55,7 @@ class InvoiceController extends Controller
     {
         $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01'],
-            'method' => ['required', 'in:cash,bank_transfer,razorpay,cheque,upi'],
+            'method' => ['required', 'in:cash,bank_transfer,razorpay,cashfree,cheque,upi'],
             'note'   => ['nullable', 'string'],
         ]);
 

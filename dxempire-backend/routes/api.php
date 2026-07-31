@@ -25,6 +25,7 @@ use App\Http\Controllers\Finance\InvoiceController;
 use App\Http\Controllers\Finance\VendorPaymentController;
 use App\Http\Controllers\Orders\OrderController;
 use App\Http\Controllers\Orders\RazorpayWebhookController;
+use App\Http\Controllers\Orders\CashfreeWebhookController;
 use App\Http\Controllers\QC\QcController;
 use App\Http\Controllers\Sales\SalesHierarchyController;
 use App\Http\Controllers\Sales\OfferController;
@@ -400,6 +401,7 @@ Route::prefix('v1')->group(function () {
 
     // ── Webhooks (public, signature verified in controller) ───────────────
     Route::post('/webhooks/razorpay', [RazorpayWebhookController::class, 'handle']);
+    Route::post('/webhooks/cashfree', [CashfreeWebhookController::class, 'handle']);
 
     // ── Retail / B2C ─────────────────────────────────────────────────────────
     // Public retail auth
