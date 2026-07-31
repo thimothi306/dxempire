@@ -70,7 +70,7 @@ export default function UsersPage() {
                 { key: 'name', header: 'Name', render: (u) => <span className="font-medium">{u.name}</span> },
                 { key: 'phone', header: 'Phone' },
                 { key: 'email', header: 'Email', render: (u) => u.email || '—' },
-                { key: 'unique_code', header: 'Unique Code', render: (u: any) => u.unique_code ? <code className="text-xs bg-gray-100 px-2 py-1 rounded font-semibold">{u.unique_code}</code> : '—' },
+                { key: 'unique_code', header: 'Employee ID', render: (u: any) => u.unique_code ? <code className="text-xs bg-gray-100 px-2 py-1 rounded font-semibold">{u.unique_code}</code> : '—' },
                 { key: 'role', header: 'Role', render: (u) => <Badge label={u.role.replace(/_/g, ' ')} color="blue" /> },
                 { key: 'is_active', header: 'Status', render: (u) => <Badge label={u.is_active ? 'Active' : 'Inactive'} color={u.is_active ? 'green' : 'red'} /> },
                 {
@@ -144,7 +144,7 @@ export default function UsersPage() {
             </div>
 
             <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">Unique Code (copied to clipboard):</p>
+              <p className="text-sm text-gray-600 mb-2">Employee ID (copied to clipboard):</p>
               <div className="flex items-center justify-between bg-white p-3 rounded border border-blue-200">
                 <code className="text-lg font-bold text-blue-600">{newUserCode.code}</code>
                 <button
