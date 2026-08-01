@@ -19,13 +19,17 @@ class AuthController extends Controller
 {
     use ApiResponse;
 
+    /**
+     * Single login for every role — staff, warehouse, and business partners
+     * all sign in here with email + password. Partners used to have a
+     * separate email-or-phone login on partner.dxempire.in; that subdomain
+     * is being retired, so partner accounts now log in here too, email only.
+     */
     public function adminLogin(AdminLoginRequest $request): JsonResponse
     {
-        $user = User::where('email', $request->email)
-            ->where('role', '!=', 'b2b_partner')
-            ->first();
+        $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (!$user || !$user->password || !Hash::check($request->password, $user->password)) {
             return $this->error('Invalid email or password.', 401);
         }
 
@@ -35,18 +39,35 @@ class AuthController extends Controller
 
         $user->update(['last_login_at' => now()]);
 
-        $token = $user->createToken('admin_token_' . $user->role, ['*'], now()->addDays(30));
+        $ability = $user->role === 'b2b_partner' ? ['partner'] : ['*'];
+        $token = $user->createToken('admin_token_' . $user->role, $ability, now()->addDays(30));
+
+        $userPayload = [
+            'id'          => $user->id,
+            'name'        => $user->name,
+            'phone'       => $user->phone,
+            'email'       => $user->email,
+            'role'        => $user->role,
+            'permissions' => $user->getAllPermissions()->pluck('name'),
+        ];
+
+        if ($user->role === 'b2b_partner') {
+            $user->loadMissing('dealer');
+            $dealer = $user->dealer;
+            $userPayload = array_merge($userPayload, [
+                'business_name' => $dealer?->business_name,
+                'kyc_status'    => $dealer?->kyc_status,
+                'gst_number'    => $dealer?->gst_number,
+                'state'         => $dealer?->state,
+                'pincode'       => $dealer?->pincode,
+                'price_tier'    => $dealer?->price_tier,
+                'has_dealer'    => (bool) $dealer,
+            ]);
+        }
 
         return $this->success([
             'token' => $token->plainTextToken,
-            'user'  => [
-                'id'          => $user->id,
-                'name'        => $user->name,
-                'phone'       => $user->phone,
-                'email'       => $user->email,
-                'role'        => $user->role,
-                'permissions' => $user->getAllPermissions()->pluck('name'),
-            ],
+            'user'  => $userPayload,
         ], 'Login successful');
     }
 
@@ -140,23 +161,32 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        $kycStatus = null;
-        if ($user->role === 'b2b_partner') {
-            $user->loadMissing('dealer');
-            $kycStatus = $user->dealer?->kyc_status;
-        }
-
-        return $this->success([
+        $payload = [
             'id'          => $user->id,
             'name'        => $user->name,
             'phone'       => $user->phone,
             'email'       => $user->email,
             'role'        => $user->role,
             'partner_id'  => $user->partner_id,
-            'kyc_status'  => $kycStatus,
             'is_active'   => $user->is_active,
             'permissions' => $user->getAllPermissions()->pluck('name'),
-        ]);
+        ];
+
+        if ($user->role === 'b2b_partner') {
+            $user->loadMissing('dealer');
+            $dealer = $user->dealer;
+            $payload = array_merge($payload, [
+                'kyc_status'    => $dealer?->kyc_status,
+                'business_name' => $dealer?->business_name,
+                'gst_number'    => $dealer?->gst_number,
+                'state'         => $dealer?->state,
+                'pincode'       => $dealer?->pincode,
+                'price_tier'    => $dealer?->price_tier,
+                'has_dealer'    => (bool) $dealer,
+            ]);
+        }
+
+        return $this->success($payload);
     }
 
     public function refresh(Request $request): JsonResponse
