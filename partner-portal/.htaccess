@@ -1,5 +1,6 @@
 Options -MultiViews
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+
+# partner.dxempire.in is retired — business partners now log into
+# admin.dxempire.in with the same email + password. Redirect everything.
+RewriteRule ^ https://admin.dxempire.in/login [R=301,L]

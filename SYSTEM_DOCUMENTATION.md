@@ -52,8 +52,7 @@ graph TB
         API[Laravel API<br/>+ MySQL Database]
     end
 
-    ADMIN["🖥️ Admin Dashboard<br/>admin.dxempire.in<br/>(web, React)"] -->|email + password| API
-    PARTNERWEB["🤝 Partner Portal<br/>partner.dxempire.in<br/>(web, React — view only)"] -->|email/phone + password| API
+    ADMIN["🖥️ Admin Dashboard<br/>admin.dxempire.in<br/>(web, React — staff AND business partners)"] -->|email + password| API
     STAFFAPP["📱 Staff Mobile App<br/>(planned — sales team)"] -->|Sales ID only, no password| API
     PARTNERAPP["📱 Partner Mobile App<br/>(planned — dealers)"] -->|email/phone + password| API
     MARKETING["🌐 Marketing Site<br/>dxempire.in<br/>(static, no login)"]
@@ -64,8 +63,8 @@ graph TB
 
 | App | URL | Who uses it | Built? |
 |-----|-----|-------------|--------|
-| **Admin Dashboard** | admin.dxempire.in | Staff (all internal roles) | ✅ Full, live |
-| **Partner Portal** | partner.dxempire.in | Business partners (dealers) | ✅ View-only, live |
+| **Admin Dashboard** | admin.dxempire.in | Staff (all internal roles) **and** business partners (dealers) | ✅ Full, live |
+| ~~Partner Portal~~ | ~~partner.dxempire.in~~ | Retired 2026-08-01 — now redirects to admin.dxempire.in/login. Partners use the same admin dashboard, scoped to their own Dashboard/Orders/Invoices/Dues pages. | ❌ Retired |
 | **Staff Mobile App** | (native app) | Sales hierarchy (SM/AM/DM/Salesman) | 🔨 APIs ready, app being built |
 | **Partner Mobile App** | (native app) | Business partners | 🔨 APIs ready, app being built |
 | **Marketing Site** | dxempire.in | Public / prospective customers | ✅ Static site, live |
@@ -433,9 +432,10 @@ dxempire/
 │   ├── app/Services/             ← OrderService (credit/stock logic), GradePricingService, ...
 │   ├── database/migrations/      ← every schema change, in order
 │   └── database/seeders/          ← demo data generators
-├── web-dashboards/        ← Admin Dashboard (React) — admin.dxempire.in
-│   └── src/pages/                ← one folder per sidebar section
-├── partner-portal/         ← Partner Portal (plain HTML/JS) — partner.dxempire.in
+├── web-dashboards/        ← Admin Dashboard (React) — admin.dxempire.in, used by staff AND partners
+│   └── src/pages/                ← one folder per sidebar section (incl. src/pages/partner/)
+├── partner-portal/         ← RETIRED (plain HTML/JS) — partner.dxempire.in now just redirects here;
+│                              kept in repo as an inert backup, not deployed
 ├── API_REFERENCE.md        ← Full request/response docs for the 3 mobile-facing app APIs
 └── SYSTEM_DOCUMENTATION.md ← this file
 ```
