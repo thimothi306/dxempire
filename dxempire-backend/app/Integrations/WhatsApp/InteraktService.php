@@ -11,7 +11,7 @@ class InteraktService implements WhatsAppProviderInterface
 
     public function send(string $phone, string $message): void
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Interakt WhatsApp [{$phone}]: {$message}");
             return;
         }
@@ -32,7 +32,7 @@ class InteraktService implements WhatsAppProviderInterface
 
     public function sendTemplate(string $phone, string $templateName, array $params = []): void
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Interakt template [{$phone}] [{$templateName}]: " . json_encode($params));
             return;
         }

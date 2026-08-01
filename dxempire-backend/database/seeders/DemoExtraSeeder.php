@@ -49,7 +49,7 @@ class DemoExtraSeeder extends Seeder
                 'description' => $title . ' — auto-applied at checkout when eligible.',
                 'discount_type' => $dtype, 'discount_value' => $dval,
                 'min_order_amount' => $minAmt, 'max_discount_amount' => $dtype === 'percentage' ? 10000 : null,
-                'applicable_to' => ['all','phone','laptop','accessory'][$i % 4],
+                'applicable_to' => ['all','phone','laptop','phone'][$i % 4],
                 'applicable_grade' => ['all','all','S1','S2'][$i % 4],
                 'customer_type' => ['all','b2b','retail'][$i % 3],
                 'valid_from' => $now->copy()->subDays(10),

@@ -24,7 +24,7 @@ class CatalogImageSeeder extends Seeder
             ['Apple', 'MacBook Air M2', 'laptop', 'https://placehold.co/600x600/1d1d1f/ffffff?text=MacBook+Air+M2'],
             ['Dell', 'XPS 13', 'laptop', 'https://placehold.co/600x600/007db8/ffffff?text=Dell+XPS+13'],
             ['HP', 'Pavilion 15', 'laptop', 'https://placehold.co/600x600/0096d6/ffffff?text=HP+Pavilion+15'],
-            ['Apple', 'AirPods Pro', 'accessory', 'https://placehold.co/600x600/1d1d1f/ffffff?text=AirPods+Pro'],
+            ['Lenovo', 'ThinkPad E14', 'laptop', 'https://placehold.co/600x600/e2231a/ffffff?text=ThinkPad+E14'],
         ];
 
         foreach ($images as [$brand, $model, $category, $url]) {

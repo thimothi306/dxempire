@@ -18,7 +18,7 @@ class RazorpayService
 
     public function createOrder(int $amountInPaise, int $orderId): ?array
     {
-        if (empty($this->keyId) || app()->environment('local', 'testing')) {
+        if (empty($this->keyId) || app()->environment('local', 'testing', 'staging')) {
             Log::info("Razorpay mock order for order_id={$orderId}, amount={$amountInPaise}");
             return [
                 'id'       => 'order_mock_' . $orderId . '_' . time(),
@@ -59,7 +59,7 @@ class RazorpayService
 
     public function createRefund(string $paymentId, int $amountInPaise): ?array
     {
-        if (empty($this->keyId) || app()->environment('local', 'testing')) {
+        if (empty($this->keyId) || app()->environment('local', 'testing', 'staging')) {
             Log::info("Razorpay mock refund for payment={$paymentId}, amount={$amountInPaise}");
             return ['id' => 'refund_mock_' . time(), 'status' => 'processed'];
         }

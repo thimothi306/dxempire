@@ -12,7 +12,7 @@ class Msg91Service
         $authKey    = config('services.msg91.auth_key');
         $templateId = config('services.msg91.otp_template_id');
 
-        if (empty($authKey) || app()->environment('local', 'testing')) {
+        if (empty($authKey) || app()->environment('local', 'testing', 'staging')) {
             Log::info("MSG91 OTP [{$phone}]: {$otp}");
             return;
         }

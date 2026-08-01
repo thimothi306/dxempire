@@ -138,7 +138,7 @@ class SampleDataSeeder extends Seeder
             ['laptop',    'Apple',   'MacBook Air M2'],
             ['laptop',    'Dell',    'XPS 13'],
             ['laptop',    'HP',      'Pavilion 15'],
-            ['accessory', 'Apple',   'AirPods Pro'],
+            ['laptop',    'Lenovo',  'ThinkPad E14'],
         ];
         // status mix: 18 in_stock, 8 received(pending QC), 5 refurbishment, 9 sold
         $statusPlan = array_merge(

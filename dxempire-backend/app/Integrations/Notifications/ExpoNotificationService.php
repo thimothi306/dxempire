@@ -12,7 +12,7 @@ class ExpoNotificationService
 
     public function send(string $expoPushToken, string $title, string $body, array $data = []): void
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Expo push [{$expoPushToken}]: {$title} — {$body}");
             return;
         }
@@ -33,7 +33,7 @@ class ExpoNotificationService
      */
     public function sendBatch(array $messages): void
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Expo batch push: ' . count($messages) . ' message(s)');
             return;
         }

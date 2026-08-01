@@ -19,7 +19,7 @@ class TwilioWhatsAppService implements WhatsAppProviderInterface
 
     public function send(string $phone, string $message): void
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Twilio WhatsApp [{$phone}]: {$message}");
             return;
         }

@@ -26,7 +26,7 @@ class CashfreeService
      */
     public function createOrder(float $amount, string $orderNumber, array $customer): ?array
     {
-        if (empty($this->appId) || app()->environment('local', 'testing')) {
+        if (empty($this->appId) || app()->environment('local', 'testing', 'staging')) {
             Log::info("Cashfree mock order for {$orderNumber}, amount={$amount}");
             return [
                 'cf_order_id'        => 'mock_cf_' . time(),
@@ -74,7 +74,7 @@ class CashfreeService
      */
     public function getOrder(string $orderNumber): ?array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             return null;
         }
 
@@ -101,7 +101,7 @@ class CashfreeService
      */
     public function getOrderPayments(string $orderNumber): ?array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             return [];
         }
 
@@ -136,7 +136,7 @@ class CashfreeService
 
     public function createRefund(string $orderNumber, float $refundAmount, string $refundId, string $note = ''): ?array
     {
-        if (empty($this->appId) || app()->environment('local', 'testing')) {
+        if (empty($this->appId) || app()->environment('local', 'testing', 'staging')) {
             Log::info("Cashfree mock refund for order={$orderNumber}, amount={$refundAmount}");
             return ['refund_id' => $refundId, 'refund_status' => 'SUCCESS'];
         }

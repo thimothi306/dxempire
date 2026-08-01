@@ -11,7 +11,7 @@ class DelhiveryService implements LogisticsProviderInterface
 
     public function createShipment(array $payload): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             $fakeAwb = 'DL-MOCK-' . strtoupper(substr(md5($payload['order_number']), 0, 8));
             Log::info("Delhivery createShipment mock: {$payload['order_number']} → AWB {$fakeAwb}");
             return [
@@ -52,7 +52,7 @@ class DelhiveryService implements LogisticsProviderInterface
 
     public function checkPincodeServiceability(string $pincode): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery pincode check mock: {$pincode}");
             return ['pincode' => $pincode, 'serviceable' => true, 'cod' => true, 'prepaid' => true];
         }
@@ -82,7 +82,7 @@ class DelhiveryService implements LogisticsProviderInterface
 
     public function trackShipment(string $awb): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery trackShipment mock: {$awb}");
             return [
                 'awb'               => $awb,
@@ -116,7 +116,7 @@ class DelhiveryService implements LogisticsProviderInterface
 
     public function cancelShipment(string $awb): bool
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery cancelShipment mock: {$awb}");
             return true;
         }
@@ -138,7 +138,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function updateShipment(array $data): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Delhivery updateShipment mock: ' . json_encode($data));
             return ['success' => true];
         }
@@ -160,7 +160,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function updateEwaybill(string $awb, string $invoiceNumber, string $ewaybillNumber): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery updateEwaybill mock: {$awb}");
             return ['success' => true];
         }
@@ -187,7 +187,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function fetchDocument(string $awb, string $docType): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery fetchDocument mock: {$awb} / {$docType}");
             return ['awb' => $awb, 'doc_type' => $docType, 'url' => "https://mock.local/docs/{$awb}.pdf"];
         }
@@ -215,7 +215,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function createWarehouse(array $data): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Delhivery createWarehouse mock: ' . ($data['name'] ?? ''));
             return ['success' => true, 'name' => $data['name'] ?? null];
         }
@@ -248,7 +248,7 @@ class DelhiveryService implements LogisticsProviderInterface
 
     public function updateWarehouse(array $data): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Delhivery updateWarehouse mock: ' . ($data['name'] ?? ''));
             return ['success' => true, 'name' => $data['name'] ?? null];
         }
@@ -270,7 +270,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function calculateShippingCost(array $params): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Delhivery calculateShippingCost mock: ' . json_encode($params));
             return ['total_amount' => 65.0, 'currency' => 'INR'];
         }
@@ -305,7 +305,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function fetchWaybill(): string
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             $wb = 'MOCKWB' . rand(100000, 999999);
             Log::info("Delhivery fetchWaybill mock: {$wb}");
             return $wb;
@@ -332,7 +332,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function generateShippingLabel(string $awb): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Delhivery generateShippingLabel mock: {$awb}");
             return ['awb' => $awb, 'label_url' => "https://mock.local/labels/{$awb}.pdf"];
         }
@@ -362,7 +362,7 @@ class DelhiveryService implements LogisticsProviderInterface
      */
     public function raisePickupRequest(array $data): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info('Delhivery raisePickupRequest mock: ' . json_encode($data));
             return ['success' => true, 'pickup_date' => $data['pickup_date'] ?? now()->toDateString()];
         }

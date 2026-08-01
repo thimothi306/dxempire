@@ -11,7 +11,7 @@ class DtdcService implements LogisticsProviderInterface
 
     public function createShipment(array $payload): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             $fakeAwb = 'DT-MOCK-' . strtoupper(substr(md5($payload['order_number']), 0, 8));
             Log::info("DTDC createShipment mock: {$payload['order_number']} → AWB {$fakeAwb}");
             return [
@@ -62,7 +62,7 @@ class DtdcService implements LogisticsProviderInterface
 
     public function trackShipment(string $awb): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("DTDC trackShipment mock: {$awb}");
             return [
                 'awb'               => $awb,
@@ -96,7 +96,7 @@ class DtdcService implements LogisticsProviderInterface
 
     public function cancelShipment(string $awb): bool
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("DTDC cancelShipment mock: {$awb}");
             return true;
         }

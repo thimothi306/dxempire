@@ -12,7 +12,7 @@ class ShiprocketService implements LogisticsProviderInterface
 
     public function createShipment(array $payload): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             $fakeAwb = 'SR-MOCK-' . strtoupper(substr(md5($payload['order_number']), 0, 8));
             Log::info("Shiprocket createShipment mock: {$payload['order_number']} → AWB {$fakeAwb}");
             return [
@@ -73,7 +73,7 @@ class ShiprocketService implements LogisticsProviderInterface
 
     public function trackShipment(string $awb): array
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Shiprocket trackShipment mock: {$awb}");
             return $this->mockTrackingResponse($awb);
         }
@@ -98,7 +98,7 @@ class ShiprocketService implements LogisticsProviderInterface
 
     public function cancelShipment(string $awb): bool
     {
-        if (app()->environment('local', 'testing')) {
+        if (app()->environment('local', 'testing', 'staging')) {
             Log::info("Shiprocket cancelShipment mock: {$awb}");
             return true;
         }
