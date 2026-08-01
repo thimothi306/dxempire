@@ -211,3 +211,21 @@ export const catalogImageService = {
     api.post('/admin/catalog-images/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data.data),
   remove: (id: number) => api.delete(`/admin/catalog-images/${id}`),
 };
+
+// ─── Partner Portal (business partner's own view — now inside the admin app) ──
+export const partnerService = {
+  dashboard: () => api.get('/partner/dashboard').then((r) => r.data.data),
+  orders: (params?: Record<string, string>) => api.get('/partner/orders', { params }).then((r) => r.data),
+  orderById: (id: number) => api.get(`/partner/orders/${id}`).then((r) => r.data.data),
+  placeOrder: (data: { items: Array<{ brand: string; model: string; grade: string; category?: string; quantity: number }>; notes?: string }) =>
+    api.post('/partner/orders', data).then((r) => r.data.data),
+  invoices: (params?: Record<string, string>) => api.get('/partner/invoices', { params }).then((r) => r.data),
+  dues: () => api.get('/partner/dues').then((r) => r.data.data),
+  initiatePayment: (orderId: number) => api.post(`/partner/orders/${orderId}/pay`).then((r) => r.data.data),
+};
+
+export const partnerCatalogService = {
+  brands: (category?: string) => api.get('/partner/catalog/brands', { params: category ? { category } : {} }).then((r) => r.data.data),
+  models: (params: Record<string, string>) => api.get('/partner/catalog', { params }).then((r) => r.data.data),
+  grades: (params: Record<string, string>) => api.get('/partner/catalog/grades', { params }).then((r) => r.data.data),
+};

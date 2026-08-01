@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { ordersService, logisticsService } from '../../services';
 import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, orderStatusBadge, fmtINR, fmtDateTime } from '../../components/ui';
 import type { Order, OrderStatus } from '../../types';
+import { useAuthStore } from '../../stores/authStore';
+import PartnerOrdersPage from '../partner/PartnerOrdersPage';
 
 const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: '', label: 'All Statuses' },
@@ -13,6 +15,14 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export default function OrdersPage() {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === 'b2b_partner') {
+    return <PartnerOrdersPage />;
+  }
+  return <StaffOrdersPage />;
+}
+
+function StaffOrdersPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');

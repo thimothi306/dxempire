@@ -12,6 +12,7 @@ import {
   CartesianGrid, PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
+import PartnerDashboardPage from '../partner/PartnerDashboardPage';
 import {
   analyticsService, inventoryService, ordersService,
   qcService, hrService, financeService,
@@ -643,6 +644,10 @@ function HRDashboard() {
 export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const role = user?.role;
+
+  if (role === 'b2b_partner') {
+    return <PartnerDashboardPage />;
+  }
 
   const subtitles: Record<string, string> = {
     super_admin:     'DXEMPIRE operations overview',

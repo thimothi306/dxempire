@@ -4,8 +4,18 @@ import { Download } from 'lucide-react';
 import { financeService } from '../../services';
 import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, fmtINR, fmtDate } from '../../components/ui';
 import type { Invoice } from '../../types';
+import { useAuthStore } from '../../stores/authStore';
+import PartnerInvoicesPage from '../partner/PartnerInvoicesPage';
 
 export default function InvoicesPage() {
+  const role = useAuthStore((s) => s.user?.role);
+  if (role === 'b2b_partner') {
+    return <PartnerInvoicesPage />;
+  }
+  return <StaffInvoicesPage />;
+}
+
+function StaffInvoicesPage() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
 

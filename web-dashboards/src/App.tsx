@@ -32,6 +32,7 @@ import OffersPage from './pages/offers/OffersPage';
 import PetiPage from './pages/peti/PetiPage';
 import RetailCustomersPage from './pages/customers/RetailCustomersPage';
 import SupportPage from './pages/support/SupportPage';
+import PartnerDuesPage from './pages/partner/PartnerDuesPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -73,6 +74,9 @@ export default function App() {
             <Route path="offers"            element={<OffersPage />} />
             <Route path="retail-customers"  element={<RetailCustomersPage />} />
             <Route path="support"           element={<SupportPage />} />
+
+            {/* Business Partner */}
+            <Route path="dues" element={<PartnerDuesPage />} />
 
             {/* Finance */}
             <Route path="invoices"    element={<InvoicesPage />} />

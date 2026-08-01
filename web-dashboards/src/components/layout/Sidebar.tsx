@@ -20,7 +20,10 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'sales', 'warehouse_staff', 'qc_engineer', 'accounts', 'hr_manager', 'logistics'] },
+  { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'sales', 'warehouse_staff', 'qc_engineer', 'accounts', 'hr_manager', 'logistics', 'b2b_partner'] },
+  { label: 'My Orders',   to: '/orders',       icon: <ShoppingCart size={18} />,   roles: ['b2b_partner'] },
+  { label: 'My Invoices', to: '/invoices',     icon: <FileText size={18} />,       roles: ['b2b_partner'] },
+  { label: 'My Dues',     to: '/dues',         icon: <Wallet size={18} />,         roles: ['b2b_partner'] },
   { label: 'Orders',      to: '/orders',       icon: <ShoppingCart size={18} />,   roles: ['super_admin', 'sales', 'warehouse_staff'] },
   { label: 'Inventory',   to: '/inventory',    icon: <Package size={18} />,        roles: ['super_admin', 'warehouse_staff', 'qc_engineer'] },
   { label: 'Catalog Images', to: '/catalog-images', icon: <Images size={18} />,    roles: ['super_admin'] },
