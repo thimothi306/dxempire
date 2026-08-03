@@ -210,6 +210,8 @@ export const catalogImageService = {
   upload: (formData: FormData) =>
     api.post('/admin/catalog-images/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data.data),
   remove: (id: number) => api.delete(`/admin/catalog-images/${id}`),
+  brands: (category?: string) => api.get('/admin/catalog-images/brands', { params: category ? { category } : {} }).then((r) => r.data.data),
+  models: (brand: string, category?: string) => api.get('/admin/catalog-images/models', { params: { brand, ...(category ? { category } : {}) } }).then((r) => r.data.data),
 };
 
 // ─── Partner Portal (business partner's own view — now inside the admin app) ──

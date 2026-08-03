@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, ImageOff } from 'lucide-react';
+import { Plus, Trash2, ImageOff, PencilLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { catalogImageService } from '../../services';
 import { Card, Button, PageHeader, Spinner, Modal, Input, Select } from '../../components/ui';
@@ -26,6 +26,7 @@ type FormState = typeof EMPTY_FORM;
 // the same fix applied earlier.
 function UploadForm({
   form, setForm, file, setFile, onSubmit, onCancel, loading,
+  brands, models, manualBrand, setManualBrand, manualModel, setManualModel,
 }: {
   form: FormState;
   setForm: (f: FormState) => void;
@@ -34,6 +35,12 @@ function UploadForm({
   onSubmit: () => void;
   onCancel: () => void;
   loading: boolean;
+  brands: string[];
+  models: string[];
+  manualBrand: boolean;
+  setManualBrand: (v: boolean) => void;
+  manualModel: boolean;
+  setManualModel: (v: boolean) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const preview = file ? URL.createObjectURL(file) : null;
@@ -42,10 +49,65 @@ function UploadForm({
     <div className="space-y-4">
       <p className="text-xs text-gray-500">
         One photo per Brand + Model + Category. Uploading again for the same combination replaces the existing photo.
+        Pick from real inventory below so the name always matches exactly — only switch to manual entry for a
+        brand/model that hasn't arrived in stock yet.
       </p>
-      <Input label="Brand *" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Apple" />
-      <Input label="Model *" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. iPhone 13" />
-      <Select label="Category *" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} options={CATEGORIES} />
+
+      <Select
+        label="Category *"
+        value={form.category}
+        onChange={(e) => setForm({ ...form, category: e.target.value, brand: '', model: '' })}
+        options={CATEGORIES}
+      />
+
+      {/* Brand */}
+      {manualBrand ? (
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input label="Brand * (new — not yet in stock)" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} placeholder="e.g. Apple" />
+          </div>
+          <Button variant="outline" size="sm" onClick={() => { setManualBrand(false); setForm({ ...form, brand: '', model: '' }); }}>Pick from stock</Button>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Select
+              label="Brand *"
+              value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value, model: '' })}
+              options={[{ value: '', label: brands.length ? 'Select brand' : 'No brands in stock for this category' }, ...brands.map((b) => ({ value: b, label: b }))]}
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setManualBrand(true)} title="Add a brand that isn't in stock yet">
+            <PencilLine size={13} /> New
+          </Button>
+        </div>
+      )}
+
+      {/* Model */}
+      {manualModel ? (
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Input label="Model * (new — not yet in stock)" value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. iPhone 13" />
+          </div>
+          <Button variant="outline" size="sm" onClick={() => { setManualModel(false); setForm({ ...form, model: '' }); }}>Pick from stock</Button>
+        </div>
+      ) : (
+        <div className="flex items-end gap-2">
+          <div className="flex-1">
+            <Select
+              label="Model *"
+              value={form.model}
+              onChange={(e) => setForm({ ...form, model: e.target.value })}
+              options={[{ value: '', label: !form.brand ? 'Select a brand first' : models.length ? 'Select model' : 'No models in stock for this brand' }, ...models.map((m) => ({ value: m, label: m }))]}
+              disabled={!form.brand}
+            />
+          </div>
+          <Button variant="outline" size="sm" onClick={() => setManualModel(true)} title="Add a model that isn't in stock yet">
+            <PencilLine size={13} /> New
+          </Button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-600">Photo * (JPG, PNG or WEBP, max 4MB)</label>
@@ -78,11 +140,27 @@ export default function CatalogImagesPage() {
   const [deleteTarget, setDeleteTarget] = useState<CatalogImage | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [file, setFile] = useState<File | null>(null);
+  const [manualBrand, setManualBrand] = useState(false);
+  const [manualModel, setManualModel] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['catalog-images'],
     queryFn: () => catalogImageService.list(),
   });
+
+  const { data: brandsData } = useQuery({
+    queryKey: ['catalog-image-brands', form.category],
+    queryFn: () => catalogImageService.brands(form.category),
+    enabled: showUpload && !manualBrand,
+  });
+  const brands: string[] = Array.isArray(brandsData) ? brandsData : [];
+
+  const { data: modelsData } = useQuery({
+    queryKey: ['catalog-image-models', form.brand, form.category],
+    queryFn: () => catalogImageService.models(form.brand, form.category),
+    enabled: showUpload && !manualModel && !!form.brand,
+  });
+  const models: string[] = Array.isArray(modelsData) ? modelsData : [];
 
   const uploadMut = useMutation({
     mutationFn: () => {
@@ -120,7 +198,7 @@ export default function CatalogImagesPage() {
       <PageHeader
         title="Catalog Images"
         subtitle={`${images.length} model photo${images.length === 1 ? '' : 's'} — shown to partners in the app catalog`}
-        action={<Button onClick={() => { setForm(EMPTY_FORM); setFile(null); setShowUpload(true); }}><Plus size={15} /> Upload Image</Button>}
+        action={<Button onClick={() => { setForm(EMPTY_FORM); setFile(null); setManualBrand(false); setManualModel(false); setShowUpload(true); }}><Plus size={15} /> Upload Image</Button>}
       />
 
       <Card className="p-5">
@@ -154,6 +232,9 @@ export default function CatalogImagesPage() {
       <Modal open={showUpload} onClose={() => setShowUpload(false)} title="Upload Catalog Image">
         <UploadForm
           form={form} setForm={setForm} file={file} setFile={setFile}
+          brands={brands} models={models}
+          manualBrand={manualBrand} setManualBrand={setManualBrand}
+          manualModel={manualModel} setManualModel={setManualModel}
           onSubmit={() => uploadMut.mutate()}
           onCancel={() => setShowUpload(false)}
           loading={uploadMut.isPending}

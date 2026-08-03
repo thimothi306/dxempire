@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
 use App\Models\CatalogImage;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -20,6 +21,38 @@ class CatalogImageController extends Controller
     public function index(): JsonResponse
     {
         return $this->success(CatalogImage::orderBy('brand')->orderBy('model')->get());
+    }
+
+    /**
+     * Distinct brands that actually exist in inventory (any status, so a brand
+     * still awaiting QC/received shows up too) — powers the Catalog Images
+     * upload dropdown so the typed brand can never drift from what inventory
+     * actually calls it.
+     */
+    public function brands(Request $request): JsonResponse
+    {
+        $brands = Product::query()
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->distinct()
+            ->orderBy('brand')
+            ->pluck('brand');
+
+        return $this->success($brands);
+    }
+
+    /** Distinct models for a given brand (+ optional category) from real inventory. */
+    public function models(Request $request): JsonResponse
+    {
+        $request->validate(['brand' => ['required', 'string']]);
+
+        $models = Product::query()
+            ->where('brand', $request->brand)
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->distinct()
+            ->orderBy('model')
+            ->pluck('model');
+
+        return $this->success($models);
     }
 
     /** Create or replace the image for a brand+model+category. */

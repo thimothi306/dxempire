@@ -87,6 +87,8 @@ Route::prefix('v1')->group(function () {
 
             // Catalog images (model-level photos for the partner catalog)
             Route::get('catalog-images',               [CatalogImageController::class, 'index']);
+            Route::get('catalog-images/brands',        [CatalogImageController::class, 'brands']);
+            Route::get('catalog-images/models',        [CatalogImageController::class, 'models']);
             Route::post('catalog-images',               [CatalogImageController::class, 'upsert']);
             Route::post('catalog-images/upload',        [CatalogImageController::class, 'upload']);
             Route::delete('catalog-images/{catalogImage}', [CatalogImageController::class, 'destroy']);
