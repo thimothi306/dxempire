@@ -100,13 +100,11 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         } md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="px-4 py-4 border-b border-navy-600">
-          <div className="bg-white rounded-xl px-3 py-2.5 flex items-center justify-center">
-            <img src="/DX_Empire_Logo.png" alt="DXEmpire" className="h-9 w-auto object-contain" />
+        <div className="px-4 pt-5 pb-4 border-b border-navy-600 flex flex-col items-center">
+          <div className="bg-white rounded-xl px-4 py-2.5 shadow-md shadow-black/20">
+            <img src="/DX_Empire_Logo.png" alt="DXEmpire" className="h-7 w-auto object-contain" />
           </div>
-          <div className="border-t border-navy-600 mt-3 pt-2 text-center">
-            <p className="text-xs font-medium text-primary-200 tracking-wide">Admin Panel</p>
-          </div>
+          <p className="text-xs font-medium text-primary-200 tracking-wide mt-3">Admin Panel</p>
         </div>
 
         {/* Nav */}
