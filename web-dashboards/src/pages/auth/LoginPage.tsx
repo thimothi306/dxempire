@@ -66,7 +66,7 @@ export default function LoginPage() {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center md:justify-end px-4 md:pr-[8%] relative overflow-hidden bg-cover bg-center"
+      className="min-h-screen flex items-center justify-center md:justify-end px-4 md:pr-[8%] relative overflow-hidden bg-cover bg-[position:30%_center] md:bg-center"
       style={{ backgroundImage: "url('/login-bg.png')" }}
     >
       <div className="w-full max-w-sm relative">
