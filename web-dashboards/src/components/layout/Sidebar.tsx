@@ -95,16 +95,19 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen fixed md:sticky top-0 left-0 z-50 transition-transform duration-200 ${
+        className={`w-60 flex-shrink-0 bg-navy-800 text-blue-100/70 flex flex-col h-screen fixed md:sticky top-0 left-0 z-50 transition-transform duration-200 border-l-4 border-accent ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } md:translate-x-0`}
       >
         {/* Logo */}
-        <div className="px-4 pt-5 pb-4 border-b border-navy-600 flex flex-col items-center">
-          <div className="bg-white rounded-xl px-4 py-2.5 shadow-md shadow-black/20">
-            <img src="/DX_Empire_Logo.png" alt="DXEmpire" className="h-7 w-auto object-contain" />
+        <div className="px-4 py-4 border-b border-navy-600 flex items-center gap-3">
+          <div className="bg-white rounded-xl p-2 shadow-md shadow-black/20 flex-shrink-0">
+            <img src="/DX_Icon.png" alt="DXEmpire" className="h-8 w-8 object-contain" />
           </div>
-          <p className="text-xs font-medium text-primary-200 tracking-wide mt-3">Admin Panel</p>
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-white tracking-wide leading-tight truncate">DXEMPIRE</p>
+            <p className="text-[10px] font-medium text-primary-200 tracking-widest uppercase mt-0.5">Admin Panel</p>
+          </div>
         </div>
 
         {/* Nav */}
