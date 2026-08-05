@@ -34,6 +34,7 @@ import RetailCustomersPage from './pages/customers/RetailCustomersPage';
 import SupportPage from './pages/support/SupportPage';
 import PartnerDuesPage from './pages/partner/PartnerDuesPage';
 import WarehousesPage from './pages/warehouses/WarehousesPage';
+import GradesPage from './pages/grades/GradesPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="qc"              element={<QCPage />} />
             <Route path="bins"            element={<BinsPage />} />
             <Route path="warehouses"      element={<WarehousesPage />} />
+            <Route path="grades"         element={<GradesPage />} />
             <Route path="procurement"     element={<ProcurementPage />} />
             <Route path="peti"            element={<PetiPage />} />
 

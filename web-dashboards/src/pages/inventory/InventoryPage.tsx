@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { inventoryService, procurementService } from '../../services';
+import { inventoryService, procurementService, gradeService } from '../../services';
 import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR } from '../../components/ui';
 import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 import type { Product } from '../../types';
@@ -33,7 +33,7 @@ function StockAvailabilityWidget() {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
       {sections.map(({ key, label }) => {
         const section = data[key] ?? {};
-        const grades = ['S1', 'S2', 'S3', 'S4', 'S5'].filter(g => section[g] !== undefined);
+        const grades = Object.keys(section).filter(g => g !== 'total');
         return (
           <Card key={key}>
             <div className="flex items-center justify-between mb-3">
@@ -63,6 +63,9 @@ export default function InventoryPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addSupplierId, setAddSupplierId] = useState('');
   const [addItems, setAddItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
+
+  const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
+  const gradeCodes: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventory', page, filters],
@@ -121,7 +124,7 @@ export default function InventoryPage() {
         <Select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}
           options={[{ value: '', label: 'All Categories' }, { value: 'phone', label: 'Phone' }, { value: 'laptop', label: 'Laptop' }]} />
         <Select value={filters.grade} onChange={(e) => setFilters({ ...filters, grade: e.target.value })}
-          options={[{ value: '', label: 'All Grades' }, ...['S1','S2','S3','S4','S5'].map((g) => ({ value: g, label: g }))]} />
+          options={[{ value: '', label: 'All Grades' }, ...gradeCodes.map((g) => ({ value: g, label: g }))]} />
         <Select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}
           options={[{ value: '', label: 'All Statuses' }, ...Object.keys(STATUS_COLORS).map((s) => ({ value: s, label: s.replace('_', ' ') }))]} />
       </div>

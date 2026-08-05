@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Grade;
 use App\Models\PetiTransfer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PetiTransferController extends Controller
 {
@@ -36,7 +38,7 @@ class PetiTransferController extends Controller
             'items.*.category'       => ['required', 'in:phone,laptop'],
             'items.*.brand'          => ['required', 'string'],
             'items.*.model'          => ['required', 'string'],
-            'items.*.grade'          => ['required', 'in:S1,S2,S3,S4,S5'],
+            'items.*.grade'          => ['required', Rule::in(Grade::activeCodes())],
             'items.*.quantity'       => ['required', 'integer', 'min:1'],
             'items.*.unit_price'     => ['required', 'numeric', 'min:0'],
             'notes'         => ['nullable', 'string'],

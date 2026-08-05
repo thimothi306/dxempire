@@ -200,6 +200,14 @@ export const warehouseService = {
   deactivate: (id: number) => api.delete(`/warehouses/${id}`),
 };
 
+// ─── Grades ──────────────────────────────────────────────────────────────────
+export const gradeService = {
+  list: () => api.get('/grades').then((r) => r.data.data),
+  create: (data: Record<string, unknown>) => api.post('/grades', data).then((r) => r.data.data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/grades/${id}`, data).then((r) => r.data.data),
+  deactivate: (id: number) => api.delete(`/grades/${id}`),
+};
+
 // ─── Procurement ─────────────────────────────────────────────────────────────
 export const procurementService = {
   suppliers: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_SUPPLIERS) : api.get('/suppliers', { params }).then((r) => r.data),

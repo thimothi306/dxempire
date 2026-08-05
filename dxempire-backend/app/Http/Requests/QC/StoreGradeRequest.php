@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\QC;
 
+use App\Models\Grade;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreGradeRequest extends FormRequest
 {
@@ -12,7 +14,7 @@ class StoreGradeRequest extends FormRequest
     {
         return [
             'product_id'      => ['required', 'exists:products,id'],
-            'grade'           => ['required_if:outcome,pass', 'nullable', 'in:S1,S2,S3,S4,S5'],
+            'grade'           => ['required_if:outcome,pass', 'nullable', Rule::in(Grade::activeCodes())],
             'condition_notes' => ['nullable', 'string', 'max:1000'],
             'outcome'         => ['required', 'in:pass,repair,reject'],
         ];

@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { qcService } from '../../services';
+import { qcService, gradeService } from '../../services';
 import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, Modal } from '../../components/ui';
 import type { Product } from '../../types';
-
-const GRADES = ['S1', 'S2', 'S3', 'S4', 'S5'];
 
 const ISSUE_OPTIONS = [
   'Screen crack', 'Battery issue', 'Back cover damage', 'Button malfunction',
@@ -26,6 +24,9 @@ export default function QCPage() {
   });
 
   const { data: stats } = useQuery({ queryKey: ['qc-stats'], queryFn: qcService.stats });
+
+  const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
+  const GRADES: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
 
   const gradeMut = useMutation({
     mutationFn: () => qcService.grade(selected!.id, {

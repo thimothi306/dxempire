@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Grade;
 use App\Models\Offer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class OfferController extends Controller
 {
@@ -34,7 +36,7 @@ class OfferController extends Controller
             'min_order_amount'    => ['nullable', 'numeric', 'min:0'],
             'max_discount_amount' => ['nullable', 'numeric', 'min:0'],
             'applicable_to'       => ['required', 'in:all,phone,laptop'],
-            'applicable_grade'    => ['required', 'in:all,S1,S2,S3,S4,S5'],
+            'applicable_grade'    => ['required', Rule::in(array_merge(['all'], Grade::activeCodes()))],
             'customer_type'       => ['required', 'in:all,b2b,retail'],
             'valid_from'          => ['required', 'date'],
             'valid_to'            => ['required', 'date', 'after:valid_from'],
@@ -68,7 +70,7 @@ class OfferController extends Controller
             'min_order_amount'    => ['nullable', 'numeric', 'min:0'],
             'max_discount_amount' => ['nullable', 'numeric', 'min:0'],
             'applicable_to'       => ['sometimes', 'in:all,phone,laptop'],
-            'applicable_grade'    => ['sometimes', 'in:all,S1,S2,S3,S4,S5'],
+            'applicable_grade'    => ['sometimes', Rule::in(array_merge(['all'], Grade::activeCodes()))],
             'customer_type'       => ['sometimes', 'in:all,b2b,retail'],
             'valid_from'          => ['sometimes', 'date'],
             'valid_to'            => ['sometimes', 'date'],

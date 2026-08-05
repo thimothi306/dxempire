@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WarehouseController;
+use App\Http\Controllers\Admin\GradeController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\HR\AttendanceController;
 use App\Http\Controllers\Integrations\LogisticsController;
@@ -64,6 +65,9 @@ Route::prefix('v1')->group(function () {
         // Push tokens
         Route::post('/users/push-token',   [PushTokenController::class, 'register']);
         Route::delete('/users/push-token', [PushTokenController::class, 'unregister']);
+
+        // Grade list — readable by any logged-in role (QC, offers, catalog, etc. all need it)
+        Route::get('/grades', [GradeController::class, 'index']);
 
         // In-app notification inbox
         Route::get('/notifications',               [NotificationController::class, 'index']);
@@ -148,6 +152,12 @@ Route::prefix('v1')->group(function () {
             Route::put('{warehouse}',          [WarehouseController::class, 'update']);
             Route::post('{warehouse}/default', [WarehouseController::class, 'makeDefault']);
             Route::delete('{warehouse}',       [WarehouseController::class, 'destroy']);
+        });
+
+        Route::middleware('role:super_admin')->prefix('grades')->group(function () {
+            Route::post('/',           [GradeController::class, 'store']);
+            Route::put('{grade}',      [GradeController::class, 'update']);
+            Route::delete('{grade}',   [GradeController::class, 'destroy']);
         });
 
         // ── QC ────────────────────────────────────────────────────────────

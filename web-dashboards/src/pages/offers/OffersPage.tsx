@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Tag, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { offersService } from '../../services/newModules';
+import { gradeService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtDate } from '../../components/ui';
 
 const DISCOUNT_TYPES = [{ value: 'percentage', label: 'Percentage (%)' }, { value: 'fixed', label: 'Fixed Amount (₹)' }];
 const APPLICABLE_TO = [{ value: 'all', label: 'All Products' }, { value: 'phone', label: 'Phones' }, { value: 'laptop', label: 'Laptops' }];
-const APPLICABLE_GRADE = [{ value: 'all', label: 'All Grades' }, ...['S1','S2','S3','S4','S5'].map(g => ({ value: g, label: g }))];
 const CUSTOMER_TYPE = [{ value: 'all', label: 'All Customers' }, { value: 'b2b', label: 'B2B Only' }, { value: 'retail', label: 'Retail Only' }];
 
 const EMPTY_FORM = { title: '', code: '', description: '', discount_type: 'percentage', discount_value: '', min_order_amount: '', max_discount_amount: '', applicable_to: 'all', applicable_grade: 'all', customer_type: 'all', valid_from: '', valid_to: '', max_usage: '' };
@@ -25,6 +25,10 @@ function OfferForm({
   onCancel: () => void;
   loading: boolean;
 }) {
+  const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
+  const gradeCodes: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
+  const APPLICABLE_GRADE = [{ value: 'all', label: 'All Grades' }, ...gradeCodes.map((g) => ({ value: g, label: g }))];
+
   return (
     <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

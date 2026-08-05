@@ -7,6 +7,7 @@ use App\Http\Traits\ApiResponse;
 use App\Integrations\Payment\CashfreeService;
 use App\Models\AuditLog;
 use App\Models\Dealer;
+use App\Models\Grade;
 use App\Models\Order;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -15,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -97,7 +99,7 @@ class PartnerPortalController extends Controller
             'items'              => ['required', 'array', 'min:1', 'max:20'],
             'items.*.brand'      => ['required', 'string'],
             'items.*.model'      => ['required', 'string'],
-            'items.*.grade'      => ['required', 'string', 'in:S1,S2,S3,S4,S5'],
+            'items.*.grade'      => ['required', 'string', Rule::in(Grade::activeCodes())],
             'items.*.category'   => ['nullable', 'string', 'in:phone,laptop'],
             'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:50'],
             'notes'              => ['nullable', 'string', 'max:1000'],

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { petiService } from '../../services/newModules';
-import { procurementService } from '../../services';
+import { procurementService, gradeService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'gray', approved: 'blue', completed: 'green', cancelled: 'red' };
@@ -26,6 +26,9 @@ export default function PetiPage() {
     queryKey: ['peti-transfers', page, statusFilter],
     queryFn: () => petiService.list({ page: String(page), ...(statusFilter && { status: statusFilter }) }),
   });
+
+  const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
+  const gradeCodes: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
 
   useQuery({
     queryKey: ['dealers-peti'],
@@ -195,7 +198,7 @@ export default function PetiPage() {
                   <Input label={idx === 0 ? 'Brand' : ''} value={item.brand} onChange={e => updateItem(idx, 'brand', e.target.value)} placeholder="Apple" />
                   <Input label={idx === 0 ? 'Model' : ''} value={item.model} onChange={e => updateItem(idx, 'model', e.target.value)} placeholder="iPhone 14" />
                   <Select label={idx === 0 ? 'Grade' : ''} value={item.grade} onChange={e => updateItem(idx, 'grade', e.target.value)}
-                    options={['S1','S2','S3','S4','S5'].map(g => ({ value: g, label: g }))} />
+                    options={gradeCodes.map(g => ({ value: g, label: g }))} />
                   <Input label={idx === 0 ? 'Qty' : ''} type="number" value={item.quantity} onChange={e => updateItem(idx, 'quantity', e.target.value)} />
                   <div className="flex items-end gap-1">
                     <Input label={idx === 0 ? 'Price ₹' : ''} type="number" value={item.unit_price} onChange={e => updateItem(idx, 'unit_price', e.target.value)} />
