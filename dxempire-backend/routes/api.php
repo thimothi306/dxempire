@@ -15,6 +15,7 @@ use App\Http\Controllers\Inventory\InventoryController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WarehouseController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\HR\AttendanceController;
 use App\Http\Controllers\Integrations\LogisticsController;
@@ -138,6 +139,15 @@ Route::prefix('v1')->group(function () {
             Route::post('/',              [BinController::class, 'store']);
             Route::post('move',           [BinController::class, 'move']);
             Route::get('{bin}/products',  [BinController::class, 'products']);
+        });
+
+        Route::middleware('role:super_admin')->prefix('warehouses')->group(function () {
+            Route::get('/',                    [WarehouseController::class, 'index']);
+            Route::post('/',                   [WarehouseController::class, 'store']);
+            Route::get('{warehouse}',          [WarehouseController::class, 'show']);
+            Route::put('{warehouse}',          [WarehouseController::class, 'update']);
+            Route::post('{warehouse}/default', [WarehouseController::class, 'makeDefault']);
+            Route::delete('{warehouse}',       [WarehouseController::class, 'destroy']);
         });
 
         // ── QC ────────────────────────────────────────────────────────────

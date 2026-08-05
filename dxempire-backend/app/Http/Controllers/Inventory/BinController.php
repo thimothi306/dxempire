@@ -8,6 +8,7 @@ use App\Http\Traits\ApiResponse;
 use App\Models\Bin;
 use App\Models\BinMovement;
 use App\Models\Product;
+use App\Models\Warehouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,8 +19,10 @@ class BinController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $bins = Bin::withCount('products')
+        $bins = Bin::with('warehouse:id,name,code')
+            ->withCount('products')
             ->when($request->zone, fn($q) => $q->where('zone', $request->zone))
+            ->when($request->warehouse_id, fn($q) => $q->where('warehouse_id', $request->warehouse_id))
             ->orderBy('code')
             ->paginate(100);
 
@@ -82,14 +85,22 @@ class BinController extends Controller
     public function store(Request $request): JsonResponse
     {
         $request->validate([
-            'code'     => ['required', 'string', 'max:50', 'unique:bins,code'],
-            'zone'     => ['nullable', 'string', 'max:50'],
-            'row'      => ['nullable', 'string', 'max:50'],
-            'shelf'    => ['nullable', 'string', 'max:50'],
-            'capacity' => ['nullable', 'integer', 'min:1'],
+            'code'         => ['required', 'string', 'max:50', 'unique:bins,code'],
+            'warehouse_id' => ['nullable', 'exists:warehouses,id'],
+            'zone'         => ['nullable', 'string', 'max:50'],
+            'row'          => ['nullable', 'string', 'max:50'],
+            'shelf'        => ['nullable', 'string', 'max:50'],
+            'capacity'     => ['nullable', 'integer', 'min:1'],
         ]);
 
+        // Default to the single/default warehouse when the caller doesn't pick
+        // one — keeps single-warehouse installs a zero-extra-step operation.
+        $warehouseId = $request->warehouse_id
+            ?? Warehouse::where('is_default', true)->value('id')
+            ?? Warehouse::where('is_active', true)->value('id');
+
         $bin = Bin::create([
+            'warehouse_id'  => $warehouseId,
             'code'          => $request->code,
             'zone'          => $request->zone,
             'row'           => $request->row,

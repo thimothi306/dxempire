@@ -190,6 +190,16 @@ export const retailCustomerService = {
   update: (id: number, data: Record<string, unknown>) => api.put(`/customers/${id}`, data).then((r) => r.data),
 };
 
+// ─── Warehouses ──────────────────────────────────────────────────────────────
+export const warehouseService = {
+  list: (params?: Record<string, string>) => api.get('/warehouses', { params }).then((r) => r.data.data),
+  get: (id: number) => api.get(`/warehouses/${id}`).then((r) => r.data.data),
+  create: (data: Record<string, unknown>) => api.post('/warehouses', data).then((r) => r.data.data),
+  update: (id: number, data: Record<string, unknown>) => api.put(`/warehouses/${id}`, data).then((r) => r.data.data),
+  makeDefault: (id: number) => api.post(`/warehouses/${id}/default`).then((r) => r.data.data),
+  deactivate: (id: number) => api.delete(`/warehouses/${id}`),
+};
+
 // ─── Procurement ─────────────────────────────────────────────────────────────
 export const procurementService = {
   suppliers: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_SUPPLIERS) : api.get('/suppliers', { params }).then((r) => r.data),
