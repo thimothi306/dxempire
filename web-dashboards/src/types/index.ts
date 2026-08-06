@@ -1,6 +1,7 @@
 export type Role =
-  | 'super_admin' | 'sales' | 'warehouse_staff'
-  | 'qc_engineer' | 'accounts' | 'hr_manager' | 'b2b_partner' | 'logistics';
+  | 'super_admin' | 'sales' | 'warehouse_staff' | 'warehouse_manager'
+  | 'qc_engineer' | 'product_manager' | 'packing_staff' | 'placement_staff'
+  | 'accounts' | 'hr_manager' | 'b2b_partner' | 'logistics';
 
 export interface User {
   id: number;

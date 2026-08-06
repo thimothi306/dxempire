@@ -6,7 +6,11 @@ import { adminService } from '../../services';
 import { Button, Badge, Table, Pagination, Modal, Input, Select, PageHeader, Card, Spinner } from '../../components/ui';
 import type { User, Role } from '../../types';
 
-const ROLES: Role[] = ['super_admin', 'sales', 'warehouse_staff', 'qc_engineer', 'accounts', 'hr_manager', 'logistics'];
+const ROLES: Role[] = [
+  'super_admin', 'sales',
+  'warehouse_staff', 'warehouse_manager', 'qc_engineer', 'product_manager', 'packing_staff', 'placement_staff',
+  'accounts', 'hr_manager', 'logistics',
+];
 
 const EMPTY_FORM = { name: '', phone: '', email: '', password: '', role: 'sales' as Role };
 
