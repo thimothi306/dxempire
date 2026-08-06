@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\Employee;
+use App\Models\Order;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
+use App\Models\SalesHierarchy;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -63,16 +65,49 @@ class PayrollService
         $lop        = round($perDayRate * $absentDays, 2);
 
         $deductions = round($pf + $lop, 2);
-        $netSalary  = max(0, round($basicEarned - $deductions, 2));
+        $incentive  = $this->calculateIncentive($employee, $run->month, $run->year);
+        $netSalary  = max(0, round($basicEarned - $deductions + $incentive, 2));
 
         return PayrollItem::create([
             'payroll_run_id' => $run->id,
             'employee_id'    => $employee->id,
             'days_worked'    => $daysWorked,
             'basic'          => $basicEarned,
+            'incentive'      => $incentive,
             'deductions'     => $deductions,
             'net_salary'     => $netSalary,
         ]);
+    }
+
+    /**
+     * Flat-% commission on the revenue of orders delivered in the payroll
+     * month, for dealers assigned to this employee's salesman node. Admin
+     * controls eligibility and rate per employee (incentive_enabled,
+     * commission_rate) — employees without either get zero incentive.
+     */
+    private function calculateIncentive(Employee $employee, int $month, int $year): float
+    {
+        if (!$employee->incentive_enabled || !$employee->commission_rate || !$employee->user_id) {
+            return 0.0;
+        }
+
+        $salesman = SalesHierarchy::where('user_id', $employee->user_id)
+            ->where('hierarchy_role', 'salesman')
+            ->first();
+
+        if (!$salesman) {
+            return 0.0;
+        }
+
+        $dealerIds = $salesman->dealers()->pluck('id');
+
+        $revenue = Order::whereIn('dealer_id', $dealerIds)
+            ->where('status', 'delivered')
+            ->whereMonth('delivered_at', $month)
+            ->whereYear('delivered_at', $year)
+            ->sum('total_amount');
+
+        return round((float) $revenue * ((float) $employee->commission_rate / 100), 2);
     }
 
     private function calculateDaysWorked($attendanceCollection): float

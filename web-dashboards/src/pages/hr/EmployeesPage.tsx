@@ -8,7 +8,7 @@ import type { Employee } from '../../types';
 
 const DEPARTMENTS = ['warehouse', 'sales', 'qc', 'accounts', 'hr', 'logistics', 'management'];
 const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract'];
-const EMPTY_FORM = { name: '', phone: '', email: '', department: 'warehouse', designation: '', employment_type: 'full_time', salary: '', joining_date: '' };
+const EMPTY_FORM = { name: '', phone: '', email: '', department: 'warehouse', designation: '', employment_type: 'full_time', salary: '', joining_date: '', incentive_enabled: false, commission_rate: '' };
 type EmployeeFormState = typeof EMPTY_FORM;
 
 // Defined OUTSIDE the page component: an inline component definition would be
@@ -37,6 +37,32 @@ function EmployeeForm({
       <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
       <Input label="Monthly Salary (₹)" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
       <Input label="Joining Date" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
+
+      <div className="border-t border-gray-100 pt-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.incentive_enabled}
+            onChange={(e) => setForm({ ...form, incentive_enabled: e.target.checked })}
+            className="accent-primary"
+          />
+          Performance Incentive
+        </label>
+        <p className="text-xs text-gray-500 mt-1 mb-2">
+          Pays a % commission on revenue from orders delivered that month, for dealers assigned to this employee (if linked to a sales hierarchy salesman).
+        </p>
+        {form.incentive_enabled && (
+          <Input
+            label="Commission Rate (%)"
+            type="number"
+            step="0.01"
+            value={form.commission_rate}
+            onChange={(e) => setForm({ ...form, commission_rate: e.target.value })}
+            placeholder="e.g. 1.5"
+          />
+        )}
+      </div>
+
       <div className="flex gap-3 pt-2">
         <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
         <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
@@ -59,7 +85,7 @@ export default function EmployeesPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: () => hrService.createEmployee({ ...form, salary: Number(form.salary) }),
+    mutationFn: () => hrService.createEmployee({ ...form, salary: Number(form.salary), commission_rate: form.commission_rate ? Number(form.commission_rate) : null }),
     onSuccess: () => {
       toast.success('Employee added');
       qc.invalidateQueries({ queryKey: ['employees'] });
@@ -70,7 +96,7 @@ export default function EmployeesPage() {
   });
 
   const updateMut = useMutation({
-    mutationFn: () => hrService.updateEmployee(editTarget!.id, { ...form, salary: Number(form.salary) }),
+    mutationFn: () => hrService.updateEmployee(editTarget!.id, { ...form, salary: Number(form.salary), commission_rate: form.commission_rate ? Number(form.commission_rate) : null }),
     onSuccess: () => {
       toast.success('Employee updated');
       qc.invalidateQueries({ queryKey: ['employees'] });
@@ -99,6 +125,8 @@ export default function EmployeesPage() {
       employment_type: emp.employment_type ?? 'full_time',
       salary: String(emp.salary ?? emp.basic_salary ?? ''),
       joining_date: emp.joining_date ?? '',
+      incentive_enabled: emp.incentive_enabled ?? false,
+      commission_rate: emp.commission_rate != null ? String(emp.commission_rate) : '',
     });
     setEditTarget(emp);
   };
@@ -125,6 +153,7 @@ export default function EmployeesPage() {
                 { key: 'designation', header: 'Designation', render: (e) => e.designation ?? '—' },
                 { key: 'employment_type', header: 'Type', render: (e) => <Badge label={(e.employment_type ?? '').replace(/_/g, ' ')} color="gray" /> },
                 { key: 'salary', header: 'Salary', render: (e) => fmtINR(e.salary ?? e.basic_salary ?? 0) },
+                { key: 'incentive', header: 'Incentive', render: (e) => e.incentive_enabled ? <Badge label={`${e.commission_rate ?? 0}%`} color="green" /> : <span className="text-xs text-gray-400">—</span> },
                 { key: 'joining_date', header: 'Joined', render: (e) => fmtDate(e.joining_date ?? '') },
                 { key: 'is_active', header: 'Status', render: (e) => <Badge label={e.is_active ? 'Active' : 'Inactive'} color={e.is_active ? 'green' : 'red'} /> },
                 {

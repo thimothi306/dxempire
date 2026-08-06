@@ -9,12 +9,13 @@ class PayrollItem extends Model
 {
     protected $fillable = [
         'payroll_run_id', 'employee_id', 'days_worked',
-        'basic', 'deductions', 'net_salary', 'slip_path',
+        'basic', 'incentive', 'deductions', 'net_salary', 'slip_path',
     ];
 
     protected $casts = [
         'days_worked' => 'decimal:1',
         'basic'       => 'decimal:2',
+        'incentive'   => 'decimal:2',
         'deductions'  => 'decimal:2',
         'net_salary'  => 'decimal:2',
     ];

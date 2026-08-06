@@ -109,8 +109,11 @@
                     <tr><td>Basic Salary</td><td class="right">{{ number_format($employee->basic_salary, 2) }}</td></tr>
                     <tr><td>Per Day Rate</td><td class="right">{{ number_format($perDayRate, 2) }}</td></tr>
                     <tr><td>Days Worked × Rate</td><td class="right">{{ number_format($item->basic, 2) }}</td></tr>
+                    @if ($item->incentive > 0)
+                        <tr><td>Performance Incentive ({{ number_format($employee->commission_rate, 2) }}%)</td><td class="right">{{ number_format($item->incentive, 2) }}</td></tr>
+                    @endif
                 </tbody>
-                <tfoot><tr><td>Gross Earned</td><td class="right">{{ number_format($item->basic, 2) }}</td></tr></tfoot>
+                <tfoot><tr><td>Gross Earned</td><td class="right">{{ number_format($item->basic + $item->incentive, 2) }}</td></tr></tfoot>
             </table>
         </div>
         <div class="table-cell">

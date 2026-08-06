@@ -14,13 +14,16 @@ class Employee extends Model
     protected $fillable = [
         'user_id', 'name', 'phone', 'email', 'employee_code',
         'department', 'designation', 'employment_type', 'shift',
-        'basic_salary', 'join_date', 'is_active',
+        'basic_salary', 'incentive_enabled', 'commission_rate',
+        'join_date', 'is_active',
     ];
 
     protected $casts = [
-        'basic_salary' => 'decimal:2',
-        'join_date'    => 'date',
-        'is_active'    => 'boolean',
+        'basic_salary'      => 'decimal:2',
+        'commission_rate'   => 'decimal:2',
+        'incentive_enabled' => 'boolean',
+        'join_date'         => 'date',
+        'is_active'         => 'boolean',
     ];
 
     // Frontend-facing aliases for the DB column names used elsewhere (Payroll/Attendance).

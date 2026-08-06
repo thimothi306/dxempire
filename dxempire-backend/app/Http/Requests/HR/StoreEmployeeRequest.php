@@ -28,6 +28,8 @@ class StoreEmployeeRequest extends FormRequest
             'salary'           => [$isUpdate ? 'sometimes' : 'required', 'numeric', 'min:0'],
             'joining_date'     => [$isUpdate ? 'sometimes' : 'required', 'date'],
             'is_active'        => ['boolean'],
+            'incentive_enabled'=> ['boolean'],
+            'commission_rate'  => ['nullable', 'numeric', 'min:0', 'max:100'],
         ];
     }
 }

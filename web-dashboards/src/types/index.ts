@@ -199,6 +199,8 @@ export interface Employee {
   shift?: string;
   salary?: number;
   basic_salary?: number;
+  incentive_enabled?: boolean;
+  commission_rate?: number | null;
   joining_date?: string;
   is_active?: boolean;
   user?: { id: number; name: string; phone: string; email: string | null; role: Role };

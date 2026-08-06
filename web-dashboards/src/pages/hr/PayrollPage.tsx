@@ -133,6 +133,7 @@ export default function PayrollPage() {
                   { key: 'department', header: 'Dept', render: (i) => i.department ?? i.employee?.department ?? '—' },
                   { key: 'days_worked', header: 'Days', render: (i) => i.days_worked ?? '—' },
                   { key: 'basic', header: 'Basic', render: (i) => fmtINR(i.basic ?? 0) },
+                  { key: 'incentive', header: 'Incentive', render: (i) => i.incentive > 0 ? <span className="text-green-700">{fmtINR(i.incentive)}</span> : <span className="text-gray-400">—</span> },
                   { key: 'deductions', header: 'Deductions', render: (i) => fmtINR(i.deductions ?? 0) },
                   { key: 'net_salary', header: 'Net', render: (i) => <span className="font-semibold text-green-700">{fmtINR(i.net_salary ?? 0)}</span> },
                   { key: 'status', header: 'Status', render: (i) => <Badge label={i.status ?? 'pending'} color={i.status === 'paid' ? 'green' : 'yellow'} /> },
