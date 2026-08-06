@@ -163,6 +163,13 @@ export const adminService = {
   updateSetting: (key: string, value: string) => DEMO_MODE ? mock({}) : api.put(`/admin/settings/${key}`, { value }).then((r) => r.data),
 };
 
+export const permissionService = {
+  list: () => DEMO_MODE ? mock([]) : api.get('/admin/permissions').then((r) => r.data.data),
+  roles: () => DEMO_MODE ? mock([]) : api.get('/admin/permissions/roles').then((r) => r.data.data),
+  updateRole: (roleId: number, permissions: string[]) =>
+    DEMO_MODE ? mock({}) : api.put(`/admin/permissions/roles/${roleId}`, { permissions }).then((r) => r.data.data),
+};
+
 // ─── Support Tickets ─────────────────────────────────────────────────────────
 export const supportService = {
   list: (params?: Record<string, string>) => api.get('/support/tickets', { params }).then((r) => r.data),

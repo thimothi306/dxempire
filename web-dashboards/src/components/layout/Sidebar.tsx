@@ -6,7 +6,7 @@ import {
   LogOut, Building2, UserPlus, BarChart3, Boxes,
   FileText, Receipt, TrendingUp, BadgeDollarSign, Landmark,
   PersonStanding, CalendarDays, Banknote, ChevronDown, ChevronRight,
-  GitBranch, Tag, PackageCheck, ShoppingBag, LifeBuoy, Images, Warehouse, Award,
+  GitBranch, Tag, PackageCheck, ShoppingBag, LifeBuoy, Images, Warehouse, Award, ShieldCheck,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import type { Role } from '../../types';
@@ -59,6 +59,7 @@ const NAV: NavItem[] = [
   },
   { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['super_admin', 'sales', 'accounts'] },
   { label: 'Users',     to: '/users',     icon: <Users size={18} />,     roles: ['super_admin'] },
+  { label: 'Permissions', to: '/permissions', icon: <ShieldCheck size={18} />, roles: ['super_admin'] },
   { label: 'Audit Logs',to: '/audit',     icon: <ScrollText size={18} />,roles: ['super_admin'] },
   { label: 'Settings',  to: '/settings',  icon: <Settings size={18} />,  roles: ['super_admin'] },
 ];

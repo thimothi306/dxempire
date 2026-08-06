@@ -117,6 +117,7 @@ class UserController extends Controller
         }
 
         $user->syncRoles([$request->role]);
+        $user->update(['role' => $request->role]);
 
         return $this->success($user->load('roles:name'), "Role updated to {$request->role}.");
     }

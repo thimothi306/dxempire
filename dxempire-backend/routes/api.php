@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Admin\WarehouseController;
 use App\Http\Controllers\Admin\GradeController;
+use App\Http\Controllers\Admin\PermissionController;
 use App\Http\Controllers\Finance\ExpenseController;
 use App\Http\Controllers\HR\AttendanceController;
 use App\Http\Controllers\Integrations\LogisticsController;
@@ -78,38 +79,51 @@ Route::prefix('v1')->group(function () {
         Route::delete('/notifications',                [NotificationController::class, 'destroyAll']);
 
         // ── Super admin only ───────────────────────────────────────────────
-        Route::middleware('role:super_admin')->prefix('admin')->group(function () {
+        Route::prefix('admin')->group(function () {
 
             // User management
-            Route::get('roles',                       [UserController::class, 'roles']);
-            Route::get('users',                       [UserController::class, 'index']);
-            Route::post('users',                      [UserController::class, 'store']);
-            Route::get('users/{user}',                [UserController::class, 'show']);
-            Route::put('users/{user}',                [UserController::class, 'update']);
-            Route::put('users/{user}/role',           [UserController::class, 'assignRole']);
-            Route::post('users/{user}/deactivate',    [UserController::class, 'deactivate']);
-            Route::post('users/{user}/activate',      [UserController::class, 'activate']);
+            Route::middleware('permission:users.manage')->group(function () {
+                Route::get('roles',                       [UserController::class, 'roles']);
+                Route::get('users',                       [UserController::class, 'index']);
+                Route::post('users',                      [UserController::class, 'store']);
+                Route::get('users/{user}',                [UserController::class, 'show']);
+                Route::put('users/{user}',                [UserController::class, 'update']);
+                Route::put('users/{user}/role',           [UserController::class, 'assignRole']);
+                Route::post('users/{user}/deactivate',    [UserController::class, 'deactivate']);
+                Route::post('users/{user}/activate',      [UserController::class, 'activate']);
+
+                // Permissions manager
+                Route::get('permissions',                 [PermissionController::class, 'index']);
+                Route::get('permissions/roles',           [PermissionController::class, 'roles']);
+                Route::put('permissions/roles/{role}',    [PermissionController::class, 'update']);
+            });
 
             // Catalog images (model-level photos for the partner catalog)
-            Route::get('catalog-images',               [CatalogImageController::class, 'index']);
-            Route::get('catalog-images/brands',        [CatalogImageController::class, 'brands']);
-            Route::get('catalog-images/models',        [CatalogImageController::class, 'models']);
-            Route::post('catalog-images',               [CatalogImageController::class, 'upsert']);
-            Route::post('catalog-images/upload',        [CatalogImageController::class, 'upload']);
-            Route::delete('catalog-images/{catalogImage}', [CatalogImageController::class, 'destroy']);
+            Route::middleware('permission:catalog_images.manage')->group(function () {
+                Route::get('catalog-images',               [CatalogImageController::class, 'index']);
+                Route::get('catalog-images/brands',        [CatalogImageController::class, 'brands']);
+                Route::get('catalog-images/models',        [CatalogImageController::class, 'models']);
+                Route::post('catalog-images',               [CatalogImageController::class, 'upsert']);
+                Route::post('catalog-images/upload',        [CatalogImageController::class, 'upload']);
+                Route::delete('catalog-images/{catalogImage}', [CatalogImageController::class, 'destroy']);
+            });
 
             // Audit log
-            Route::get('audit-logs',                  [AuditLogController::class, 'index']);
+            Route::middleware('permission:audit_logs.view')->group(function () {
+                Route::get('audit-logs',                  [AuditLogController::class, 'index']);
+            });
 
             // Settings management
-            Route::get('settings',                    [SettingsController::class, 'index']);
-            Route::put('settings',                    [SettingsController::class, 'bulkUpdate']);
-            Route::get('settings/{key}',              [SettingsController::class, 'show']);
-            Route::put('settings/{key}',              [SettingsController::class, 'update']);
+            Route::middleware('permission:settings.edit')->group(function () {
+                Route::get('settings',                    [SettingsController::class, 'index']);
+                Route::put('settings',                    [SettingsController::class, 'bulkUpdate']);
+                Route::get('settings/{key}',              [SettingsController::class, 'show']);
+                Route::put('settings/{key}',              [SettingsController::class, 'update']);
+            });
         });
 
         // ── Procurement ───────────────────────────────────────────────────
-        Route::middleware('role:super_admin,warehouse_staff')->group(function () {
+        Route::middleware('permission:procurement.edit')->group(function () {
             Route::get('suppliers',                       [SupplierController::class, 'index']);
             Route::post('suppliers',                      [SupplierController::class, 'store']);
             Route::get('suppliers/{supplier}',            [SupplierController::class, 'show']);
@@ -134,18 +148,18 @@ Route::prefix('v1')->group(function () {
             Route::get('availability',    [InventoryController::class, 'availability']);
             Route::get('imei/{imei}',     [InventoryController::class, 'lookupByImei']);
             Route::get('export',          [InventoryController::class, 'export'])
-                ->middleware('role:super_admin,warehouse_staff');
+                ->middleware('permission:inventory.export');
             Route::get('{product}',       [InventoryController::class, 'show']);
         });
 
-        Route::middleware('role:super_admin,warehouse_staff')->prefix('bins')->group(function () {
+        Route::middleware('permission:bins.manage')->prefix('bins')->group(function () {
             Route::get('/',               [BinController::class, 'index']);
             Route::post('/',              [BinController::class, 'store']);
             Route::post('move',           [BinController::class, 'move']);
             Route::get('{bin}/products',  [BinController::class, 'products']);
         });
 
-        Route::middleware('role:super_admin')->prefix('warehouses')->group(function () {
+        Route::middleware('permission:warehouses.manage')->prefix('warehouses')->group(function () {
             Route::get('/',                    [WarehouseController::class, 'index']);
             Route::post('/',                   [WarehouseController::class, 'store']);
             Route::get('{warehouse}',          [WarehouseController::class, 'show']);
@@ -154,14 +168,14 @@ Route::prefix('v1')->group(function () {
             Route::delete('{warehouse}',       [WarehouseController::class, 'destroy']);
         });
 
-        Route::middleware('role:super_admin')->prefix('grades')->group(function () {
+        Route::middleware('permission:grades.manage')->prefix('grades')->group(function () {
             Route::post('/',           [GradeController::class, 'store']);
             Route::put('{grade}',      [GradeController::class, 'update']);
             Route::delete('{grade}',   [GradeController::class, 'destroy']);
         });
 
         // ── QC ────────────────────────────────────────────────────────────
-        Route::middleware('role:super_admin,qc_engineer,warehouse_staff')->prefix('qc')->group(function () {
+        Route::middleware('permission:qc.grade')->prefix('qc')->group(function () {
             Route::get('pending',                       [QcController::class, 'pending']);
             Route::post('grade',                        [QcController::class, 'grade']);
             Route::get('records',                       [QcController::class, 'records']);
@@ -172,7 +186,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── CRM & Sales ───────────────────────────────────────────────────
-        Route::middleware('role:super_admin,sales')->group(function () {
+        Route::middleware('permission:crm.edit')->group(function () {
             Route::get('leads',                      [LeadController::class, 'index']);
             Route::post('leads',                     [LeadController::class, 'store']);
             Route::get('leads/{lead}',               [LeadController::class, 'show']);
@@ -185,7 +199,7 @@ Route::prefix('v1')->group(function () {
             Route::get('dealers/{dealer}/ledger',    [DealerController::class, 'ledger']);
         });
 
-        Route::middleware('role:super_admin')->group(function () {
+        Route::middleware('permission:dealers.edit')->group(function () {
             Route::post('dealers',                   [DealerController::class, 'store']);
             Route::put('dealers/{dealer}/kyc',       [DealerController::class, 'updateKyc']);
             Route::put('dealers/{dealer}/credit',    [DealerController::class, 'updateCredit']);
@@ -195,7 +209,7 @@ Route::prefix('v1')->group(function () {
 
         // Support tickets — any authenticated user can create, sales/admin can manage
         Route::post('support/tickets',               [SupportTicketController::class, 'store']);
-        Route::middleware('role:super_admin,sales')->group(function () {
+        Route::middleware('permission:support.manage')->group(function () {
             Route::get('support/tickets',            [SupportTicketController::class, 'index']);
             Route::put('support/tickets/{supportTicket}', [SupportTicketController::class, 'update']);
         });
@@ -210,12 +224,12 @@ Route::prefix('v1')->group(function () {
             Route::get('/{order}/track',                 [OrderController::class, 'track']);
 
             // Dealers / sales can create orders
-            Route::middleware('role:super_admin,sales,b2b_partner')->group(function () {
+            Route::middleware('permission:orders.create')->group(function () {
                 Route::post('/',                         [OrderController::class, 'store']);
             });
 
             // Warehouse staff manage fulfillment lifecycle
-            Route::middleware('role:super_admin,warehouse_staff')->group(function () {
+            Route::middleware('permission:orders.fulfill')->group(function () {
                 Route::post('/{order}/picking',          [OrderController::class, 'startPicking']);
                 Route::post('/{order}/packing-complete', [OrderController::class, 'completePacking']);
                 Route::post('/{order}/shipment',         [OrderController::class, 'createShipment']);
@@ -226,14 +240,14 @@ Route::prefix('v1')->group(function () {
             });
 
             // Only super_admin can approve or cancel
-            Route::middleware('role:super_admin')->group(function () {
+            Route::middleware('permission:orders.approve')->group(function () {
                 Route::post('/{order}/approve',          [OrderController::class, 'approve']);
                 Route::post('/{order}/cancel',           [OrderController::class, 'cancel']);
             });
         });
 
         // ── Finance ───────────────────────────────────────────────────────
-        Route::middleware('role:super_admin,accounts')->group(function () {
+        Route::middleware('permission:finance.edit')->group(function () {
 
             // Invoices
             Route::prefix('finance/invoices')->group(function () {
@@ -267,7 +281,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── HR ────────────────────────────────────────────────────────────
-        Route::middleware('role:super_admin,hr_manager')->prefix('hr')->group(function () {
+        Route::middleware('permission:hr.edit')->prefix('hr')->group(function () {
 
             // Employees
             Route::get('employees/departments',          [EmployeeController::class, 'departments']);
@@ -298,7 +312,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── Logistics ─────────────────────────────────────────────────────
-        Route::middleware('role:super_admin,warehouse_staff')->prefix('logistics')->group(function () {
+        Route::middleware('permission:logistics.manage')->prefix('logistics')->group(function () {
             Route::post('orders/{order}/shipment',  [LogisticsController::class, 'createShipment']);
             Route::get('track/{awb}',               [LogisticsController::class, 'track']);
             Route::delete('shipment/{awb}',         [LogisticsController::class, 'cancel']);
@@ -311,13 +325,13 @@ Route::prefix('v1')->group(function () {
             Route::get('shipment/{awb}/document',    [LogisticsController::class, 'fetchDocument']);
         });
 
-        Route::middleware('role:super_admin')->prefix('logistics')->group(function () {
+        Route::middleware('permission:logistics.configure')->prefix('logistics')->group(function () {
             Route::post('warehouse',   [LogisticsController::class, 'createWarehouse']);
             Route::put('warehouse',    [LogisticsController::class, 'updateWarehouse']);
         });
 
         // ── Analytics ─────────────────────────────────────────────────────
-        Route::middleware('role:super_admin,sales,accounts')->prefix('analytics')->group(function () {
+        Route::middleware('permission:analytics.view')->prefix('analytics')->group(function () {
             Route::get('dashboard',        [AnalyticsController::class, 'dashboard']);
             Route::get('revenue',          [AnalyticsController::class, 'revenue']);
             Route::get('sales',            [AnalyticsController::class, 'sales']);
@@ -328,7 +342,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── Sales Hierarchy ───────────────────────────────────────────────
-        Route::middleware('role:super_admin,sales')->prefix('sales')->group(function () {
+        Route::middleware('permission:hierarchy.manage')->prefix('sales')->group(function () {
             Route::get('hierarchy',                               [SalesHierarchyController::class, 'index']);
             Route::get('hierarchy/tree',                          [SalesHierarchyController::class, 'tree']);
             Route::post('hierarchy',                              [SalesHierarchyController::class, 'store']);
@@ -341,7 +355,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── Offer Engine ──────────────────────────────────────────────────
-        Route::middleware('role:super_admin,sales')->prefix('offers')->group(function () {
+        Route::middleware('permission:offers.manage')->prefix('offers')->group(function () {
             Route::get('/',                 [OfferController::class, 'index']);
             Route::post('/',                [OfferController::class, 'store']);
             Route::get('active',            [OfferController::class, 'active']);
@@ -352,7 +366,7 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── Peti to Peti ──────────────────────────────────────────────────
-        Route::middleware('role:super_admin,warehouse_staff')->prefix('peti-transfers')->group(function () {
+        Route::middleware('permission:peti.manage')->prefix('peti-transfers')->group(function () {
             Route::get('/',                              [PetiTransferController::class, 'index']);
             Route::post('/',                             [PetiTransferController::class, 'store']);
             Route::get('{petiTransfer}',                 [PetiTransferController::class, 'show']);
@@ -456,7 +470,7 @@ Route::prefix('v1')->group(function () {
     });
 
     // ── Admin: Retail Customers ───────────────────────────────────────────────
-    Route::middleware(['auth:sanctum', 'role:super_admin,sales,accounts'])->group(function () {
+    Route::middleware(['auth:sanctum', 'permission:customers.view'])->group(function () {
         Route::get('customers',           [CustomerController::class, 'index']);
         Route::get('customers/{customer}',[CustomerController::class, 'show']);
         Route::put('customers/{customer}',[CustomerController::class, 'update']);

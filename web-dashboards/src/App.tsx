@@ -35,6 +35,7 @@ import SupportPage from './pages/support/SupportPage';
 import PartnerDuesPage from './pages/partner/PartnerDuesPage';
 import WarehousesPage from './pages/warehouses/WarehousesPage';
 import GradesPage from './pages/grades/GradesPage';
+import PermissionsPage from './pages/permissions/PermissionsPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = useAuthStore((s) => s.token);
@@ -98,9 +99,10 @@ export default function App() {
             <Route path="analytics" element={<AnalyticsPage />} />
 
             {/* Super Admin */}
-            <Route path="users"    element={<UsersPage />} />
-            <Route path="audit"    element={<AuditPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="users"       element={<UsersPage />} />
+            <Route path="permissions" element={<PermissionsPage />} />
+            <Route path="audit"       element={<AuditPage />} />
+            <Route path="settings"    element={<SettingsPage />} />
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
