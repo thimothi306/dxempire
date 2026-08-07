@@ -146,6 +146,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('inventory')->group(function () {
             Route::get('/',               [InventoryController::class, 'index']);
             Route::get('availability',    [InventoryController::class, 'availability']);
+            Route::get('low-stock',       [InventoryController::class, 'lowStock']);
             Route::get('imei/{imei}',     [InventoryController::class, 'lookupByImei']);
             Route::get('export',          [InventoryController::class, 'export'])
                 ->middleware('permission:inventory.export');

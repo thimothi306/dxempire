@@ -6,6 +6,7 @@ use App\Exports\InventoryExport;
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
 use App\Models\Product;
+use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
@@ -83,6 +84,46 @@ class InventoryController extends Controller
         });
 
         return $this->success($data);
+    }
+
+    /**
+     * Current per-grade stock shortfalls against the admin-configured
+     * threshold (Settings → low_stock_threshold, per category). Computed
+     * live so the dashboard reflects right-now stock, not the last
+     * 30-minute background check.
+     */
+    public function lowStock(): JsonResponse
+    {
+        $thresholds = Setting::getJson('low_stock_threshold', [
+            'phone'  => 10,
+            'laptop' => 5,
+        ]);
+
+        $rows = Product::inStock()
+            ->selectRaw('category, grade, count(*) as count')
+            ->groupBy('category', 'grade')
+            ->get();
+
+        $alerts = [];
+
+        foreach ($rows as $row) {
+            $threshold = $thresholds[$row->category] ?? null;
+            if ($threshold === null || !$row->grade || $row->count >= $threshold) {
+                continue;
+            }
+
+            $alerts[] = [
+                'category'  => $row->category,
+                'grade'     => $row->grade,
+                'count'     => $row->count,
+                'threshold' => $threshold,
+                'severity'  => $row->count <= max(1, (int) floor($threshold / 3)) ? 'critical' : 'warning',
+            ];
+        }
+
+        usort($alerts, fn($a, $b) => $a['count'] <=> $b['count']);
+
+        return $this->success($alerts);
     }
 
     public function export(Request $request)

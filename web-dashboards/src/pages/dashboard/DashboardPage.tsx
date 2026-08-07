@@ -4,7 +4,7 @@ import {
   ShoppingCart, Package, Clock, Wrench, TrendingUp, BarChart3, IndianRupee,
   Boxes, Users, CalendarCheck, Wallet, ClipboardList, TrendingDown, AlertCircle,
   Archive, ClipboardCheck, Building2, UserPlus, FileText, Receipt,
-  BadgeDollarSign, Landmark, Banknote,
+  BadgeDollarSign, Landmark, Banknote, AlertTriangle, CheckCircle2,
 } from 'lucide-react';
 import { StatCard, Card, fmtINR, PageHeader, Spinner } from '../../components/ui';
 import {
@@ -120,6 +120,58 @@ function GradePieChart({ height = 160 }: { height?: number }) {
   );
 }
 
+interface LowStockAlert {
+  category: string;
+  grade: string;
+  count: number;
+  threshold: number;
+  severity: 'critical' | 'warning';
+}
+
+const CATEGORY_LABEL: Record<string, string> = { phone: 'Phones', laptop: 'Laptops' };
+
+function LowStockWidget() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['inventory-low-stock'],
+    queryFn: inventoryService.lowStock,
+    staleTime: 60_000,
+  });
+
+  const alerts: LowStockAlert[] = Array.isArray(data) ? data : [];
+
+  if (isLoading) return <Spinner />;
+
+  if (alerts.length === 0) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-green-700">
+        <CheckCircle2 size={18} />
+        All stock levels are healthy
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {alerts.map((a, i) => (
+        <div
+          key={i}
+          className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${
+            a.severity === 'critical'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-orange-50 border-orange-200 text-orange-700'
+          }`}
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <AlertTriangle size={15} />
+            {CATEGORY_LABEL[a.category] ?? a.category} — Grade {a.grade}
+          </span>
+          <span className="text-xs">{a.count} left (threshold {a.threshold})</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RecentOrdersTable({ orders, showItems }: { orders: Order[]; showItems?: boolean }) {
   return (
     <table className="w-full text-sm">
@@ -212,6 +264,11 @@ function AdminDashboard() {
           </div>
         </>
       )}
+
+      <Card className="p-5 mb-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Low Stock Alerts</h3>
+        <LowStockWidget />
+      </Card>
 
       <Card className="p-5 mb-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Daily Revenue — Last 14 Days</h3>
@@ -334,6 +391,11 @@ function WarehouseDashboard() {
           <StatCard label="Refurbishment"    value={qcStats?.in_refurbishment ?? 0}    icon={<Wrench size={28} />}   color="text-red-500" />
         </div>
       )}
+
+      <Card className="p-5 mb-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-4">Low Stock Alerts</h3>
+        <LowStockWidget />
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <Card className="p-5">
@@ -650,13 +712,17 @@ export default function DashboardPage() {
   }
 
   const subtitles: Record<string, string> = {
-    super_admin:     'DXEMPIRE operations overview',
-    sales:           'Sales & dealer overview',
-    warehouse_staff: 'Warehouse operations',
-    qc_engineer:     'QC & inventory overview',
-    accounts:        'Finance overview',
-    hr_manager:      'HR & payroll overview',
-    logistics:       'Dispatch & logistics overview',
+    super_admin:       'DXEMPIRE operations overview',
+    sales:             'Sales & dealer overview',
+    warehouse_staff:   'Warehouse operations',
+    warehouse_manager: 'Warehouse operations',
+    qc_engineer:       'QC & inventory overview',
+    product_manager:   'QC & inventory overview',
+    packing_staff:     'Warehouse operations',
+    placement_staff:   'Warehouse operations',
+    accounts:          'Finance overview',
+    hr_manager:        'HR & payroll overview',
+    logistics:         'Dispatch & logistics overview',
   };
 
   return (
@@ -665,9 +731,9 @@ export default function DashboardPage() {
         title={`Welcome, ${user?.name?.split(' ')[0] ?? 'User'}`}
         subtitle={subtitles[role ?? ''] ?? 'Overview'}
       />
-      {role === 'super_admin'     && <AdminDashboard />}
-      {role === 'warehouse_staff' && <WarehouseDashboard />}
-      {role === 'qc_engineer'     && <QCDashboard />}
+      {role === 'super_admin'       && <AdminDashboard />}
+      {(role === 'warehouse_staff' || role === 'warehouse_manager' || role === 'packing_staff' || role === 'placement_staff') && <WarehouseDashboard />}
+      {(role === 'qc_engineer' || role === 'product_manager') && <QCDashboard />}
       {role === 'sales'           && <SalesDashboard />}
       {role === 'logistics'       && <LogisticsDashboard />}
       {role === 'accounts'        && <AccountsDashboard />}
