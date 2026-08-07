@@ -41,6 +41,7 @@ export const inventoryService = {
   byImei: (imei: string) => DEMO_MODE ? mock(DEMO_INVENTORY.data.find(p => p.imei === imei)) : api.get(`/inventory/imei/${imei}`).then((r) => r.data.data),
   availability: () => DEMO_MODE ? mock({}) : api.get('/inventory/availability').then((r) => r.data.data),
   lowStock: () => DEMO_MODE ? mock([]) : api.get('/inventory/low-stock').then((r) => r.data.data),
+  aiSearch: (query: string) => DEMO_MODE ? mock({}) : api.post('/inventory/ai-search', { query }).then((r) => r.data.data),
   export: () => api.get('/inventory/export', { responseType: 'blob' }).then((r) => r.data),
   moveBin: (productId: number, binId: number) => DEMO_MODE ? mock({}) : api.post('/bins/move', { product_id: productId, to_bin_id: binId }).then((r) => r.data),
 };

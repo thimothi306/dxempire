@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { inventoryService, procurementService, gradeService } from '../../services';
 import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR } from '../../components/ui';
 import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
+import { AiSearchBox, type AiSearchFilters } from '../../components/AiSearchBox';
 import type { Product } from '../../types';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -58,8 +60,24 @@ function StockAvailabilityWidget() {
 
 export default function InventoryPage() {
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState({ search: '', category: '', grade: '', status: '' });
+  const [filters, setFilters] = useState({
+    search: searchParams.get('search') ?? '',
+    category: searchParams.get('category') ?? '',
+    grade: searchParams.get('grade') ?? '',
+    status: searchParams.get('status') ?? '',
+  });
+
+  const applyAiFilters = (f: AiSearchFilters) => {
+    setFilters({
+      search: f.search ?? '',
+      category: f.category ?? '',
+      grade: f.grade ?? '',
+      status: f.status ?? '',
+    });
+    setPage(1);
+  };
   const [showAdd, setShowAdd] = useState(false);
   const [addSupplierId, setAddSupplierId] = useState('');
   const [addItems, setAddItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
@@ -118,6 +136,10 @@ export default function InventoryPage() {
       />
 
       <StockAvailabilityWidget />
+
+      <div className="mb-3">
+        <AiSearchBox onResult={applyAiFilters} />
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
         <Input placeholder="Search IMEI / model..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />

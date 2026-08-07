@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ShoppingCart, Package, Clock, Wrench, TrendingUp, BarChart3, IndianRupee,
@@ -13,6 +13,7 @@ import {
 } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
 import PartnerDashboardPage from '../partner/PartnerDashboardPage';
+import { AiSearchBox, type AiSearchFilters } from '../../components/AiSearchBox';
 import {
   analyticsService, inventoryService, ordersService,
   qcService, hrService, financeService,
@@ -236,7 +237,18 @@ function RecentOrdersTable({ orders, showItems }: { orders: Order[]; showItems?:
 }
 
 // ── Super Admin Dashboard ─────────────────────────────────────────────────────
+function inventorySearchPath(filters: AiSearchFilters): string {
+  const params = new URLSearchParams();
+  if (filters.search)   params.set('search', filters.search);
+  if (filters.category) params.set('category', filters.category);
+  if (filters.grade)    params.set('grade', filters.grade);
+  if (filters.status)   params.set('status', filters.status);
+  const qs = params.toString();
+  return qs ? `/inventory?${qs}` : '/inventory';
+}
+
 function AdminDashboard() {
+  const navigate = useNavigate();
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['analytics-dashboard'],
     queryFn: analyticsService.dashboard,
@@ -278,6 +290,9 @@ function AdminDashboard() {
   return (
     <div>
       <AiDailySummaryCard />
+      <div className="mb-5">
+        <AiSearchBox onResult={(f) => navigate(inventorySearchPath(f))} />
+      </div>
       {statsLoading ? <Spinner /> : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
@@ -394,6 +409,7 @@ function AdminDashboard() {
 
 // ── Warehouse Dashboard ───────────────────────────────────────────────────────
 function WarehouseDashboard() {
+  const navigate = useNavigate();
   // warehouse_staff has no access to /analytics/dashboard; use qc stats + availability instead
   const { data: qcStats, isLoading } = useQuery({
     queryKey: ['qc-stats'],
@@ -413,6 +429,9 @@ function WarehouseDashboard() {
 
   return (
     <div>
+      <div className="mb-5">
+        <AiSearchBox onResult={(f) => navigate(inventorySearchPath(f))} />
+      </div>
       {isLoading ? <Spinner /> : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="In Stock"         value={totalInStock}                      icon={<Package size={28} />}  color="text-green-600" />

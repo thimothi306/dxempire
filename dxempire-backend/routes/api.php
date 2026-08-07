@@ -13,6 +13,7 @@ use App\Http\Controllers\CRM\LeadController;
 use App\Http\Controllers\CRM\SupportTicketController;
 use App\Http\Controllers\Inventory\BinController;
 use App\Http\Controllers\Inventory\InventoryController;
+use App\Http\Controllers\Inventory\AiSearchController;
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\UserController;
@@ -148,6 +149,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/',               [InventoryController::class, 'index']);
             Route::get('availability',    [InventoryController::class, 'availability']);
             Route::get('low-stock',       [InventoryController::class, 'lowStock']);
+            Route::post('ai-search',      [AiSearchController::class, 'parse']);
             Route::get('imei/{imei}',     [InventoryController::class, 'lookupByImei']);
             Route::get('export',          [InventoryController::class, 'export'])
                 ->middleware('permission:inventory.export');
