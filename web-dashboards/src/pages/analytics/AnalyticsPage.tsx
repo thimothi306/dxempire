@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Sparkles } from 'lucide-react';
 import { analyticsService } from '../../services';
 import { Card, PageHeader, Spinner, fmtINR, Badge, Pagination } from '../../components/ui';
 import {
@@ -8,6 +9,35 @@ import {
 } from 'recharts';
 
 const COLORS = ['#3183CC', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'];
+
+function AiInsightsCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['ai-insights'],
+    queryFn: analyticsService.aiInsights,
+    staleTime: 3600_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="p-5 mb-5 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-2/3 mb-2" />
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-1/2" />
+      </Card>
+    );
+  }
+
+  if (!data?.text) return null;
+
+  return (
+    <Card className="p-5 mb-5 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+      <div className="flex items-center gap-2 mb-2">
+        <Sparkles size={16} className="text-primary" />
+        <h3 className="text-sm font-semibold text-gray-700">AI Insight — Last 30 Days</h3>
+      </div>
+      <p className="text-sm text-gray-600 leading-relaxed">{data.text}</p>
+    </Card>
+  );
+}
 
 function fmtISO(daysAgo: number) {
   const d = new Date(); d.setDate(d.getDate() - daysAgo); return d.toISOString().slice(0, 10);
@@ -440,6 +470,8 @@ export default function AnalyticsPage() {
   return (
     <div>
       <PageHeader title="Analytics" subtitle="Sales, inventory & partner insights" />
+
+      <AiInsightsCard />
 
       <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg overflow-x-auto">
         {TABS.map((t) => (

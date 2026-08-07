@@ -342,6 +342,7 @@ Route::prefix('v1')->group(function () {
             Route::get('partners',         [AnalyticsController::class, 'partnerPerformance']);
             Route::get('forecast',         [AnalyticsController::class, 'forecast']);
             Route::get('ai-summary',       [AiSummaryController::class, 'daily']);
+            Route::get('ai-insights',      [AiSummaryController::class, 'insights']);
         });
 
         // ── Sales Hierarchy ───────────────────────────────────────────────
