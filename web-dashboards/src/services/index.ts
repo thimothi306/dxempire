@@ -30,6 +30,7 @@ export const analyticsService = {
   partnerPerformance: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_PARTNER_PERFORMANCE) : api.get('/analytics/partners', { params }).then((r) => r.data),
   forecast: () => DEMO_MODE ? mock({}) : api.get('/analytics/forecast').then((r) => r.data.data),
   stockMovements: (params?: Record<string, string>) => DEMO_MODE ? mock({}) : api.get('/analytics/stock-movements', { params }).then((r) => r.data),
+  aiDailySummary: () => DEMO_MODE ? mock({ text: null }) : api.get('/analytics/ai-summary').then((r) => r.data.data),
 };
 
 // ─── Inventory ───────────────────────────────────────────────────────────────

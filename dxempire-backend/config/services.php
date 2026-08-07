@@ -68,6 +68,11 @@ return [
         'pickup_pincode' => env('DTDC_PICKUP_PINCODE'),
     ],
 
+    'gemini' => [
+        'key'   => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-flash-latest'),
+    ],
+
     'twilio' => [
         'account_sid'    => env('TWILIO_ACCOUNT_SID'),
         'auth_token'     => env('TWILIO_AUTH_TOKEN'),

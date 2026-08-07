@@ -4,7 +4,7 @@ import {
   ShoppingCart, Package, Clock, Wrench, TrendingUp, BarChart3, IndianRupee,
   Boxes, Users, CalendarCheck, Wallet, ClipboardList, TrendingDown, AlertCircle,
   Archive, ClipboardCheck, Building2, UserPlus, FileText, Receipt,
-  BadgeDollarSign, Landmark, Banknote, AlertTriangle, CheckCircle2,
+  BadgeDollarSign, Landmark, Banknote, AlertTriangle, CheckCircle2, Sparkles,
 } from 'lucide-react';
 import { StatCard, Card, fmtINR, PageHeader, Spinner } from '../../components/ui';
 import {
@@ -172,6 +172,35 @@ function LowStockWidget() {
   );
 }
 
+function AiDailySummaryCard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ['ai-daily-summary'],
+    queryFn: analyticsService.aiDailySummary,
+    staleTime: 3600_000,
+  });
+
+  if (isLoading) {
+    return (
+      <Card className="p-5 mb-5 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4 mb-2" />
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-1/2" />
+      </Card>
+    );
+  }
+
+  if (!data?.text) return null;
+
+  return (
+    <Card className="p-5 mb-5 bg-gradient-to-br from-primary/5 to-transparent border-primary/20">
+      <div className="flex items-center gap-2 mb-2">
+        <Sparkles size={16} className="text-primary" />
+        <h3 className="text-sm font-semibold text-gray-700">Today's Summary</h3>
+      </div>
+      <p className="text-sm text-gray-600 leading-relaxed">{data.text}</p>
+    </Card>
+  );
+}
+
 function RecentOrdersTable({ orders, showItems }: { orders: Order[]; showItems?: boolean }) {
   return (
     <table className="w-full text-sm">
@@ -248,6 +277,7 @@ function AdminDashboard() {
 
   return (
     <div>
+      <AiDailySummaryCard />
       {statsLoading ? <Spinner /> : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">

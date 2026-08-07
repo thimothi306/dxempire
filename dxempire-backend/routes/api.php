@@ -7,6 +7,7 @@ use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Procurement\ReceivingController;
 use App\Http\Controllers\Procurement\SupplierController;
 use App\Http\Controllers\Analytics\AnalyticsController;
+use App\Http\Controllers\Analytics\AiSummaryController;
 use App\Http\Controllers\CRM\DealerController;
 use App\Http\Controllers\CRM\LeadController;
 use App\Http\Controllers\CRM\SupportTicketController;
@@ -340,6 +341,7 @@ Route::prefix('v1')->group(function () {
             Route::get('stock-movements',  [AnalyticsController::class, 'stockMovements']);
             Route::get('partners',         [AnalyticsController::class, 'partnerPerformance']);
             Route::get('forecast',         [AnalyticsController::class, 'forecast']);
+            Route::get('ai-summary',       [AiSummaryController::class, 'daily']);
         });
 
         // ── Sales Hierarchy ───────────────────────────────────────────────
