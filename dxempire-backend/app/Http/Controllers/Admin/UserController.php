@@ -144,9 +144,25 @@ class UserController extends Controller
 
     public function roles(): JsonResponse
     {
-        $roles = Role::withCount('users')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        // Deliberately NOT Role::withCount('users') — that resolves the
+        // relation on a fresh, unhydrated model instance, which falls back
+        // to config('auth.defaults.guard'). Under a real request that's
+        // "sanctum" (set by the auth:sanctum middleware), and the sanctum
+        // guard has no `provider` configured, so the relation can't resolve
+        // a model class and throws. A plain pivot-table count sidesteps
+        // guard resolution entirely.
+        $counts = DB::table('model_has_roles')
+            ->select('role_id', DB::raw('count(*) as count'))
+            ->groupBy('role_id')
+            ->pluck('count', 'role_id');
+
+        $roles = Role::orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn ($role) => [
+                'id'          => $role->id,
+                'name'        => $role->name,
+                'users_count' => $counts[$role->id] ?? 0,
+            ]);
 
         return $this->success($roles);
     }
