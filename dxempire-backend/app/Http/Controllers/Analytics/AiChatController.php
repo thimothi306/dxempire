@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Analytics;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Bin;
 use App\Models\Dealer;
+use App\Models\Employee;
 use App\Models\Order;
 use App\Models\PayrollRun;
 use App\Models\Product;
@@ -152,13 +154,34 @@ class AiChatController extends Controller
             ],
             [
                 'name'        => 'get_payroll_summary',
-                'description' => 'Get the most recent payroll run — month, status, employee count, and total payout.',
+                'description' => 'Get the most recent payroll run — month, status, and total payout.',
                 'parameters'  => ['type' => 'object', 'properties' => new \stdClass()],
             ],
             [
                 'name'        => 'get_low_stock_alerts',
                 'description' => 'Get the current list of grade/category combinations below the admin-configured low-stock threshold.',
                 'parameters'  => ['type' => 'object', 'properties' => new \stdClass()],
+            ],
+            [
+                'name'        => 'get_dealer_list',
+                'description' => 'List active business partner/dealer accounts with their credit limit, credit used, and available credit. Use this when asked to list, count, or summarize dealers rather than look up one specific dealer.',
+                'parameters'  => ['type' => 'object', 'properties' => new \stdClass()],
+            ],
+            [
+                'name'        => 'get_employee_count',
+                'description' => 'Get the total number of active employees, broken down by department.',
+                'parameters'  => ['type' => 'object', 'properties' => new \stdClass()],
+            ],
+            [
+                'name'        => 'get_bin_contents',
+                'description' => 'Get the current item count, capacity, and products stored in a specific warehouse bin by its bin code.',
+                'parameters'  => [
+                    'type'       => 'object',
+                    'properties' => [
+                        'bin_code' => ['type' => 'string', 'description' => 'e.g. BIN-007'],
+                    ],
+                    'required' => ['bin_code'],
+                ],
             ],
         ];
     }
@@ -171,6 +194,9 @@ class AiChatController extends Controller
             'get_dealer_balance'   => $this->toolDealerBalance($args['business_name'] ?? ''),
             'get_payroll_summary'  => $this->toolPayrollSummary(),
             'get_low_stock_alerts' => $this->toolLowStock(),
+            'get_dealer_list'      => $this->toolDealerList(),
+            'get_employee_count'   => $this->toolEmployeeCount(),
+            'get_bin_contents'     => $this->toolBinContents($args['bin_code'] ?? ''),
             default                => ['error' => 'Unknown tool'],
         };
     }
@@ -267,5 +293,55 @@ class AiChatController extends Controller
         }
 
         return ['alerts' => $alerts];
+    }
+
+    private function toolDealerList(): array
+    {
+        $dealers = Dealer::orderBy('business_name')
+            ->limit(30)
+            ->get(['business_name', 'credit_limit', 'credit_used', 'kyc_status'])
+            ->map(fn ($d) => [
+                'business_name'    => $d->business_name,
+                'credit_limit'     => (float) $d->credit_limit,
+                'credit_used'      => (float) $d->credit_used,
+                'credit_available' => (float) ($d->credit_limit - $d->credit_used),
+                'kyc_status'       => $d->kyc_status,
+            ]);
+
+        return ['count' => $dealers->count(), 'dealers' => $dealers];
+    }
+
+    private function toolEmployeeCount(): array
+    {
+        $total = Employee::where('is_active', true)->count();
+
+        $byDepartment = Employee::where('is_active', true)
+            ->selectRaw('department, count(*) as count')
+            ->groupBy('department')
+            ->pluck('count', 'department');
+
+        return ['total' => $total, 'by_department' => $byDepartment];
+    }
+
+    private function toolBinContents(string $binCode): array
+    {
+        $bin = Bin::where('code', $binCode)->first();
+
+        if (!$bin) {
+            return ['found' => false];
+        }
+
+        $products = Product::where('bin_id', $bin->id)
+            ->limit(20)
+            ->get(['brand', 'model', 'grade', 'imei'])
+            ->map(fn ($p) => "{$p->brand} {$p->model} (grade {$p->grade})");
+
+        return [
+            'found'         => true,
+            'bin_code'      => $bin->code,
+            'current_count' => $bin->current_count,
+            'capacity'      => $bin->capacity,
+            'products'      => $products,
+        ];
     }
 }
