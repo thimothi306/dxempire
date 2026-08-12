@@ -32,7 +32,7 @@ class AiChatController extends Controller
     {
         $data = $request->validate([
             'message'         => ['required', 'string', 'max:500'],
-            'history'         => ['nullable', 'array', 'max:20'],
+            'history'         => ['nullable', 'array', 'max:40'],
             'history.*.role'  => ['required_with:history', 'in:user,model'],
             'history.*.text'  => ['required_with:history', 'string'],
         ]);

@@ -22,7 +22,10 @@ export function AiChatWidget() {
     const text = input.trim();
     if (!text || loading) return;
 
-    const history = messages;
+    // Only send recent context — keeps requests within the backend's
+    // history limit and avoids ever-growing token cost as a conversation
+    // gets long, while the visible transcript below keeps everything.
+    const history = messages.slice(-16);
     setMessages((m) => [...m, { role: 'user', text }]);
     setInput('');
     setLoading(true);
