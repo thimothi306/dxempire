@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../../stores/authStore';
 import { notificationService } from '../../services';
 import { Sidebar } from './Sidebar';
+import { AiChatWidget } from '../AiChatWidget';
 import type { AppNotification } from '../../types';
 
 function fmtRelative(dt: string) {
@@ -127,7 +128,7 @@ function NotificationBell() {
 }
 
 export function AppLayout() {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   if (!token) return <Navigate to="/login" replace />;
   return (
@@ -152,6 +153,7 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+      {user?.role === 'super_admin' && <AiChatWidget />}
     </div>
   );
 }

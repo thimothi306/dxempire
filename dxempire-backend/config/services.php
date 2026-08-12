@@ -69,8 +69,13 @@ return [
     ],
 
     'gemini' => [
-        'key'   => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-flash-latest'),
+        'key'        => env('GEMINI_API_KEY'),
+        'model'      => env('GEMINI_MODEL', 'gemini-flash-latest'),
+        // Chat can cost 2-3 API calls per message (tool-calling rounds), so
+        // it needs its own, lighter model with separate free-tier quota —
+        // the main model's daily limit is easily exhausted by one chat
+        // session alone.
+        'chat_model' => env('GEMINI_CHAT_MODEL', 'gemini-flash-lite-latest'),
     ],
 
     'twilio' => [

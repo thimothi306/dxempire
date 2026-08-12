@@ -29,6 +29,7 @@ class RolesPermissionsSeeder extends Seeder
             'analytics.view',
             'hierarchy.manage', 'offers.manage', 'peti.manage',
             'dealers.view', 'dealers.edit', 'customers.view',
+            'ai_chat.use',
         ];
 
         foreach ($permissions as $p) {

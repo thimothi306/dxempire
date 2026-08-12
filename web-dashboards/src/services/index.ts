@@ -32,6 +32,8 @@ export const analyticsService = {
   stockMovements: (params?: Record<string, string>) => DEMO_MODE ? mock({}) : api.get('/analytics/stock-movements', { params }).then((r) => r.data),
   aiDailySummary: () => DEMO_MODE ? mock({ text: null }) : api.get('/analytics/ai-summary').then((r) => r.data.data),
   aiInsights: () => DEMO_MODE ? mock({ text: null }) : api.get('/analytics/ai-insights').then((r) => r.data.data),
+  aiChat: (message: string, history: { role: 'user' | 'model'; text: string }[]) =>
+    DEMO_MODE ? mock({ reply: 'AI chat is disabled in demo mode.' }) : api.post('/ai-chat', { message, history }).then((r) => r.data.data),
 };
 
 // ─── Inventory ───────────────────────────────────────────────────────────────

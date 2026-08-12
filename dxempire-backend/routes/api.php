@@ -8,6 +8,7 @@ use App\Http\Controllers\Procurement\ReceivingController;
 use App\Http\Controllers\Procurement\SupplierController;
 use App\Http\Controllers\Analytics\AnalyticsController;
 use App\Http\Controllers\Analytics\AiSummaryController;
+use App\Http\Controllers\Analytics\AiChatController;
 use App\Http\Controllers\CRM\DealerController;
 use App\Http\Controllers\CRM\LeadController;
 use App\Http\Controllers\CRM\SupportTicketController;
@@ -345,6 +346,10 @@ Route::prefix('v1')->group(function () {
             Route::get('forecast',         [AnalyticsController::class, 'forecast']);
             Route::get('ai-summary',       [AiSummaryController::class, 'daily']);
             Route::get('ai-insights',      [AiSummaryController::class, 'insights']);
+        });
+
+        Route::middleware('permission:ai_chat.use')->group(function () {
+            Route::post('ai-chat', [AiChatController::class, 'chat']);
         });
 
         // ── Sales Hierarchy ───────────────────────────────────────────────

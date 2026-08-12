@@ -42,4 +42,46 @@ class GeminiService
             return null;
         }
     }
+
+    /**
+     * Multi-turn call with optional function-calling tools. Returns the raw
+     * `content` object from Gemini's response (role + parts, where a part
+     * may be plain text or a functionCall the caller must execute and
+     * report back) — or null on any failure. Callers own the conversation
+     * loop; this method just makes one request.
+     */
+    public function chat(array $contents, array $tools = [], ?string $systemInstruction = null, ?string $model = null): ?array
+    {
+        $key   = config('services.gemini.key');
+        $model = $model ?? config('services.gemini.model');
+
+        if (!$key) {
+            return null;
+        }
+
+        $body = ['contents' => $contents];
+        if (!empty($tools)) {
+            $body['tools'] = [['functionDeclarations' => $tools]];
+        }
+        if ($systemInstruction) {
+            $body['systemInstruction'] = ['parts' => [['text' => $systemInstruction]]];
+        }
+
+        try {
+            $response = Http::timeout(30)->post(
+                "https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key={$key}",
+                $body
+            );
+
+            if (!$response->successful()) {
+                Log::warning('Gemini chat API error: ' . $response->body());
+                return null;
+            }
+
+            return $response->json('candidates.0.content');
+        } catch (\Throwable $e) {
+            Log::warning('Gemini chat request failed: ' . $e->getMessage());
+            return null;
+        }
+    }
 }
