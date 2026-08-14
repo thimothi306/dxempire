@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\PushTokenController;
 use App\Http\Controllers\Procurement\PurchaseOrderController;
 use App\Http\Controllers\Procurement\ReceivingController;
@@ -72,6 +73,10 @@ Route::prefix('v1')->group(function () {
 
         // Grade list — readable by any logged-in role (QC, offers, catalog, etc. all need it)
         Route::get('/grades', [GradeController::class, 'index']);
+
+        // Chatbot — mobile app (staff) and partner app (dealers) share this;
+        // it always answers using the authenticated user's own real data.
+        Route::post('/chatbot/ask', [ChatbotController::class, 'ask']);
 
         // In-app notification inbox
         Route::get('/notifications',               [NotificationController::class, 'index']);
