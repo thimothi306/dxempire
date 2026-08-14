@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supportService } from '../../services';
 import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, Badge, fmtDateTime } from '../../components/ui';
+
+interface SupportTicketReply {
+  id: number;
+  message: string;
+  created_at: string;
+  author?: { id: number; name: string } | null;
+}
 
 interface SupportTicket {
   id: number;
@@ -17,6 +24,7 @@ interface SupportTicket {
   assignee?: { id: number; name: string } | null;
   resolved_at?: string | null;
   created_at: string;
+  replies?: SupportTicketReply[];
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -34,7 +42,8 @@ export default function SupportPage() {
   const [selected, setSelected] = useState<SupportTicket | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({ subject: '', description: '', priority: 'medium', order_id: '' });
-  const [updateForm, setUpdateForm] = useState({ status: '', priority: '' });
+  const [updateForm, setUpdateForm] = useState({ status: '', priority: '', assigned_to: '' });
+  const [replyText, setReplyText] = useState('');
 
   const { data, isLoading } = useQuery({
     queryKey: ['support-tickets', page, statusFilter, priorityFilter],
@@ -66,17 +75,52 @@ export default function SupportPage() {
     onSuccess: () => {
       toast.success('Ticket updated');
       qc.invalidateQueries({ queryKey: ['support-tickets'] });
-      setSelected(null);
+      qc.invalidateQueries({ queryKey: ['support-ticket', selected?.id] });
     },
     onError: () => toast.error('Failed to update'),
   });
 
+  const { data: ticketDetail } = useQuery({
+    queryKey: ['support-ticket', selected?.id],
+    queryFn: () => supportService.show(selected!.id),
+    enabled: !!selected,
+  });
+
+  const { data: staffData } = useQuery({
+    queryKey: ['support-staff'],
+    queryFn: supportService.staff,
+    staleTime: 300_000,
+  });
+  const staff: { id: number; name: string }[] = Array.isArray(staffData) ? staffData : [];
+
+  const replyMut = useMutation({
+    mutationFn: () => supportService.reply(selected!.id, replyText.trim()),
+    onSuccess: () => {
+      setReplyText('');
+      qc.invalidateQueries({ queryKey: ['support-ticket', selected?.id] });
+      qc.invalidateQueries({ queryKey: ['support-tickets'] });
+    },
+    onError: () => toast.error('Failed to send reply'),
+  });
+
   const tickets: SupportTicket[] = data?.data ?? [];
   const meta = data?.meta;
+  const detail: SupportTicket | undefined = ticketDetail ?? (selected ?? undefined);
+
+  useEffect(() => {
+    if (ticketDetail) {
+      setUpdateForm({
+        status: ticketDetail.status,
+        priority: ticketDetail.priority,
+        assigned_to: ticketDetail.assignee?.id ? String(ticketDetail.assignee.id) : '',
+      });
+    }
+  }, [ticketDetail]);
 
   const openTicket = (t: SupportTicket) => {
     setSelected(t);
-    setUpdateForm({ status: t.status, priority: t.priority });
+    setReplyText('');
+    setUpdateForm({ status: t.status, priority: t.priority, assigned_to: t.assignee?.id ? String(t.assignee.id) : '' });
   };
 
   return (
@@ -197,24 +241,23 @@ export default function SupportPage() {
 
       {/* Ticket Detail Modal */}
       <Modal open={!!selected} onClose={() => setSelected(null)} title={selected ? `Ticket #${selected.id}` : ''}>
-        {selected && (
+        {detail && (
           <div className="space-y-4">
             <div>
-              <h3 className="font-semibold text-gray-800">{selected.subject}</h3>
-              <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{selected.description}</p>
+              <h3 className="font-semibold text-gray-800">{detail.subject}</h3>
+              <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{detail.description}</p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              <div><span className="text-xs text-gray-500 block">Created by</span>{selected.creator?.name ?? '—'}</div>
-              <div><span className="text-xs text-gray-500 block">Assigned to</span>{selected.assignee?.name ?? 'Unassigned'}</div>
-              <div><span className="text-xs text-gray-500 block">Order</span>{selected.order?.order_number ?? '—'}</div>
-              <div><span className="text-xs text-gray-500 block">Created</span>{fmtDateTime(selected.created_at)}</div>
-              {selected.resolved_at && (
-                <div className="col-span-2"><span className="text-xs text-gray-500 block">Resolved</span>{fmtDateTime(selected.resolved_at)}</div>
+              <div><span className="text-xs text-gray-500 block">Created by</span>{detail.creator?.name ?? '—'}</div>
+              <div><span className="text-xs text-gray-500 block">Order</span>{detail.order?.order_number ?? '—'}</div>
+              <div><span className="text-xs text-gray-500 block">Created</span>{fmtDateTime(detail.created_at)}</div>
+              {detail.resolved_at && (
+                <div><span className="text-xs text-gray-500 block">Resolved</span>{fmtDateTime(detail.resolved_at)}</div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t">
               <Select
                 label="Update Status"
                 value={updateForm.status}
@@ -236,17 +279,62 @@ export default function SupportPage() {
                   { value: 'high', label: 'High' },
                 ]}
               />
+              <Select
+                label="Assign To"
+                value={updateForm.assigned_to}
+                onChange={(e) => setUpdateForm({ ...updateForm, assigned_to: e.target.value })}
+                options={[{ value: '', label: 'Unassigned' }, ...staff.map((s) => ({ value: String(s.id), label: s.name }))]}
+              />
             </div>
 
             <div className="flex gap-3">
               <Button
-                onClick={() => updateMut.mutate({ status: updateForm.status, priority: updateForm.priority })}
+                onClick={() => updateMut.mutate({
+                  status: updateForm.status,
+                  priority: updateForm.priority,
+                  assigned_to: updateForm.assigned_to ? Number(updateForm.assigned_to) : null,
+                })}
                 loading={updateMut.isPending}
                 className="flex-1 justify-center"
               >
                 Save Changes
               </Button>
               <Button variant="outline" onClick={() => setSelected(null)} className="flex-1 justify-center">Close</Button>
+            </div>
+
+            {/* Reply thread */}
+            <div className="pt-3 border-t">
+              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Conversation</h4>
+              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                {(detail.replies ?? []).length === 0 && (
+                  <p className="text-xs text-gray-400">No replies yet</p>
+                )}
+                {(detail.replies ?? []).map((r) => (
+                  <div key={r.id} className="bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="text-xs font-semibold text-gray-700">{r.author?.name ?? '—'}</span>
+                      <span className="text-[10px] text-gray-400">{fmtDateTime(r.created_at)}</span>
+                    </div>
+                    <p className="text-sm text-gray-600 whitespace-pre-line">{r.message}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-3">
+                <textarea
+                  className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  rows={2}
+                  placeholder="Write a reply..."
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                />
+                <Button
+                  onClick={() => replyMut.mutate()}
+                  loading={replyMut.isPending}
+                  disabled={!replyText.trim()}
+                >
+                  Send
+                </Button>
+              </div>
             </div>
           </div>
         )}

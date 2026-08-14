@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CRM\StoreSupportTicketRequest;
 use App\Http\Traits\ApiResponse;
 use App\Models\SupportTicket;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -53,5 +54,42 @@ class SupportTicketController extends Controller
         $supportTicket->update($data);
 
         return $this->success($supportTicket->fresh()->load('assignee')->toArray(), 'Ticket updated.');
+    }
+
+    public function show(SupportTicket $supportTicket): JsonResponse
+    {
+        return $this->success(
+            $supportTicket->load(['creator', 'assignee', 'order', 'replies.author'])->toArray()
+        );
+    }
+
+    public function staffOptions(): JsonResponse
+    {
+        $staff = User::where('is_active', true)
+            ->where('role', '!=', 'b2b_partner')
+            ->orderBy('name')
+            ->get(['id', 'name', 'role']);
+
+        return $this->success($staff);
+    }
+
+    public function reply(Request $request, SupportTicket $supportTicket): JsonResponse
+    {
+        $data = $request->validate([
+            'message' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $reply = $supportTicket->replies()->create([
+            'user_id' => $request->user()->id,
+            'message' => $data['message'],
+        ]);
+
+        // A reply is staff picking the ticket up — reflect that in status
+        // rather than leaving it sitting as "open" once someone's engaged.
+        if ($supportTicket->status === 'open') {
+            $supportTicket->update(['status' => 'in_progress']);
+        }
+
+        return $this->created($reply->load('author')->toArray());
     }
 }

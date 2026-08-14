@@ -216,7 +216,10 @@ Route::prefix('v1')->group(function () {
         Route::post('support/tickets',               [SupportTicketController::class, 'store']);
         Route::middleware('permission:support.manage')->group(function () {
             Route::get('support/tickets',            [SupportTicketController::class, 'index']);
+            Route::get('support/staff',              [SupportTicketController::class, 'staffOptions']);
+            Route::get('support/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
             Route::put('support/tickets/{supportTicket}', [SupportTicketController::class, 'update']);
+            Route::post('support/tickets/{supportTicket}/replies', [SupportTicketController::class, 'reply']);
         });
 
         // ── Orders ────────────────────────────────────────────────────────

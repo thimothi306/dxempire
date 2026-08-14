@@ -179,8 +179,11 @@ export const permissionService = {
 // ─── Support Tickets ─────────────────────────────────────────────────────────
 export const supportService = {
   list: (params?: Record<string, string>) => api.get('/support/tickets', { params }).then((r) => r.data),
+  show: (id: number) => api.get(`/support/tickets/${id}`).then((r) => r.data.data),
   create: (data: Record<string, unknown>) => api.post('/support/tickets', data).then((r) => r.data.data),
   update: (id: number, data: Record<string, unknown>) => api.put(`/support/tickets/${id}`, data).then((r) => r.data),
+  reply: (id: number, message: string) => api.post(`/support/tickets/${id}/replies`, { message }).then((r) => r.data.data),
+  staff: () => api.get('/support/staff').then((r) => r.data.data),
 };
 
 // ─── Notifications ───────────────────────────────────────────────────────────
