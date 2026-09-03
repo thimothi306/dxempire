@@ -159,8 +159,8 @@ export interface Invoice {
   invoice_number: string;
   order_id: number;
   order_number?: string;
-  order?: { dealer?: { business_name: string } };
-  dealer_name?: string;
+  order?: { order_number?: string; payment_status?: string };
+  dealer?: { business_name: string };
   total?: number;
   total_amount?: number;
   subtotal?: number;
@@ -170,8 +170,7 @@ export interface Invoice {
   igst_amount?: number;
   tax_type?: 'intra' | 'inter';
   billing_state?: string;
-  status: string;
-  due_date?: string;
+  issued_at?: string;
   created_at: string;
 }
 

@@ -15,13 +15,15 @@ export default function InvoicesPage() {
   return <StaffInvoicesPage />;
 }
 
+const PAYMENT_STATUS_COLOR: Record<string, string> = { unpaid: 'red', partial: 'orange', paid: 'green' };
+
 function StaffInvoicesPage() {
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['invoices', page, status],
-    queryFn: () => financeService.invoices({ page: String(page), ...(status && { status }) }),
+    queryKey: ['invoices', page, paymentStatus],
+    queryFn: () => financeService.invoices({ page: String(page), ...(paymentStatus && { payment_status: paymentStatus }) }),
   });
 
   const handleDownload = async (id: number, number: string) => {
@@ -39,15 +41,13 @@ function StaffInvoicesPage() {
 
       <div className="mb-5">
         <Select
-          value={status}
-          onChange={(e) => { setStatus(e.target.value); setPage(1); }}
+          value={paymentStatus}
+          onChange={(e) => { setPaymentStatus(e.target.value); setPage(1); }}
           options={[
-            { value: '', label: 'All Statuses' },
-            { value: 'draft', label: 'Draft' },
-            { value: 'sent', label: 'Sent' },
+            { value: '', label: 'All Payment Statuses' },
+            { value: 'unpaid', label: 'Unpaid' },
+            { value: 'partial', label: 'Partially Paid' },
             { value: 'paid', label: 'Paid' },
-            { value: 'overdue', label: 'Overdue' },
-            { value: 'cancelled', label: 'Cancelled' },
           ]}
         />
       </div>
@@ -58,10 +58,10 @@ function StaffInvoicesPage() {
             <Table
               columns={[
                 { key: 'invoice_number', header: 'Invoice #', render: (i) => <span className="font-mono text-xs font-semibold">{i.invoice_number}</span> },
-                { key: 'dealer', header: 'Dealer', render: (i) => i.order?.dealer?.business_name ?? '—' },
-                { key: 'status', header: 'Status', render: (i) => {
-                  const colors: Record<string, string> = { draft: 'gray', sent: 'blue', paid: 'green', overdue: 'red', cancelled: 'gray' };
-                  return <Badge label={i.status} color={colors[i.status] ?? 'gray'} />;
+                { key: 'dealer', header: 'Dealer', render: (i) => i.dealer?.business_name ?? '—' },
+                { key: 'payment_status', header: 'Payment', render: (i) => {
+                  const ps = i.order?.payment_status ?? 'unpaid';
+                  return <Badge label={ps.replace('_', ' ')} color={PAYMENT_STATUS_COLOR[ps] ?? 'gray'} />;
                 }},
                 { key: 'subtotal', header: 'Subtotal', render: (i) => fmtINR(i.subtotal ?? 0) },
                 { key: 'gst', header: 'GST Breakdown', render: (i) => (
@@ -78,7 +78,7 @@ function StaffInvoicesPage() {
                   </div>
                 )},
                 { key: 'total_amount', header: 'Total', render: (i) => <span className="font-semibold">{fmtINR(i.total ?? i.total_amount ?? 0)}</span> },
-                { key: 'due_date', header: 'Due Date', render: (i) => <span className={i.status === 'overdue' ? 'text-red-600 font-medium' : ''}>{fmtDate(i.due_date ?? '')}</span> },
+                { key: 'issued_at', header: 'Issued', render: (i) => <span className="text-xs text-gray-500">{fmtDate(i.issued_at ?? i.created_at ?? '')}</span> },
                 {
                   key: 'download', header: '', render: (i) => (
                     <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDownload(i.id, i.invoice_number); }}>

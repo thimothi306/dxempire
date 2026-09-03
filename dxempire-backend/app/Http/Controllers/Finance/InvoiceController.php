@@ -23,6 +23,7 @@ class InvoiceController extends Controller
     {
         $invoices = Invoice::with(['order', 'dealer.user'])
             ->when($request->dealer_id, fn($q) => $q->where('dealer_id', $request->dealer_id))
+            ->when($request->payment_status, fn($q) => $q->whereHas('order', fn($o) => $o->where('payment_status', $request->payment_status)))
             ->when($request->from, fn($q) => $q->whereDate('issued_at', '>=', $request->from))
             ->when($request->to, fn($q) => $q->whereDate('issued_at', '<=', $request->to))
             ->latest('issued_at')
