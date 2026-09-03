@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Search, ExternalLink } from 'lucide-react';
+import { Search, ExternalLink, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ordersService, logisticsService } from '../../services';
+import { ordersService, logisticsService, financeService } from '../../services';
 import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, orderStatusBadge, fmtINR, fmtDateTime } from '../../components/ui';
 import type { Order, OrderStatus } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
@@ -24,6 +24,7 @@ export default function OrdersPage() {
 
 function StaffOrdersPage() {
   const qc = useQueryClient();
+  const role = useAuthStore((s) => s.user?.role);
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -89,6 +90,15 @@ function StaffOrdersPage() {
     mutationFn: (id: number) => ordersService.return(id),
     onSuccess: () => { toast.success('Return initiated'); qc.invalidateQueries({ queryKey: ['orders'] }); setSelected(null); },
     onError: () => toast.error('Failed to initiate return'),
+  });
+
+  const generateInvoiceMut = useMutation({
+    mutationFn: (id: number) => financeService.generateInvoice(id),
+    onSuccess: (invoice: any) => {
+      toast.success(`Invoice ${invoice?.invoice_number ?? ''} ready — see it on the Invoices page`.trim());
+      qc.invalidateQueries({ queryKey: ['invoices'] });
+    },
+    onError: () => toast.error('Failed to generate invoice'),
   });
 
   const [trackResult, setTrackResult] = useState<string | null>(null);
@@ -223,6 +233,11 @@ function StaffOrdersPage() {
                   {selected.status === 'delivered' && (
                     <Button size="sm" variant="secondary" onClick={() => returnMut.mutate(selected.id)} loading={returnMut.isPending}>
                       Return
+                    </Button>
+                  )}
+                  {['approved', 'dispatched', 'delivered'].includes(selected.status) && (role === 'super_admin' || role === 'accounts') && (
+                    <Button size="sm" variant="outline" onClick={() => generateInvoiceMut.mutate(selected.id)} loading={generateInvoiceMut.isPending}>
+                      <FileText size={13} /> Generate Invoice
                     </Button>
                   )}
                   {!['delivered', 'cancelled', 'returned'].includes(selected.status) && (

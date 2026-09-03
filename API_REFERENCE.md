@@ -423,6 +423,38 @@ Same fields as check-in. Requires an existing check-in for today.
 **Error `422`** — `"No check-in found for today. Please check in first."` or `"You have already checked out today."`
 
 ---
+
+## 1.10 AI Assistant — `POST /chatbot/ask`
+
+Gemini-powered Q&A. Shared with the Partner app (Part 2.13) — same endpoint, same request/response
+shape, the backend detects staff vs. dealer from the auth token and answers with **that user's own
+real data only** (this month's attendance, team size, most recent payroll run status for staff). It
+never guesses a number — if something isn't tracked in the system (e.g. there's no "next payroll
+date" field), it says so instead of making one up.
+
+**Request**
+```json
+{ "question": "How is my attendance this month?" }
+```
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "answer": "So far this month, you have 1 present/half-day and 0 absences out of 1 marked day."
+  }
+}
+```
+
+**Error `422`** — `question` missing or empty, or over 300 characters.
+
+> If Gemini itself is unavailable (rare — free-tier upstream hiccup), `answer` comes back as a
+> friendly "try again in a moment" string rather than an error — always safe to render `data.answer`
+> directly as a chat bubble, no special-casing needed.
+
+---
 ---
 
 # 🤝 PART 2 — PARTNER APP
@@ -867,6 +899,35 @@ Grade breakdown for a specific brand + model (e.g. tap a phone → see its grade
   }
 }
 ```
+
+---
+
+## 2.13 AI Assistant — `POST /chatbot/ask`
+
+Same endpoint as the Staff app (Part 1.10) — shared across both apps, same request/response shape.
+For a dealer token, the backend answers using **that dealer's own real account data only**: credit
+limit, credit used, credit available, and their most recent order (number, status, amount). Never
+guesses a balance or order status.
+
+**Request**
+```json
+{ "question": "What is my outstanding balance?" }
+```
+
+**Response `200`**
+```json
+{
+  "success": true,
+  "message": "Success",
+  "data": {
+    "answer": "Your current outstanding balance (credit used) is ₹794,047.34, leaving you with an available credit of ₹105,952.66 out of your total ₹900,000.00 limit."
+  }
+}
+```
+
+General DXEMPIRE questions (e.g. "What does grade S2 mean?") are answered from the platform's
+general knowledge rather than account data. See Part 1.10 for the error case and the safe-fallback
+note — identical behavior here.
 
 ---
 ---
@@ -2107,4 +2168,4 @@ Flagging these now so nothing is a surprise later:
 
 ---
 
-_Last updated: 2026-07-30 • Base URL: `https://api.dxempire.in/api/v1`_
+_Last updated: 2026-08-17 • Base URL: `https://api.dxempire.in/api/v1`_

@@ -113,7 +113,7 @@ export const leadsService = {
 export const financeService = {
   invoices: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_INVOICES) : api.get('/finance/invoices', { params }).then((r) => r.data),
   invoiceById: (id: number) => DEMO_MODE ? mock(DEMO_INVOICES.data.find(i => i.id === id)) : api.get(`/finance/invoices/${id}`).then((r) => r.data.data),
-  generateInvoice: (orderId: number) => DEMO_MODE ? mock({}) : api.post(`/finance/invoices/orders/${orderId}`).then((r) => r.data.data),
+  generateInvoice: (orderId: number) => DEMO_MODE ? mock({}) : api.post(`/finance/invoices/orders/${orderId}/generate`).then((r) => r.data.data),
   downloadInvoice: (id: number) => api.get(`/finance/invoices/${id}/download`, { responseType: 'blob' }).then((r) => r.data),
   expenses: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_EXPENSES) : api.get('/finance/expenses', { params }).then((r) => r.data),
   expenseCategories: () => DEMO_MODE ? mock(['Logistics', 'Office', 'Utilities', 'Marketing', 'Repairs', 'Other']) : api.get('/finance/expenses/categories').then((r) => r.data.data),
