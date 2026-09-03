@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Lead extends Model
 {
     protected $fillable = [
-        'source', 'contact_name', 'phone', 'business_name',
+        'source', 'contact_name', 'phone', 'city', 'email', 'business_name',
         'stage', 'assigned_to', 'last_contact_at', 'notes',
     ];
 

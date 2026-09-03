@@ -68,18 +68,24 @@ export default function AttendancePage() {
                 { key: 'employee', header: 'Employee', render: (r) => <span className="font-medium">{r.employee?.name ?? '—'}</span> },
                 { key: 'date', header: 'Date', render: (r) => fmtDate(r.date ?? '') },
                 { key: 'status', header: 'Status', render: (r) => <Badge label={(r.status ?? '').replace('_', ' ')} color={STATUS_COLORS[r.status ?? ''] ?? 'gray'} /> },
-                { key: 'check_in', header: 'Check In', render: (r) => r.check_in_time ? <span className="text-xs text-gray-600">{fmtDateTime(r.check_in_time)}</span> : '—' },
-                { key: 'check_out', header: 'Check Out', render: (r) => r.check_out_time ? <span className="text-xs text-gray-600">{fmtDateTime(r.check_out_time)}</span> : '—' },
-                { key: 'hours', header: 'Hours', render: (r) => r.total_hours ? `${r.total_hours}h` : '—' },
+                { key: 'check_in', header: 'Check In', render: (r) => r.check_in ? <span className="text-xs text-gray-600">{fmtDateTime(r.check_in)}</span> : '—' },
+                { key: 'check_out', header: 'Check Out', render: (r) => r.check_out ? <span className="text-xs text-gray-600">{fmtDateTime(r.check_out)}</span> : '—' },
+                {
+                  key: 'hours', header: 'Hours', render: (r) => {
+                    if (!r.check_in || !r.check_out) return '—';
+                    const hrs = (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) / 3_600_000;
+                    return hrs > 0 ? `${hrs.toFixed(1)}h` : '—';
+                  },
+                },
                 {
                   key: 'actions', header: '', render: (r) => (
                     <div className="flex gap-1">
-                      {!r.check_in_time && (
+                      {!r.check_in && (
                         <Button size="sm" variant="secondary" onClick={(e) => { e.stopPropagation(); checkInMut.mutate(r.employee_id); }}>
                           <LogIn size={12} /> In
                         </Button>
                       )}
-                      {r.check_in_time && !r.check_out_time && (
+                      {r.check_in && !r.check_out && (
                         <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMut.mutate(r.employee_id); }}>
                           <LogOut size={12} /> Out
                         </Button>

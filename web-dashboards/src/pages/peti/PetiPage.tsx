@@ -133,12 +133,16 @@ export default function PetiPage() {
               <div>
                 <div className="text-xs font-medium text-gray-500 mb-2">Items</div>
                 <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {(detail?.items ?? []).map((item: any, i: number) => (
-                    <div key={i} className="flex justify-between text-xs bg-gray-50 px-3 py-2 rounded">
-                      <span>{item.brand} {item.model} — Grade {item.grade} × {item.quantity}</span>
-                      <span className="font-semibold">{fmtINR(item.unit_price * item.quantity)}</span>
-                    </div>
-                  ))}
+                  {(detail?.items ?? []).map((item: any, i: number) => {
+                    const qty = item.quantity ?? item.qty ?? 0;
+                    const label = [item.brand, item.model].filter(Boolean).join(' ');
+                    return (
+                      <div key={i} className="flex justify-between text-xs bg-gray-50 px-3 py-2 rounded">
+                        <span>{label ? `${label} — ` : ''}Grade {item.grade} × {qty}</span>
+                        <span className="font-semibold">{item.unit_price != null ? fmtINR(item.unit_price * qty) : '—'}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

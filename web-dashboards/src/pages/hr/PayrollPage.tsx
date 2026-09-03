@@ -48,7 +48,8 @@ export default function PayrollPage() {
 
   const runs: PayrollRun[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
-  const items: any[] = itemsData?.data ?? [];
+  // Real API returns { run, employee_count, items }; demo mode returns { data }.
+  const items: any[] = itemsData?.items ?? itemsData?.data ?? [];
 
   return (
     <div>

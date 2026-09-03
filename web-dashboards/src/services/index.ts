@@ -147,7 +147,7 @@ export const hrService = {
   createPayroll: (month: number, year: number) => DEMO_MODE ? mock({}) : api.post('/hr/payroll', { month, year }).then((r) => r.data.data),
   processPayroll: (data: { month: string }) => DEMO_MODE ? mock({}) : api.post('/hr/payroll/process', data).then((r) => r.data.data),
   payrollById: (id: number) => DEMO_MODE ? mock(DEMO_PAYROLL_RUNS.data.find(r => r.id === id)) : api.get(`/hr/payroll/${id}`).then((r) => r.data.data),
-  payrollItems: (id: number) => DEMO_MODE ? mock(DEMO_PAYROLL_ITEMS) : api.get(`/hr/payroll/${id}/items`).then((r) => r.data),
+  payrollItems: (id: number) => DEMO_MODE ? mock(DEMO_PAYROLL_ITEMS) : api.get(`/hr/payroll/${id}/items`).then((r) => r.data.data),
   markPaid: (id: number) => DEMO_MODE ? mock({}) : api.post(`/hr/payroll/${id}/mark-paid`).then((r) => r.data),
 };
 

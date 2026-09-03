@@ -129,8 +129,14 @@ export default function UsersPage() {
             label="New Role"
             value={newRole}
             onChange={(e) => setNewRole(e.target.value)}
-            options={ROLES.map((r) => ({ value: r, label: r.replace(/_/g, ' ') }))}
+            options={(selected?.role && !ROLES.includes(selected.role) ? [selected.role, ...ROLES] : ROLES)
+              .map((r) => ({ value: r, label: r.replace(/_/g, ' ') }))}
           />
+          {selected?.role && !ROLES.includes(selected.role) && (
+            <p className="text-xs text-amber-600">
+              This user's current role ("{selected.role.replace(/_/g, ' ')}") is a legacy hierarchy role no longer assignable here — pick a real role below to move them off it.
+            </p>
+          )}
           <div className="flex gap-3 pt-2">
             <Button onClick={() => roleMut.mutate()} loading={roleMut.isPending} className="flex-1 justify-center">Save</Button>
             <Button variant="outline" onClick={() => setSelected(null)} className="flex-1 justify-center">Cancel</Button>

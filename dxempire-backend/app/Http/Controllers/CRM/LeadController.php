@@ -88,6 +88,8 @@ class LeadController extends Controller
         $request->validate([
             'contact_name'  => ['sometimes', 'string', 'max:200'],
             'phone'         => ['nullable', 'string', 'max:20'],
+            'city'          => ['nullable', 'string', 'max:100'],
+            'email'         => ['nullable', 'email', 'max:150'],
             'business_name' => ['nullable', 'string', 'max:200'],
             'source'        => ['sometimes', 'in:b2b_inquiry,website,referral,walk_in,marketplace'],
             'assigned_to'   => ['nullable', 'exists:users,id'],
@@ -95,7 +97,7 @@ class LeadController extends Controller
         ]);
 
         $lead->update($request->only([
-            'contact_name', 'phone', 'business_name', 'source', 'assigned_to', 'notes',
+            'contact_name', 'phone', 'city', 'email', 'business_name', 'source', 'assigned_to', 'notes',
         ]));
 
         return $this->success($lead->fresh()->toArray(), 'Lead updated.');

@@ -69,7 +69,7 @@ function StaffOrdersPage() {
 
   const dispatchMut = useMutation({
     mutationFn: ({ id, tracking }: { id: number; tracking: string }) =>
-      ordersService.dispatch(id, { awb_number: tracking, tracking_number: tracking, logistics_provider: 'shiprocket' }),
+      ordersService.dispatch(id, { awb_number: tracking, logistics_provider: 'shiprocket' }),
     onSuccess: () => { toast.success('Order dispatched'); qc.invalidateQueries({ queryKey: ['orders'] }); setSelected(null); },
     onError: () => toast.error('Failed'),
   });
@@ -243,11 +243,11 @@ function StaffOrdersPage() {
                   {!['delivered', 'cancelled', 'returned'].includes(selected.status) && (
                     <Button size="sm" variant="danger" onClick={() => cancelMut.mutate(selected.id)} loading={cancelMut.isPending}>Cancel</Button>
                   )}
-                  {(orderDetail?.tracking_number ?? selected.tracking_number) && (
+                  {((orderDetail as any)?.awb_number ?? (selected as any).awb_number) && (
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => trackMut.mutate(orderDetail?.tracking_number ?? selected.tracking_number!)}
+                      onClick={() => trackMut.mutate((orderDetail as any)?.awb_number ?? (selected as any).awb_number)}
                       loading={trackMut.isPending}
                     >
                       <ExternalLink size={13} /> Track

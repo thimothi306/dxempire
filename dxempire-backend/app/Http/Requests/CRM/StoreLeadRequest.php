@@ -14,6 +14,8 @@ class StoreLeadRequest extends FormRequest
             'source'        => ['required', 'in:b2b_inquiry,website,referral,walk_in,marketplace'],
             'contact_name'  => ['required', 'string', 'max:200'],
             'phone'         => ['nullable', 'string', 'max:20'],
+            'city'          => ['nullable', 'string', 'max:100'],
+            'email'         => ['nullable', 'email', 'max:150'],
             'business_name' => ['nullable', 'string', 'max:200'],
             'notes'         => ['nullable', 'string'],
             'assigned_to'   => ['nullable', 'exists:users,id'],

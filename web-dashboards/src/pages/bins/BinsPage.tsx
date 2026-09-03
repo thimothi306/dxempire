@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { binsService, inventoryService, warehouseService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select } from '../../components/ui';
+import { Card, Table, Pagination, Button, PageHeader, Spinner, Modal, Input, Select } from '../../components/ui';
 import type { Bin, Product } from '../../types';
 
 export default function BinsPage() {
@@ -75,7 +75,6 @@ export default function BinsPage() {
                     );
                   },
                 },
-                { key: 'is_active', header: 'Status', render: (b) => <Badge label={b.is_active ? 'Active' : 'Inactive'} color={b.is_active ? 'green' : 'gray'} /> },
               ]}
               data={bins}
               keyField="id"

@@ -189,8 +189,9 @@ class QcController extends Controller
             ->groupBy('grade')
             ->pluck('count', 'grade');
 
-        $todayTotal  = QcRecord::whereDate('graded_at', today())->count();
-        $weekTotal   = QcRecord::whereBetween('graded_at', [now()->startOfWeek(), now()])->count();
+        $todayTotal   = QcRecord::whereDate('graded_at', today())->count();
+        $todayReject  = QcRecord::whereDate('graded_at', today())->where('outcome', 'reject')->count();
+        $weekTotal    = QcRecord::whereBetween('graded_at', [now()->startOfWeek(), now()])->count();
 
         return $this->success([
             'total'      => $total,
@@ -200,6 +201,8 @@ class QcController extends Controller
             'pass_rate'  => $total > 0 ? round(($passed / $total) * 100, 1) : 0,
             'by_grade'   => $byGrade,
             'today'      => $todayTotal,
+            'graded_today'   => $todayTotal,
+            'rejected_today' => $todayReject,
             'this_week'  => $weekTotal,
             'pending_qc' => Product::where('status', 'received')->count(),
             'in_refurbishment' => Product::where('status', 'refurbishment')->count(),

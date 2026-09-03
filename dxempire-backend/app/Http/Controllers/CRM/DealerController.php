@@ -162,10 +162,14 @@ class DealerController extends Controller
             ->orderByDesc('created_at')
             ->paginate(50);
 
+        $totalBilled = $dealer->orders()->where('payment_status', '!=', 'refunded')->sum('total_amount');
+        $totalPaid   = $dealer->orders()->where('payment_status', 'paid')->sum('total_amount');
+
         $summary = [
             'total_orders'   => $dealer->orders()->count(),
-            'total_billed'   => $dealer->orders()->where('payment_status', '!=', 'refunded')->sum('total_amount'),
-            'total_paid'     => $dealer->orders()->where('payment_status', 'paid')->sum('total_amount'),
+            'total_billed'   => $totalBilled,
+            'total_paid'     => $totalPaid,
+            'outstanding'    => max(0, $totalBilled - $totalPaid),
             'credit_limit'   => $dealer->credit_limit,
             'credit_used'    => $dealer->credit_used,
             'available_credit' => $dealer->availableCredit(),

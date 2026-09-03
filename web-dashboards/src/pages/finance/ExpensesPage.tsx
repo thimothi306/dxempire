@@ -6,8 +6,8 @@ import { financeService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
 import type { Expense } from '../../types';
 
-const CATEGORIES = ['rent', 'salary', 'logistics', 'utilities', 'marketing', 'repairs', 'procurement', 'other'];
-const EMPTY_FORM = { category: 'other', description: '', amount: '', date: '', vendor: '' };
+const FALLBACK_CATEGORIES = ['Logistics', 'Marketing', 'Office Supplies', 'Travel', 'Utilities', 'Other'];
+const EMPTY_FORM = { category: '', description: '', amount: '', date: '', vendor: '' };
 
 export default function ExpensesPage() {
   const qc = useQueryClient();
@@ -20,6 +20,13 @@ export default function ExpensesPage() {
     queryKey: ['expenses', page],
     queryFn: () => financeService.expenses({ page: String(page) }),
   });
+
+  const { data: categoriesData } = useQuery({
+    queryKey: ['expense-categories'],
+    queryFn: financeService.expenseCategories,
+    staleTime: 300_000,
+  });
+  const categories: string[] = Array.isArray(categoriesData) && categoriesData.length > 0 ? categoriesData : FALLBACK_CATEGORIES;
 
   const createMut = useMutation({
     mutationFn: () => financeService.createExpense({ ...form, amount: Number(form.amount), incurred_at: form.date }),
@@ -71,7 +78,7 @@ export default function ExpensesPage() {
                 { key: 'description', header: 'Description', render: (e) => <span className="text-sm text-gray-700">{e.description}</span> },
                 { key: 'vendor', header: 'Vendor', render: (e) => e.vendor ?? '—' },
                 { key: 'amount', header: 'Amount', render: (e) => <span className="font-semibold">{fmtINR(e.amount)}</span> },
-                { key: 'recorded_by', header: 'By', render: (e) => <span className="text-xs text-gray-500">{e.recorded_by?.name ?? '—'}</span> },
+                { key: 'creator', header: 'By', render: (e) => <span className="text-xs text-gray-500">{e.creator?.name ?? '—'}</span> },
                 {
                   key: 'actions', header: '', render: (e) => (
                     <Button size="sm" variant="danger" onClick={(ev) => { ev.stopPropagation(); setDeleteTarget(e); }}>
@@ -95,14 +102,14 @@ export default function ExpensesPage() {
             label="Category"
             value={form.category}
             onChange={(e) => setForm({ ...form, category: e.target.value })}
-            options={CATEGORIES.map((c) => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))}
+            options={[{ value: '', label: 'Select category...' }, ...categories.map((c) => ({ value: c, label: c }))]}
           />
           <Input label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           <Input label="Amount (₹)" type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
           <Input label="Date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
           <Input label="Vendor" value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} placeholder="Optional" />
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => createMut.mutate()} loading={createMut.isPending} className="flex-1 justify-center">Save</Button>
+            <Button onClick={() => createMut.mutate()} loading={createMut.isPending} disabled={!form.category || !form.description || !form.amount || !form.date} className="flex-1 justify-center">Save</Button>
             <Button variant="outline" onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); }} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>

@@ -7,6 +7,14 @@ import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, In
 import type { Lead, LeadStage } from '../../types';
 
 const STAGES: LeadStage[] = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
+const SOURCES = [
+  { value: 'b2b_inquiry', label: 'B2B Inquiry' },
+  { value: 'website', label: 'Website' },
+  { value: 'referral', label: 'Referral' },
+  { value: 'walk_in', label: 'Walk-in' },
+  { value: 'marketplace', label: 'Marketplace' },
+];
+const sourceLabel = (v?: string) => SOURCES.find((s) => s.value === v)?.label ?? v ?? '—';
 
 export default function LeadsPage() {
   const qc = useQueryClient();
@@ -15,7 +23,8 @@ export default function LeadsPage() {
   const [selected, setSelected] = useState<Lead | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [stageForm, setStageForm] = useState({ stage: '' as LeadStage | '' });
-  const [form, setForm] = useState({ business_name: '', contact_name: '', phone: '', email: '', city: '', source: '' });
+  const EMPTY_FORM = { business_name: '', contact_name: '', phone: '', email: '', city: '', source: '' };
+  const [form, setForm] = useState(EMPTY_FORM);
 
   const { data, isLoading } = useQuery({
     queryKey: ['leads', page, stageFilter],
@@ -24,7 +33,7 @@ export default function LeadsPage() {
 
   const createMut = useMutation({
     mutationFn: () => leadsService.create(form),
-    onSuccess: () => { toast.success('Lead created'); qc.invalidateQueries({ queryKey: ['leads'] }); setShowCreate(false); setForm({ business_name: '', contact_name: '', phone: '', email: '', city: '', source: '' }); },
+    onSuccess: () => { toast.success('Lead created'); qc.invalidateQueries({ queryKey: ['leads'] }); setShowCreate(false); setForm(EMPTY_FORM); },
     onError: () => toast.error('Failed to create lead'),
   });
 
@@ -73,7 +82,7 @@ export default function LeadsPage() {
                 { key: 'contact_name', header: 'Contact', render: (l) => l.contact_name ?? '—' },
                 { key: 'phone', header: 'Phone' },
                 { key: 'city', header: 'City', render: (l) => l.city ?? '—' },
-                { key: 'source', header: 'Source', render: (l) => l.source ?? '—' },
+                { key: 'source', header: 'Source', render: (l) => sourceLabel(l.source) },
                 { key: 'stage', header: 'Stage', render: (l) => leadStageBadge(l.stage) },
                 { key: 'created_at', header: 'Added', render: (l) => <span className="text-xs text-gray-400">{fmtDate(l.created_at)}</span> },
               ]}
@@ -95,7 +104,7 @@ export default function LeadsPage() {
               <div><span className="text-gray-500 block text-xs">Phone</span>{selected.phone}</div>
               <div><span className="text-gray-500 block text-xs">Email</span>{selected.email ?? '—'}</div>
               <div><span className="text-gray-500 block text-xs">City</span>{selected.city ?? '—'}</div>
-              <div><span className="text-gray-500 block text-xs">Source</span>{selected.source ?? '—'}</div>
+              <div><span className="text-gray-500 block text-xs">Source</span>{sourceLabel(selected.source)}</div>
             </div>
             <div className="border-t pt-4">
               <div className="text-xs font-medium text-gray-500 mb-2">Update Stage</div>
@@ -125,9 +134,14 @@ export default function LeadsPage() {
           <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
           <Input label="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
-          <Input label="Source" placeholder="e.g. WhatsApp, Referral, LinkedIn" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} />
+          <Select
+            label="Source *"
+            value={form.source}
+            onChange={(e) => setForm({ ...form, source: e.target.value })}
+            options={[{ value: '', label: 'Select source...' }, ...SOURCES]}
+          />
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => createMut.mutate()} loading={createMut.isPending} className="flex-1 justify-center">Create</Button>
+            <Button onClick={() => createMut.mutate()} loading={createMut.isPending} disabled={!form.contact_name || !form.source} className="flex-1 justify-center">Create</Button>
             <Button variant="outline" onClick={() => setShowCreate(false)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>

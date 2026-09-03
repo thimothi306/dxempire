@@ -182,7 +182,7 @@ export interface Expense {
   date?: string;
   incurred_at?: string;
   vendor?: string;
-  recorded_by?: { id: number; name: string };
+  creator?: { id: number; name: string };
   created_at: string;
 }
 
@@ -214,9 +214,8 @@ export interface AttendanceRecord {
   shift?: string;
   date?: string;
   status?: 'present' | 'absent' | 'late' | 'half_day' | 'holiday' | 'leave';
-  check_in_time?: string | null;
-  check_out_time?: string | null;
-  total_hours?: number;
+  check_in?: string | null;
+  check_out?: string | null;
   employee?: { id: number; name: string };
   attendance?: {
     status: 'present' | 'absent' | 'half_day' | 'leave';

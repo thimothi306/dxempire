@@ -618,11 +618,21 @@ function AccountsDashboard() {
     staleTime: 60_000,
   });
 
+  // /finance/profit-loss is a whole-year report bucketed by month — it has
+  // no from/to range support (any from/to sent to it is silently ignored).
+  // Pull the current month's own bucket out of its time_series instead of
+  // pretending the endpoint can be scoped to a date range.
+  const currentYear = new Date().getFullYear();
   const { data: pl } = useQuery({
-    queryKey: ['finance-pl-month'],
-    queryFn: () => financeService.pl({ from: startOfMonth(), to: today() }),
+    queryKey: ['finance-pl-year', currentYear],
+    queryFn: () => financeService.pl({ period: 'monthly', year: String(currentYear) }),
     staleTime: 120_000,
   });
+
+  const currentMonthLabel = `${new Date().toLocaleString('en-US', { month: 'short' })} ${currentYear}`;
+  const currentMonthBucket = (pl?.time_series ?? []).find((t: any) => t.period === currentMonthLabel);
+  const monthExpenses = currentMonthBucket?.expenses ?? 0;
+  const monthNetProfit = currentMonthBucket ? (currentMonthBucket.revenue ?? 0) - (currentMonthBucket.expenses ?? 0) : 0;
 
   const { data: monthlyRevData } = useQuery({
     queryKey: ['analytics-revenue-monthly'],
@@ -639,10 +649,10 @@ function AccountsDashboard() {
     <div>
       {statsLoading ? <Spinner /> : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Month Revenue"  value={fmtINR(stats?.month_revenue ?? 0)}        icon={<IndianRupee size={28} />}  color="text-green-600" />
-          <StatCard label="Month Expenses" value={fmtINR(pl?.operating_expenses ?? 0)}       icon={<TrendingDown size={28} />} color="text-red-500" />
-          <StatCard label="Net Profit"     value={fmtINR(pl?.net_profit ?? 0)}               icon={<BarChart3 size={28} />}    color="text-blue-600" />
-          <StatCard label="Active Orders"  value={stats?.active_orders ?? 0}                 icon={<AlertCircle size={28} />}  color="text-orange-600" />
+          <StatCard label="Month Revenue"  value={fmtINR(stats?.month_revenue ?? 0)}  icon={<IndianRupee size={28} />}  color="text-green-600" />
+          <StatCard label="Month Expenses" value={fmtINR(monthExpenses)}              icon={<TrendingDown size={28} />} color="text-red-500" />
+          <StatCard label="Net Profit"     value={fmtINR(monthNetProfit)}             icon={<BarChart3 size={28} />}    color="text-blue-600" />
+          <StatCard label="Active Orders"  value={stats?.active_orders ?? 0}          icon={<AlertCircle size={28} />}  color="text-orange-600" />
         </div>
       )}
 
@@ -696,9 +706,9 @@ function HRDashboard() {
 
   const employees: import('../../types').Employee[] = empData?.data ?? [];
   const totalEmployees = empData?.meta?.total ?? employees.length;
-  const presentToday = Array.isArray(todayAttendance)
-    ? todayAttendance.filter((r: any) => r.status === 'present' || r.attendance?.status === 'present').length
-    : 0;
+  // GET /hr/attendance/today returns { date, total, marked, unmarked, records: [...] },
+  // not a bare array — each record's status lives at record.attendance.status.
+  const presentToday = (todayAttendance?.records ?? []).filter((r: any) => r.attendance?.status === 'present').length;
   const lastPayroll = payrollData?.data?.[0] ?? payrollData?.[0];
 
   // Department headcount from employees list

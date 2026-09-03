@@ -49,7 +49,8 @@ export default function GSTPage() {
               { label: 'Taxable Value', value: report.taxable_value ?? 0 },
               { label: 'CGST Collected', value: report.cgst ?? 0 },
               { label: 'SGST Collected', value: report.sgst ?? 0 },
-              { label: 'Total GST', value: (report.cgst ?? 0) + (report.sgst ?? 0), bold: true },
+              { label: 'IGST Collected', value: report.igst ?? 0 },
+              { label: 'Total GST', value: (report.cgst ?? 0) + (report.sgst ?? 0) + (report.igst ?? 0), bold: true },
             ].map((s) => (
               <Card key={s.label} className="p-4">
                 <div className="text-xs text-gray-500 mb-1">{s.label}</div>
@@ -69,6 +70,7 @@ export default function GSTPage() {
                   { key: 'taxable_value', header: 'Taxable', render: (i) => fmtINR(i.taxable_value) },
                   { key: 'cgst', header: 'CGST', render: (i) => fmtINR(i.cgst) },
                   { key: 'sgst', header: 'SGST', render: (i) => fmtINR(i.sgst) },
+                  { key: 'igst', header: 'IGST', render: (i) => fmtINR(i.igst ?? 0) },
                   { key: 'total', header: 'Total', render: (i) => <span className="font-semibold">{fmtINR(i.total_amount)}</span> },
                 ]}
                 data={rows}

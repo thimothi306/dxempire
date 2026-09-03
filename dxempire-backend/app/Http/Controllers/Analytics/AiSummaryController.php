@@ -19,17 +19,25 @@ class AiSummaryController extends Controller
     public function insights(GeminiService $gemini): JsonResponse
     {
         $cacheKey = 'ai:insights:' . now()->toDateString();
+        $summary  = Cache::get($cacheKey);
 
-        $summary = Cache::remember($cacheKey, now()->endOfDay(), function () use ($gemini) {
+        if (!$summary) {
             $stats = $this->gatherInsightStats();
             $text  = $gemini->generate($this->buildInsightsPrompt($stats));
 
-            return [
+            $summary = [
                 'text'         => $text,
                 'stats'        => $stats,
                 'generated_at' => now()->toIso8601String(),
             ];
-        });
+
+            // Only cache a successful generation — memoizing a transient
+            // Gemini failure would otherwise hide the insight card for the
+            // rest of the day even once Gemini recovers.
+            if ($text !== null) {
+                Cache::put($cacheKey, $summary, now()->endOfDay());
+            }
+        }
 
         return $this->success($summary);
     }
@@ -126,17 +134,22 @@ class AiSummaryController extends Controller
     public function daily(GeminiService $gemini): JsonResponse
     {
         $cacheKey = 'ai:daily-summary:' . now()->toDateString();
+        $summary  = Cache::get($cacheKey);
 
-        $summary = Cache::remember($cacheKey, now()->endOfDay(), function () use ($gemini) {
+        if (!$summary) {
             $stats = $this->gatherStats();
             $text  = $gemini->generate($this->buildPrompt($stats));
 
-            return [
+            $summary = [
                 'text'         => $text,
                 'stats'        => $stats,
                 'generated_at' => now()->toIso8601String(),
             ];
-        });
+
+            if ($text !== null) {
+                Cache::put($cacheKey, $summary, now()->endOfDay());
+            }
+        }
 
         return $this->success($summary);
     }

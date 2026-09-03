@@ -11,7 +11,6 @@ const SETTING_KEYS = [
   { key: 'company_gst', label: 'GST Number', type: 'text' },
   { key: 'company_phone', label: 'Contact Phone', type: 'text' },
   { key: 'company_email', label: 'Contact Email', type: 'text' },
-  { key: 'low_stock_threshold', label: 'Low Stock Threshold', type: 'number' },
   { key: 'logistics_provider', label: 'Logistics Provider', type: 'select', options: ['shiprocket', 'delhivery', 'dtdc'] },
   { key: 'whatsapp_provider', label: 'WhatsApp Provider', type: 'select', options: ['interakt', 'twilio'] },
 ];
@@ -30,15 +29,31 @@ const WAREHOUSE_KEYS = [
 export default function SettingsPage() {
   const { data: settings, isLoading } = useQuery({ queryKey: ['settings'], queryFn: adminService.settings });
   const [values, setValues] = useState<Record<string, string>>({});
+  // low_stock_threshold is stored as a per-category JSON object, e.g.
+  // {"phone":10,"laptop":5} — it can't be crammed into the generic
+  // string-keyed `values` map without corrupting it on save.
+  const [thresholds, setThresholds] = useState({ phone: '10', laptop: '5' });
 
   useEffect(() => {
     if (settings) {
       const map: Record<string, string> = {};
-      if (Array.isArray(settings)) {
-        settings.forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
-      } else {
-        Object.entries(settings).forEach(([k, v]) => { map[k] = String(v); });
-      }
+      const entries: [string, unknown][] = Array.isArray(settings)
+        ? settings.map((s: { key: string; value: unknown }) => [s.key, s.value])
+        : Object.entries(settings);
+
+      entries.forEach(([k, v]) => {
+        if (k === 'low_stock_threshold') {
+          const parsed = typeof v === 'string' ? (() => { try { return JSON.parse(v); } catch { return null; } })() : v;
+          if (parsed && typeof parsed === 'object') {
+            setThresholds({
+              phone: String((parsed as any).phone ?? 10),
+              laptop: String((parsed as any).laptop ?? 5),
+            });
+          }
+          return;
+        }
+        map[k] = typeof v === 'string' ? v : String(v);
+      });
       setValues(map);
     }
   }, [settings]);
@@ -47,8 +62,9 @@ export default function SettingsPage() {
 
   const saveMut = useMutation({
     mutationFn: () => {
-      const payload: Record<string, string> = {};
+      const payload: Record<string, unknown> = {};
       editableKeys.forEach((k) => { payload[k] = values[k] ?? ''; });
+      payload.low_stock_threshold = { phone: Number(thresholds.phone) || 0, laptop: Number(thresholds.laptop) || 0 };
       return adminService.updateSettings(payload);
     },
     onSuccess: () => toast.success('Settings saved'),
@@ -86,6 +102,27 @@ export default function SettingsPage() {
               />
             )
           )}
+        </div>
+      </Card>
+
+      <Card className="p-6 mt-6">
+        <h2 className="text-sm font-semibold text-gray-900 mb-1">Low Stock Threshold</h2>
+        <p className="text-xs text-gray-500 mb-5">
+          Below this many units in stock for a category, the dashboard and AI summary flag it as low stock.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <Input
+            label="Phones"
+            type="number"
+            value={thresholds.phone}
+            onChange={(e) => setThresholds({ ...thresholds, phone: e.target.value })}
+          />
+          <Input
+            label="Laptops"
+            type="number"
+            value={thresholds.laptop}
+            onChange={(e) => setThresholds({ ...thresholds, laptop: e.target.value })}
+          />
         </div>
       </Card>
 
