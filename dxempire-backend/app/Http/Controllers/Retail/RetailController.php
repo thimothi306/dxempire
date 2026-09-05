@@ -30,7 +30,8 @@ class RetailController extends Controller
                 $q->where('brand', 'like', "%{$request->search}%")
                   ->orWhere('model', 'like', "%{$request->search}%");
             }))
-            ->select(['id', 'brand', 'model', 'category', 'grade', 'retail_price', 'color', 'storage', 'ram'])
+            ->select(['id', 'brand', 'model', 'category', 'grade'])
+            ->selectRaw('COALESCE(retail_price, selling_price) as retail_price')
             ->orderBy('brand')
             ->paginate($request->integer('per_page', 20));
 
@@ -43,17 +44,18 @@ class RetailController extends Controller
             return $this->error('Product not available.', 404);
         }
 
-        return $this->success($product->only([
-            'id', 'brand', 'model', 'category', 'grade', 'retail_price',
-            'color', 'storage', 'ram', 'condition_notes',
-        ]));
+        $data = $product->only(['id', 'brand', 'model', 'category', 'grade']);
+        $data['retail_price'] = $product->retail_price ?? $product->selling_price;
+        $data['condition_notes'] = $product->qcRecords()->latest('graded_at')->value('condition_notes');
+
+        return $this->success($data);
     }
 
     // ── Cart ─────────────────────────────────────────────────────────────────
 
     public function cartView(Request $request): JsonResponse
     {
-        $items = RetailCartItem::with('product:id,brand,model,grade,category,retail_price,status')
+        $items = RetailCartItem::with('product:id,brand,model,grade,category,retail_price,selling_price,status')
             ->where('customer_id', $request->customer->id)
             ->get();
 
@@ -64,7 +66,7 @@ class RetailController extends Controller
             $items = $items->diff($stale);
         }
 
-        $total = $items->sum(fn($i) => (float) ($i->product->retail_price ?? 0));
+        $total = $items->sum(fn($i) => (float) ($i->product->retail_price ?? $i->product->selling_price ?? 0));
 
         return $this->success([
             'items' => $items->values(),
