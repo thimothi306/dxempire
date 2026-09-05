@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Throwable;
 
@@ -46,5 +47,15 @@ class Handler extends ExceptionHandler
         $this->reportable(function (Throwable $e) {
             //
         });
+    }
+
+    /**
+     * This is an API-only application with no "login" web route, so an
+     * unauthenticated request must always get a JSON 401 rather than the
+     * framework's default redirect-to-login fallback.
+     */
+    protected function unauthenticated($request, AuthenticationException $exception)
+    {
+        return response()->json(['success' => false, 'message' => $exception->getMessage()], 401);
     }
 }

@@ -24,7 +24,7 @@ class RazorpayWebhookController extends Controller
 
     public function handle(Request $request): JsonResponse
     {
-        $signature = $request->header('X-Razorpay-Signature');
+        $signature = $request->header('X-Razorpay-Signature', '');
         $payload   = $request->getContent();
 
         if (!$this->razorpay->verifyWebhookSignature($payload, $signature)) {
