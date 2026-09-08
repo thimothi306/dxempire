@@ -70,8 +70,11 @@ export default function LoginPage() {
       style={{ backgroundImage: "url('/login-bg.png')" }}
     >
       <div className="w-full max-w-sm relative">
-        <div className="flex items-center justify-center mb-8">
-          <p className="text-white text-3xl font-bold">Admin Panel</p>
+        <div className="flex flex-col items-center justify-center mb-8">
+          <div className="h-24 w-24 rounded-2xl bg-white shadow-xl flex items-center justify-center overflow-hidden mb-3">
+            <img src="/DX_Empire_Logo_Admin.jpg" alt="DXEmpire" className="max-h-full max-w-full object-contain" />
+          </div>
+          <p className="text-white text-2xl font-bold">Admin Panel</p>
         </div>
 
         <div className="bg-primary-50/95 backdrop-blur-sm rounded-2xl shadow-xl border border-primary-100 p-8">
