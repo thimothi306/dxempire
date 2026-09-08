@@ -43,6 +43,12 @@ class RolesPermissionsSeeder extends Seeder
         $roles = [
             'super_admin'     => Permission::all()->pluck('name')->toArray(),
             'sales'           => ['crm.view', 'crm.edit', 'support.manage', 'orders.view', 'orders.create', 'analytics.view', 'hierarchy.manage', 'offers.manage', 'dealers.view', 'customers.view'],
+            // Legacy hierarchy roles (District/Area Manager) predate this permission
+            // system and were left with zero permissions — locking those real
+            // accounts out of Leads/Orders/Analytics entirely. They do the same
+            // CRM/oversight work as 'sales', just at a different tree level.
+            'district_manager' => ['crm.view', 'crm.edit', 'support.manage', 'orders.view', 'orders.create', 'analytics.view', 'hierarchy.manage', 'offers.manage', 'dealers.view', 'customers.view'],
+            'area_manager'    => ['crm.view', 'crm.edit', 'support.manage', 'orders.view', 'orders.create', 'analytics.view', 'hierarchy.manage', 'offers.manage', 'dealers.view', 'customers.view'],
             'warehouse_staff' => ['procurement.view', 'procurement.edit', 'inventory.view', 'inventory.export', 'bins.manage', 'qc.view', 'qc.grade', 'orders.view', 'orders.fulfill', 'logistics.manage', 'peti.manage'],
             // 5-step inventory workflow roles — split out of warehouse_staff for
             // teams that want per-stage accountability instead of one broad role.
