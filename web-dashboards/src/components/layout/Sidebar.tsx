@@ -105,7 +105,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         {/* Logo */}
         <div className="border-b border-navy-600">
           <div className="bg-white py-3 flex items-center justify-center shadow-md shadow-black/20">
-            <img src="/DX_Empire_Logo_Admin.png" alt="DXEmpire Admin Panel" className="h-14 w-auto object-contain" />
+            <img src="/DX_Empire_Logo_Admin.jpg" alt="DXEmpire Admin Panel" className="h-14 w-auto object-contain" />
           </div>
         </div>
 

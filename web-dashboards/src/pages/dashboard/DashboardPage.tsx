@@ -45,10 +45,6 @@ function nMonthsAgo(n: number) {
   return d.toISOString().slice(0, 10);
 }
 function today() { return new Date().toISOString().slice(0, 10); }
-function startOfMonth() {
-  const d = new Date(); d.setDate(1);
-  return d.toISOString().slice(0, 10);
-}
 function periodLabel(p: string) {
   // '2026-05' → 'May' | '2026-05-28' → '05-28'
   if (/^\d{4}-\d{2}$/.test(p)) {
