@@ -113,6 +113,7 @@ class PartnerPortalController extends Controller
             $productIds = [];
             foreach ($data['items'] as $line) {
                 $query = Product::where('status', 'in_stock')
+                    ->where('is_active', true)
                     ->where('brand', $line['brand'])
                     ->where('model', $line['model'])
                     ->where('grade', $line['grade'])

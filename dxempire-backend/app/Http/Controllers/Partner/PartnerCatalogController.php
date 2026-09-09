@@ -27,6 +27,7 @@ class PartnerCatalogController extends Controller
     public function brands(Request $request): JsonResponse
     {
         $brands = Product::where('status', 'in_stock')
+            ->where('is_active', true)
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->select('brand', DB::raw('COUNT(*) as available_qty'))
             ->groupBy('brand')
@@ -65,6 +66,7 @@ class PartnerCatalogController extends Controller
     public function index(Request $request): JsonResponse
     {
         $rows = Product::where('status', 'in_stock')
+            ->where('is_active', true)
             ->when($request->brand, fn($q) => $q->where('brand', $request->brand))
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->when($request->grade, fn($q) => $q->where('grade', $request->grade))
@@ -136,6 +138,7 @@ class PartnerCatalogController extends Controller
         ]);
 
         $grades = Product::where('status', 'in_stock')
+            ->where('is_active', true)
             ->where('brand', $request->brand)
             ->where('model', $request->model)
             ->select(
