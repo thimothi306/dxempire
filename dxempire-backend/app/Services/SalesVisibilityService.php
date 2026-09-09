@@ -43,7 +43,11 @@ class SalesVisibilityService
 
     private function collectSubordinateIds(User $user, array &$ids): void
     {
-        $directSubs = $user->subordinates()->get(['id']);
+        // Must select unique_code too — subordinates() is keyed off it
+        // (parent_unique_code -> unique_code), so a row missing it here
+        // silently finds zero subordinates of its own on the next
+        // recursion, truncating the walk after the first level.
+        $directSubs = $user->subordinates()->get(['id', 'unique_code']);
 
         foreach ($directSubs as $sub) {
             $ids[] = $sub->id;
