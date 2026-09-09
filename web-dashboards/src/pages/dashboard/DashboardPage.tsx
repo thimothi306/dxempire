@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -6,7 +7,7 @@ import {
   Archive, ClipboardCheck, Building2, UserPlus, FileText, Receipt,
   BadgeDollarSign, Landmark, Banknote, AlertTriangle, CheckCircle2, Sparkles,
 } from 'lucide-react';
-import { StatCard, Card, fmtINR, PageHeader, Spinner } from '../../components/ui';
+import { StatCard, Card, fmtINR, PageHeader, Spinner, Modal, Table, Badge } from '../../components/ui';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, PieChart, Pie, Cell, Legend,
@@ -169,6 +170,96 @@ function LowStockWidget() {
   );
 }
 
+// ── Stat-card detail popups ──────────────────────────────────────────────────
+function InStockDetailModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['inventory-availability-detail'],
+    queryFn: inventoryService.availability,
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const categories: { key: string; label: string }[] = [
+    { key: 'phones', label: 'Phones' },
+    { key: 'laptops', label: 'Laptops' },
+  ];
+
+  return (
+    <Modal open={open} onClose={onClose} title="In-Stock Breakdown">
+      {isLoading ? <Spinner /> : (
+        <div className="space-y-5">
+          {categories.map(({ key, label }) => {
+            const bucket = (data as any)?.[key] ?? {};
+            return (
+              <div key={key}>
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">{label}</h3>
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-sm">
+                  {GRADES.map((g) => (
+                    <div key={g} className="flex justify-between border-b border-gray-100 py-1">
+                      <span className="text-gray-500">Grade {g}</span>
+                      <span className="font-medium">{bucket[g] ?? 0}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-between mt-2 pt-2 border-t border-gray-200 text-sm font-semibold">
+                  <span>Total</span><span>{bucket.total ?? 0}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <div className="mt-5 pt-4 border-t border-gray-100 text-right">
+        <Link to="/inventory" className="text-sm text-primary font-medium hover:underline">Open full Inventory page →</Link>
+      </div>
+    </Modal>
+  );
+}
+
+function PendingQcDetailModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['qc-pending-detail'],
+    queryFn: () => qcService.pending({ per_page: '20' }),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const items: any[] = data?.data ?? [];
+
+  return (
+    <Modal open={open} onClose={onClose} title="Pending QC Items" width="max-w-2xl">
+      {isLoading ? <Spinner /> : (
+        <Table
+          columns={[
+            { key: 'imei', header: 'IMEI', render: (p: any) => p.imei || '—' },
+            { key: 'model', header: 'Brand / Model', render: (p: any) => `${p.brand} ${p.model}` },
+            { key: 'category', header: 'Category' },
+            {
+              key: 'status', header: 'Status',
+              render: (p: any) => (
+                <Badge
+                  label={String(p.status).replace('_', ' ')}
+                  color={p.status === 'qc_pending' ? 'orange' : 'blue'}
+                />
+              ),
+            },
+            {
+              key: 'created_at', header: 'Received',
+              render: (p: any) => p.created_at ? new Date(p.created_at).toLocaleDateString() : '—',
+            },
+          ]}
+          data={items}
+          keyField="id"
+          emptyText="Nothing pending QC right now"
+        />
+      )}
+      <div className="mt-5 pt-4 border-t border-gray-100 text-right">
+        <Link to="/qc" className="text-sm text-primary font-medium hover:underline">Open full QC Queue →</Link>
+      </div>
+    </Modal>
+  );
+}
+
 function AiDailySummaryCard() {
   const { data, isLoading } = useQuery({
     queryKey: ['ai-daily-summary'],
@@ -245,6 +336,8 @@ function inventorySearchPath(filters: AiSearchFilters): string {
 
 function AdminDashboard() {
   const navigate = useNavigate();
+  const [showInStock, setShowInStock] = useState(false);
+  const [showPendingQc, setShowPendingQc] = useState(false);
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['analytics-dashboard'],
     queryFn: analyticsService.dashboard,
@@ -298,13 +391,16 @@ function AdminDashboard() {
             <StatCard label="Active Orders"  value={stats?.active_orders ?? 0}           icon={<ShoppingCart size={28} />} color="text-primary" />
           </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <StatCard label="In Stock"         value={stats?.total_in_stock ?? 0}    icon={<Package size={28} />}  color="text-green-600" />
-            <StatCard label="Pending QC"       value={stats?.pending_qc ?? 0}        icon={<Clock size={28} />}    color="text-yellow-600" />
+            <StatCard label="In Stock"         value={stats?.total_in_stock ?? 0}    icon={<Package size={28} />}  color="text-green-600" onClick={() => setShowInStock(true)} />
+            <StatCard label="Pending QC"       value={stats?.pending_qc ?? 0}        icon={<Clock size={28} />}    color="text-yellow-600" onClick={() => setShowPendingQc(true)} />
             <StatCard label="Pending Dispatch" value={stats?.pending_dispatch ?? 0}  icon={<Boxes size={28} />}    color="text-orange-600" />
             <StatCard label="Refurbishment"    value={stats?.in_refurbishment ?? 0}  icon={<Wrench size={28} />}   color="text-red-500" />
           </div>
         </>
       )}
+
+      <InStockDetailModal open={showInStock} onClose={() => setShowInStock(false)} />
+      <PendingQcDetailModal open={showPendingQc} onClose={() => setShowPendingQc(false)} />
 
       <Card className="p-5 mb-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Low Stock Alerts</h3>
@@ -406,6 +502,8 @@ function AdminDashboard() {
 // ── Warehouse Dashboard ───────────────────────────────────────────────────────
 function WarehouseDashboard() {
   const navigate = useNavigate();
+  const [showInStock, setShowInStock] = useState(false);
+  const [showPendingQc, setShowPendingQc] = useState(false);
   // warehouse_staff has no access to /analytics/dashboard; use qc stats + availability instead
   const { data: qcStats, isLoading } = useQuery({
     queryKey: ['qc-stats'],
@@ -430,12 +528,15 @@ function WarehouseDashboard() {
       </div>
       {isLoading ? <Spinner /> : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard label="In Stock"         value={totalInStock}                      icon={<Package size={28} />}  color="text-green-600" />
-          <StatCard label="Pending QC"       value={qcStats?.pending_qc ?? 0}          icon={<Clock size={28} />}    color="text-yellow-600" />
+          <StatCard label="In Stock"         value={totalInStock}                      icon={<Package size={28} />}  color="text-green-600" onClick={() => setShowInStock(true)} />
+          <StatCard label="Pending QC"       value={qcStats?.pending_qc ?? 0}          icon={<Clock size={28} />}    color="text-yellow-600" onClick={() => setShowPendingQc(true)} />
           <StatCard label="Graded Today"     value={qcStats?.graded_today ?? 0}        icon={<Boxes size={28} />}    color="text-orange-600" />
           <StatCard label="Refurbishment"    value={qcStats?.in_refurbishment ?? 0}    icon={<Wrench size={28} />}   color="text-red-500" />
         </div>
       )}
+
+      <InStockDetailModal open={showInStock} onClose={() => setShowInStock(false)} />
+      <PendingQcDetailModal open={showPendingQc} onClose={() => setShowPendingQc(false)} />
 
       <Card className="p-5 mb-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Low Stock Alerts</h3>
@@ -464,6 +565,8 @@ function WarehouseDashboard() {
 
 // ── QC Engineer Dashboard ─────────────────────────────────────────────────────
 function QCDashboard() {
+  const [showInStock, setShowInStock] = useState(false);
+  const [showPendingQc, setShowPendingQc] = useState(false);
   const { data: stats, isLoading } = useQuery({
     queryKey: ['qc-stats'],
     queryFn: qcService.stats,
@@ -484,12 +587,15 @@ function QCDashboard() {
     <div>
       {isLoading ? <Spinner /> : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard label="In Stock"      value={totalInStock}                  icon={<Package size={28} />}        color="text-green-600" />
-          <StatCard label="Pending QC"    value={stats?.pending_qc ?? 0}        icon={<Clock size={28} />}          color="text-yellow-600" />
+          <StatCard label="In Stock"      value={totalInStock}                  icon={<Package size={28} />}        color="text-green-600" onClick={() => setShowInStock(true)} />
+          <StatCard label="Pending QC"    value={stats?.pending_qc ?? 0}        icon={<Clock size={28} />}          color="text-yellow-600" onClick={() => setShowPendingQc(true)} />
           <StatCard label="Refurbishment" value={stats?.in_refurbishment ?? 0}  icon={<Wrench size={28} />}         color="text-red-500" />
           <StatCard label="Graded Today"  value={stats?.graded_today ?? 0}      icon={<ClipboardCheck size={28} />} color="text-blue-600" />
         </div>
       )}
+
+      <InStockDetailModal open={showInStock} onClose={() => setShowInStock(false)} />
+      <PendingQcDetailModal open={showPendingQc} onClose={() => setShowPendingQc(false)} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <Card className="p-5">
@@ -513,6 +619,7 @@ function QCDashboard() {
 
 // ── Sales Dashboard ───────────────────────────────────────────────────────────
 function SalesDashboard() {
+  const [showInStock, setShowInStock] = useState(false);
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['analytics-dashboard'],
     queryFn: analyticsService.dashboard,
@@ -533,10 +640,12 @@ function SalesDashboard() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Active Orders"    value={stats?.active_orders ?? 0}     icon={<ShoppingCart size={28} />} color="text-primary" />
           <StatCard label="Pending Dispatch" value={stats?.pending_dispatch ?? 0}  icon={<Boxes size={28} />}        color="text-orange-600" />
-          <StatCard label="In Stock"         value={stats?.total_in_stock ?? 0}    icon={<Package size={28} />}       color="text-green-600" />
+          <StatCard label="In Stock"         value={stats?.total_in_stock ?? 0}    icon={<Package size={28} />}       color="text-green-600" onClick={() => setShowInStock(true)} />
           <StatCard label="Month Revenue"    value={fmtINR(stats?.month_revenue ?? 0)} icon={<TrendingUp size={28} />} color="text-blue-600" />
         </div>
       )}
+
+      <InStockDetailModal open={showInStock} onClose={() => setShowInStock(false)} />
 
       <Card className="p-5 mb-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-4">Recent Orders</h3>

@@ -78,14 +78,17 @@ export const Spinner = ({ className = '' }: { className?: string }) => (
 );
 
 // ─── Card ────────────────────────────────────────────────────────────────────
-export const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
-  <div className={`bg-white rounded-xl border border-gray-200 shadow-sm ${className}`}>{children}</div>
+export const Card = ({ children, className = '', onClick }: { children: React.ReactNode; className?: string; onClick?: () => void }) => (
+  <div className={`bg-white rounded-xl border border-gray-200 shadow-sm ${className}`} onClick={onClick}>{children}</div>
 );
 
 // ─── StatCard ────────────────────────────────────────────────────────────────
-interface StatCardProps { label: string; value: string | number; icon: React.ReactNode; color?: string; sub?: string; }
-export const StatCard = ({ label, value, icon, color = 'text-primary', sub }: StatCardProps) => (
-  <Card className="p-5">
+interface StatCardProps { label: string; value: string | number; icon: React.ReactNode; color?: string; sub?: string; onClick?: () => void; }
+export const StatCard = ({ label, value, icon, color = 'text-primary', sub, onClick }: StatCardProps) => (
+  <Card
+    className={`p-5 ${onClick ? 'cursor-pointer hover:shadow-md hover:border-primary/30 transition-shadow' : ''}`}
+    onClick={onClick}
+  >
     <div className="flex items-center justify-between">
       <div>
         <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</p>
