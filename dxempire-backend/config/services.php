@@ -36,6 +36,15 @@ return [
         'otp_template_id'   => env('MSG91_OTP_TEMPLATE_ID'),
     ],
 
+    'smslogin' => [
+        'username'                  => env('SMSLOGIN_USERNAME'),
+        'api_key'                   => env('SMSLOGIN_API_KEY'),
+        'sender_id'                 => env('SMSLOGIN_SENDER_ID'),
+        'template_partner_otp'      => env('SMSLOGIN_TEMPLATE_PARTNER_OTP'),
+        'template_retail_otp'       => env('SMSLOGIN_TEMPLATE_RETAIL_OTP'),
+        'template_payment_received' => env('SMSLOGIN_TEMPLATE_PAYMENT_RECEIVED'),
+    ],
+
     'razorpay' => [
         'key_id'         => env('RAZORPAY_KEY_ID'),
         'key_secret'     => env('RAZORPAY_KEY_SECRET'),

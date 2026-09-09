@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Integrations\Sms\Msg91Service;
+use App\Integrations\Sms\SmsLoginService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -24,8 +24,8 @@ class SendOtpJob implements ShouldQueue
         $this->otp   = $otp;
     }
 
-    public function handle(Msg91Service $sms): void
+    public function handle(SmsLoginService $sms): void
     {
-        $sms->sendOtp($this->phone, $this->otp);
+        $sms->sendPartnerOtp($this->phone, $this->otp);
     }
 }

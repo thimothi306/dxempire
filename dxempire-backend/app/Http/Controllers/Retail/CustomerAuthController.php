@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Retail;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Integrations\Sms\SmsLoginService;
 use App\Models\Customer;
 use App\Models\OtpCode;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,7 @@ class CustomerAuthController extends Controller
 {
     use ApiResponse;
 
-    public function sendOtp(Request $request): JsonResponse
+    public function sendOtp(Request $request, SmsLoginService $sms): JsonResponse
     {
         $request->validate(['phone' => ['required', 'digits_between:10,15']]);
 
@@ -22,10 +23,14 @@ class CustomerAuthController extends Controller
 
         Cache::put('retail_otp_' . $request->phone, $otp, now()->addMinutes(10));
 
-        // In production, integrate SMS provider here (same as B2B flow)
-        \Illuminate\Support\Facades\Log::info("Retail OTP for {$request->phone}: {$otp}");
+        $sms->sendRetailOtp($request->phone, $otp);
 
-        return $this->success(['otp' => $otp], 'OTP sent successfully.');
+        // The OTP is only ever echoed back outside production — real SMS
+        // delivery now exists, so leaking it in the response would let
+        // anyone log in as any phone number without ever seeing the SMS.
+        $data = app()->environment('production') ? [] : ['otp' => $otp];
+
+        return $this->success($data, 'OTP sent successfully.');
     }
 
     public function verifyOtp(Request $request): JsonResponse

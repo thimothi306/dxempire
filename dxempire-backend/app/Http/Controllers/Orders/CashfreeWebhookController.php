@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Orders;
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
 use App\Integrations\Payment\CashfreeService;
+use App\Integrations\Sms\SmsLoginService;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Services\OrderService;
@@ -19,7 +20,8 @@ class CashfreeWebhookController extends Controller
 
     public function __construct(
         private CashfreeService $cashfree,
-        private OrderService $orderService
+        private OrderService $orderService,
+        private SmsLoginService $sms
     ) {}
 
     public function handle(Request $request): JsonResponse
@@ -96,6 +98,23 @@ class CashfreeWebhookController extends Controller
         } catch (\Throwable $e) {
             DB::rollBack();
             throw $e;
+        }
+
+        $this->notifyPaymentReceived($order->fresh());
+    }
+
+    private function notifyPaymentReceived(Order $order): void
+    {
+        $phone = $order->dealer?->user?->phone ?? $order->retailCustomer?->phone;
+
+        if (!$phone) {
+            return;
+        }
+
+        try {
+            $this->sms->sendPaymentReceived($phone, (float) $order->total_amount, $order->order_number);
+        } catch (\Throwable $e) {
+            Log::warning("Payment-received SMS failed for order {$order->order_number}: " . $e->getMessage());
         }
     }
 
