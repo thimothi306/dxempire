@@ -134,12 +134,14 @@ class PartnerPortalController extends Controller
             $products = $this->orderService->validateAndLockStock($productIds);
             $totals   = $this->orderService->calculateTotals($products, $dealer);
 
-            if (!$dealer->canPlaceOrder($totals['total'])) {
+            // Locks the dealer row, checks, and reserves credit atomically —
+            // the earlier $dealer above was fetched unlocked via the auth
+            // relation, so re-fetch it locked here before trusting the check.
+            try {
+                $dealer = $this->orderService->lockDealerAndReserveCredit($dealer->id, $totals['total']);
+            } catch (\RuntimeException $e) {
                 DB::rollBack();
-                return $this->error(
-                    'Insufficient credit or KYC not verified. Available: ₹' . number_format($dealer->availableCredit(), 2),
-                    422
-                );
+                return $this->error($e->getMessage(), 422);
             }
 
             $order = Order::create([

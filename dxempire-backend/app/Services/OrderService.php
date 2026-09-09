@@ -45,6 +45,33 @@ class OrderService
     }
 
     /**
+     * Lock the dealer row, check remaining credit against the amount, and
+     * reserve it immediately by incrementing credit_used — the same moment
+     * stock gets reserved, inside the same order-creation transaction.
+     *
+     * Locking + check + increment must happen atomically here: checking
+     * without a lock (or checking now but only recording usage later, at
+     * approval) lets two orders each see the pre-reservation balance and
+     * both pass, even without hitting at the exact same instant.
+     *
+     * @throws \RuntimeException if credit is insufficient or KYC isn't verified
+     */
+    public function lockDealerAndReserveCredit(int $dealerId, float $amount): Dealer
+    {
+        $dealer = Dealer::lockForUpdate()->findOrFail($dealerId);
+
+        if (!$dealer->canPlaceOrder($amount)) {
+            throw new \RuntimeException(
+                'Insufficient credit or KYC not verified. Available: ₹' . number_format($dealer->availableCredit(), 2)
+            );
+        }
+
+        $dealer->increment('credit_used', $amount);
+
+        return $dealer;
+    }
+
+    /**
      * Validate reserved products still belong to this order (used during approval).
      */
     private function validateReservedStock(array $productIds): void
@@ -206,7 +233,12 @@ class OrderService
     }
 
     /**
-     * Approve order: validate reserved stock, mark sold, reduce dealer credit.
+     * Approve order: validate reserved stock, mark sold.
+     * Dealer credit is NOT touched here — it's reserved at order creation
+     * time (see OrderController::store / PartnerPortalController::store),
+     * the same moment stock gets reserved, so a second pending order from
+     * the same dealer sees the true remaining credit immediately instead
+     * of only after this order is separately approved.
      */
     public function approve(Order $order): void
     {
@@ -224,10 +256,6 @@ class OrderService
             Product::whereIn('id', $productIds)->update(['status' => 'sold', 'sold_at' => now()]);
             $order->update(['status' => 'approved']);
 
-            if ($order->dealer_id && $order->credit_used > 0) {
-                Dealer::where('id', $order->dealer_id)->increment('credit_used', $order->credit_used);
-            }
-
             DB::commit();
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -238,7 +266,10 @@ class OrderService
     }
 
     /**
-     * Cancel order: release reserved OR sold stock back to in_stock.
+     * Cancel order: release reserved OR sold stock back to in_stock, and
+     * release the dealer credit reserved at creation — a pending order
+     * holds reserved credit exactly like it holds reserved stock, so this
+     * releases it regardless of whether it was ever approved.
      */
     public function cancel(Order $order): void
     {
@@ -253,7 +284,7 @@ class OrderService
             // Release both reserved (pending orders) and sold (approved orders)
             Product::whereIn('id', $productIds)->update(['status' => 'in_stock', 'sold_at' => null]);
 
-            if ($order->status === 'approved' && $order->dealer_id && $order->credit_used > 0) {
+            if ($order->dealer_id && $order->credit_used > 0) {
                 Dealer::where('id', $order->dealer_id)->decrement('credit_used', $order->credit_used);
             }
 

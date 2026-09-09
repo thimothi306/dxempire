@@ -56,17 +56,18 @@ class OrderController extends Controller
             $totals = $this->orderService->calculateTotals($products, $dealer);
             $totals = $this->orderService->applyOffer($totals, $request->offer_code, 'b2b');
 
-            // Dealer credit check
+            // Dealer credit: checked AND reserved atomically here, not just
+            // checked — otherwise a second order placed before this one is
+            // approved would still see the pre-reservation balance.
             $creditUsed = 0.0;
             if ($dealer) {
-                if (!$dealer->canPlaceOrder($totals['total'])) {
+                try {
+                    $dealer     = $this->orderService->lockDealerAndReserveCredit($dealer->id, $totals['total']);
+                    $creditUsed = $totals['total'];
+                } catch (\RuntimeException $e) {
                     DB::rollBack();
-                    return $this->error(
-                        'Insufficient credit or KYC not verified. Available: ₹' . number_format($dealer->availableCredit(), 2),
-                        422
-                    );
+                    return $this->error($e->getMessage(), 422);
                 }
-                $creditUsed = $totals['total'];
             }
 
             $billingState = $dealer?->state ?? null;
