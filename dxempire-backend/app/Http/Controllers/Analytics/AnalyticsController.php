@@ -9,6 +9,7 @@ use App\Models\Dealer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\QcRecord;
+use App\Services\SalesVisibilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -19,19 +20,48 @@ class AnalyticsController extends Controller
 {
     use ApiResponse;
 
-    public function dashboard(): JsonResponse
+    public function __construct(private SalesVisibilityService $visibility) {}
+
+    /**
+     * Builds a bound "AND {$column} IN (...)" fragment for a raw SQL query,
+     * or an empty fragment when $ids is null (no restriction). An empty-but-
+     * non-null array means "this user has zero visible dealers" and must
+     * still produce a real filter (AND 1=0), not silently show everything.
+     *
+     * @return array{0: string, 1: array} [sql fragment, bindings to append]
+     */
+    private function dealerScopeSql(?array $ids, string $column): array
     {
-        $data = Cache::remember('analytics:dashboard', 300, function () {
+        if ($ids === null) {
+            return ['', []];
+        }
+        if (empty($ids)) {
+            return ['AND 1 = 0', []];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        return ["AND {$column} IN ({$placeholders})", $ids];
+    }
+
+    public function dashboard(Request $request): JsonResponse
+    {
+        $dealerIds = $this->visibility->visibleDealerIds($request->user());
+        $cacheKey  = 'analytics:dashboard:' . ($dealerIds === null ? 'all' : 'u' . $request->user()->id);
+
+        $data = Cache::remember($cacheKey, 300, function () use ($dealerIds) {
             return [
                 'today_revenue'      => Order::whereDate('created_at', today())
                                             ->where('status', 'delivered')
+                                            ->when($dealerIds !== null, fn($q) => $q->whereIn('dealer_id', $dealerIds))
                                             ->sum('total_amount'),
                 'week_revenue'       => Order::whereBetween('created_at', [now()->startOfWeek(), now()])
                                             ->where('status', 'delivered')
+                                            ->when($dealerIds !== null, fn($q) => $q->whereIn('dealer_id', $dealerIds))
                                             ->sum('total_amount'),
                 'month_revenue'      => Order::whereMonth('created_at', now()->month)
                                             ->whereYear('created_at', now()->year)
                                             ->where('status', 'delivered')
+                                            ->when($dealerIds !== null, fn($q) => $q->whereIn('dealer_id', $dealerIds))
                                             ->sum('total_amount'),
                 'active_orders'      => Order::whereIn('status', ['approved', 'picking', 'packing', 'dispatched'])->count(),
                 'pending_qc'         => Product::where('status', 'received')->count(),
@@ -69,6 +99,12 @@ class AnalyticsController extends Controller
             default   => 'DATE(created_at)',
         };
 
+        $dealerIds = $this->visibility->visibleDealerIds($request->user());
+
+        [$ordersScopeSql, $ordersScopeBindings]     = $this->dealerScopeSql($dealerIds, 'dealer_id');
+        [$oOrdersScopeSql, $oOrdersScopeBindings]   = $this->dealerScopeSql($dealerIds, 'o.dealer_id');
+        [$dDealerScopeSql, $dDealerScopeBindings]   = $this->dealerScopeSql($dealerIds, 'd.id');
+
         $timeSeries = DB::select("
             SELECT
                 {$labelFormat} as period,
@@ -79,9 +115,10 @@ class AnalyticsController extends Controller
             WHERE status = 'delivered'
               AND DATE(created_at) BETWEEN ? AND ?
               " . ($request->channel === 'b2b' ? "AND dealer_id IS NOT NULL" : ($request->channel === 'retail' ? "AND dealer_id IS NULL" : "")) . "
+              {$ordersScopeSql}
             GROUP BY {$groupFormat}
             ORDER BY period ASC
-        ", [$from, $to]);
+        ", array_merge([$from, $to], $ordersScopeBindings));
 
         $topProducts = DB::select("
             SELECT p.brand, p.model, p.category, p.grade,
@@ -92,10 +129,11 @@ class AnalyticsController extends Controller
             JOIN orders o ON o.id = oi.order_id
             WHERE o.status = 'delivered'
               AND DATE(o.created_at) BETWEEN ? AND ?
+              {$oOrdersScopeSql}
             GROUP BY p.brand, p.model, p.category, p.grade
             ORDER BY revenue DESC
             LIMIT 10
-        ", [$from, $to]);
+        ", array_merge([$from, $to], $oOrdersScopeBindings));
 
         $topDealers = DB::select("
             SELECT d.business_name, d.gst_number,
@@ -105,10 +143,11 @@ class AnalyticsController extends Controller
             JOIN dealers d ON d.id = o.dealer_id
             WHERE o.status = 'delivered'
               AND DATE(o.created_at) BETWEEN ? AND ?
+              {$dDealerScopeSql}
             GROUP BY d.id, d.business_name, d.gst_number
             ORDER BY revenue DESC
             LIMIT 10
-        ", [$from, $to]);
+        ", array_merge([$from, $to], $dDealerScopeBindings));
 
         $summary = DB::selectOne("
             SELECT
@@ -118,7 +157,8 @@ class AnalyticsController extends Controller
             FROM orders
             WHERE status = 'delivered'
               AND DATE(created_at) BETWEEN ? AND ?
-        ", [$from, $to]);
+              {$ordersScopeSql}
+        ", array_merge([$from, $to], $ordersScopeBindings));
 
         return $this->success([
             'period'       => ['from' => $from, 'to' => $to, 'group_by' => $period],
@@ -140,12 +180,16 @@ class AnalyticsController extends Controller
             'group_by' => ['nullable', 'in:category,brand,grade'],
         ]);
 
-        $from    = $request->input('from', now()->subDays(30)->toDateString());
-        $to      = $request->input('to', now()->toDateString());
-        $groupBy = $request->input('group_by', 'category');
-        $key     = "analytics:sales:{$from}:{$to}:{$groupBy}";
+        $from      = $request->input('from', now()->subDays(30)->toDateString());
+        $to        = $request->input('to', now()->toDateString());
+        $groupBy   = $request->input('group_by', 'category');
+        $dealerIds = $this->visibility->visibleDealerIds($request->user());
+        $key       = "analytics:sales:{$from}:{$to}:{$groupBy}:" . ($dealerIds === null ? 'all' : 'u' . $request->user()->id);
 
-        $data = Cache::remember($key, 300, function () use ($from, $to, $groupBy) {
+        $data = Cache::remember($key, 300, function () use ($from, $to, $groupBy, $dealerIds) {
+            [$oOrdersScopeSql, $oOrdersScopeBindings] = $this->dealerScopeSql($dealerIds, 'o.dealer_id');
+            [$ordersScopeSql, $ordersScopeBindings]   = $this->dealerScopeSql($dealerIds, 'dealer_id');
+
             $breakdown = DB::select("
                 SELECT p.{$groupBy} as segment,
                        COUNT(oi.id) as units_sold,
@@ -157,9 +201,10 @@ class AnalyticsController extends Controller
                 JOIN orders o ON o.id = oi.order_id
                 WHERE o.status IN ('delivered','dispatched')
                   AND DATE(o.created_at) BETWEEN ? AND ?
+                  {$oOrdersScopeSql}
                 GROUP BY p.{$groupBy}
                 ORDER BY revenue DESC
-            ", [$from, $to]);
+            ", array_merge([$from, $to], $oOrdersScopeBindings));
 
             // Channel split: B2B (dealer) vs retail
             $channelSplit = DB::selectOne("
@@ -171,7 +216,8 @@ class AnalyticsController extends Controller
                 FROM orders
                 WHERE status IN ('delivered','dispatched')
                   AND DATE(created_at) BETWEEN ? AND ?
-            ", [$from, $to]);
+                  {$ordersScopeSql}
+            ", array_merge([$from, $to], $ordersScopeBindings));
 
             return [
                 'period'        => ['from' => $from, 'to' => $to, 'group_by' => $groupBy],
@@ -296,11 +342,14 @@ class AnalyticsController extends Controller
             'to'   => ['nullable', 'date'],
         ]);
 
-        $from = $request->input('from', now()->subDays(90)->toDateString());
-        $to   = $request->input('to', now()->toDateString());
-        $key  = "analytics:partners:{$from}:{$to}";
+        $from      = $request->input('from', now()->subDays(90)->toDateString());
+        $to        = $request->input('to', now()->toDateString());
+        $dealerIds = $this->visibility->visibleDealerIds($request->user());
+        $key       = "analytics:partners:{$from}:{$to}:" . ($dealerIds === null ? 'all' : 'u' . $request->user()->id);
 
-        $data = Cache::remember($key, 300, function () use ($from, $to) {
+        $data = Cache::remember($key, 300, function () use ($from, $to, $dealerIds) {
+            [$dScopeSql, $dScopeBindings] = $this->dealerScopeSql($dealerIds, 'd.id');
+
             $dealers = DB::select("
                 SELECT
                     d.id,
@@ -319,9 +368,10 @@ class AnalyticsController extends Controller
                     ON o.dealer_id = d.id
                     AND o.status IN ('delivered','dispatched','approved')
                     AND DATE(o.created_at) BETWEEN ? AND ?
+                WHERE 1 = 1 {$dScopeSql}
                 GROUP BY d.id, d.business_name, d.price_tier, d.credit_limit, d.credit_used
                 ORDER BY total_revenue DESC
-            ", [$from, $to]);
+            ", array_merge([$from, $to], $dScopeBindings));
 
             return [
                 'period'  => ['from' => $from, 'to' => $to],

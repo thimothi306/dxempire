@@ -63,6 +63,10 @@ class OfferController extends Controller
 
     public function update(Request $request, Offer $offer): JsonResponse
     {
+        if ($error = $this->authorizeOfferOwner($request, $offer)) {
+            return $error;
+        }
+
         $request->validate([
             'title'               => ['sometimes', 'string', 'max:200'],
             'discount_type'       => ['sometimes', 'in:percentage,fixed'],
@@ -88,11 +92,31 @@ class OfferController extends Controller
         return $this->success($offer->fresh(), 'Offer updated.');
     }
 
-    public function destroy(Offer $offer): JsonResponse
+    public function destroy(Request $request, Offer $offer): JsonResponse
     {
+        if ($error = $this->authorizeOfferOwner($request, $offer)) {
+            return $error;
+        }
+
         $offer->update(['is_active' => false]);
 
         return $this->success(null, 'Offer deactivated.');
+    }
+
+    /**
+     * Only the offer's own creator or a super_admin may edit/deactivate it —
+     * nobody should be able to touch someone else's offer regardless of
+     * seniority (a Salesman deactivating a CEO's offer, or vice versa).
+     */
+    private function authorizeOfferOwner(Request $request, Offer $offer): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->id !== $offer->created_by && !$user->hasRole('super_admin')) {
+            return $this->error('Only the offer\'s creator or a super admin can modify it.', 403);
+        }
+
+        return null;
     }
 
     public function validateCode(Request $request): JsonResponse

@@ -11,6 +11,7 @@ use App\Models\Dealer;
 use App\Models\Lead;
 use App\Models\SalesHierarchy;
 use App\Models\User;
+use App\Services\SalesVisibilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,9 +20,20 @@ class LeadController extends Controller
 {
     use ApiResponse;
 
+    public function __construct(private SalesVisibilityService $visibility) {}
+
+    /**
+     * A Salesman only ever sees their own leads; a District/Area/State
+     * Manager or CEO sees their own plus their whole subordinate tree's.
+     * Roles outside the sales hierarchy (accounts, super_admin) are
+     * unrestricted, same as before.
+     */
     public function index(Request $request): JsonResponse
     {
+        $visibleIds = $this->visibility->visibleUserIds($request->user());
+
         $leads = Lead::with('assignedUser')
+            ->when($visibleIds !== null, fn($q) => $q->whereIn('assigned_to', $visibleIds))
             ->filter($request)
             ->orderByDesc('updated_at')
             ->paginate(50);
