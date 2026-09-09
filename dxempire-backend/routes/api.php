@@ -160,6 +160,11 @@ Route::prefix('v1')->group(function () {
             Route::get('export',          [InventoryController::class, 'export'])
                 ->middleware('permission:inventory.export');
             Route::get('{product}',       [InventoryController::class, 'show']);
+
+            Route::middleware('permission:inventory.edit')->group(function () {
+                Route::post('{product}/deactivate', [InventoryController::class, 'deactivate']);
+                Route::post('{product}/activate',   [InventoryController::class, 'activate']);
+            });
         });
 
         Route::middleware('permission:bins.manage')->prefix('bins')->group(function () {

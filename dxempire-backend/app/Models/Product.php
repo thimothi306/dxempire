@@ -14,13 +14,14 @@ class Product extends Model
 
     protected $fillable = [
         'imei', 'serial_number', 'category', 'brand', 'model',
-        'grade', 'status', 'bin_id', 'purchase_price', 'selling_price',
+        'grade', 'status', 'is_active', 'bin_id', 'purchase_price', 'selling_price',
         'supplier_id', 'purchase_order_id', 'qc_passed_at', 'sold_at',
     ];
 
     protected $casts = [
         'purchase_price' => 'decimal:2',
         'selling_price'  => 'decimal:2',
+        'is_active'      => 'boolean',
         'qc_passed_at'   => 'datetime',
         'sold_at'        => 'datetime',
     ];
@@ -61,6 +62,7 @@ class Product extends Model
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->when($request->grade,    fn($q) => $q->where('grade', $request->grade))
             ->when($request->status,   fn($q) => $q->where('status', $request->status))
+            ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->boolean('is_active')))
             ->when($request->bin_id,   fn($q) => $q->where('bin_id', $request->bin_id))
             ->when($request->brand,    fn($q) => $q->where('brand', 'like', '%' . $request->brand . '%'))
             ->when($request->search,   fn($q) => $q->where(function ($q2) use ($request) {

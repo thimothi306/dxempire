@@ -132,4 +132,22 @@ class InventoryController extends Controller
 
         return Excel::download(new InventoryExport($request), $filename);
     }
+
+    /**
+     * Manually hide a product from the retail catalog, independent of its
+     * inventory status — e.g. pull a listing without touching stock state.
+     */
+    public function deactivate(Product $product): JsonResponse
+    {
+        $product->update(['is_active' => false]);
+
+        return $this->success($product->fresh(), 'Product deactivated.');
+    }
+
+    public function activate(Product $product): JsonResponse
+    {
+        $product->update(['is_active' => true]);
+
+        return $this->success($product->fresh(), 'Product activated.');
+    }
 }

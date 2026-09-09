@@ -17,7 +17,7 @@ class RolesPermissionsSeeder extends Seeder
         // just made toggleable instead of hardcoded in route middleware.
         $permissions = [
             'users.manage', 'catalog_images.manage', 'audit_logs.view', 'settings.edit',
-            'inventory.view', 'inventory.export',
+            'inventory.view', 'inventory.export', 'inventory.edit',
             'procurement.view', 'procurement.edit',
             'bins.manage', 'warehouses.manage', 'grades.manage',
             'qc.view', 'qc.grade',
@@ -53,9 +53,9 @@ class RolesPermissionsSeeder extends Seeder
             // 5-step inventory workflow roles — split out of warehouse_staff for
             // teams that want per-stage accountability instead of one broad role.
             // warehouse_staff itself is untouched so existing staff keep working.
-            'warehouse_manager' => ['procurement.view', 'procurement.edit', 'inventory.view', 'inventory.export', 'bins.manage', 'warehouses.manage', 'orders.view', 'orders.fulfill', 'logistics.manage', 'peti.manage'],
+            'warehouse_manager' => ['procurement.view', 'procurement.edit', 'inventory.view', 'inventory.export', 'inventory.edit', 'bins.manage', 'warehouses.manage', 'orders.view', 'orders.fulfill', 'logistics.manage', 'peti.manage'],
             'qc_engineer'     => ['inventory.view', 'qc.view', 'qc.grade'],
-            'product_manager' => ['inventory.view', 'grades.manage', 'catalog_images.manage'],
+            'product_manager' => ['inventory.view', 'inventory.edit', 'grades.manage', 'catalog_images.manage'],
             'packing_staff'   => ['orders.view', 'orders.fulfill', 'inventory.view'],
             'placement_staff' => ['inventory.view', 'bins.manage'],
             'accounts'        => ['finance.view', 'finance.edit', 'analytics.view', 'orders.view', 'customers.view'],

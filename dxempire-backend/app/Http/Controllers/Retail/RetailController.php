@@ -24,6 +24,7 @@ class RetailController extends Controller
     public function catalog(Request $request): JsonResponse
     {
         $products = Product::where('status', 'in_stock')
+            ->where('is_active', true)
             ->when($request->category, fn($q) => $q->where('category', $request->category))
             ->when($request->grade, fn($q) => $q->where('grade', $request->grade))
             ->when($request->brand, fn($q) => $q->where('brand', 'like', "%{$request->brand}%"))
@@ -41,7 +42,7 @@ class RetailController extends Controller
 
     public function productDetail(Product $product): JsonResponse
     {
-        if ($product->status !== 'in_stock') {
+        if ($product->status !== 'in_stock' || !$product->is_active) {
             return $this->error('Product not available.', 404);
         }
 
@@ -56,12 +57,12 @@ class RetailController extends Controller
 
     public function cartView(Request $request): JsonResponse
     {
-        $items = RetailCartItem::with('product:id,brand,model,grade,category,retail_price,selling_price,status')
+        $items = RetailCartItem::with('product:id,brand,model,grade,category,retail_price,selling_price,status,is_active')
             ->where('customer_id', $request->customer->id)
             ->get();
 
-        // Remove stale items (product no longer in_stock)
-        $stale = $items->filter(fn($i) => $i->product?->status !== 'in_stock');
+        // Remove stale items (product no longer in_stock, or deactivated)
+        $stale = $items->filter(fn($i) => $i->product?->status !== 'in_stock' || !$i->product?->is_active);
         if ($stale->isNotEmpty()) {
             RetailCartItem::whereIn('id', $stale->pluck('id'))->delete();
             $items = $items->diff($stale);
@@ -82,7 +83,7 @@ class RetailController extends Controller
 
         $product = Product::find($request->product_id);
 
-        if ($product->status !== 'in_stock') {
+        if ($product->status !== 'in_stock' || !$product->is_active) {
             return $this->error('Product is not available.', 422);
         }
 
