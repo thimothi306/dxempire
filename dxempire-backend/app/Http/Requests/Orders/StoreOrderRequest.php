@@ -17,6 +17,7 @@ class StoreOrderRequest extends FormRequest
             'product_ids'   => ['required', 'array', 'min:1', 'max:50'],
             'product_ids.*' => ['required', 'integer', 'exists:products,id'],
             'dealer_id'     => ['nullable', 'integer', 'exists:dealers,id'],
+            'offer_code'    => ['nullable', 'string', 'max:50'],
             'notes'         => ['nullable', 'string', 'max:1000'],
             'push_token'    => ['nullable', 'string'],
         ];

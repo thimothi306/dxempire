@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Dealer;
+use App\Models\Offer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Setting;
@@ -141,6 +142,41 @@ class OrderService
             'gst_amount' => round($gstTotal, 2),
             'total'      => round($subtotal + $gstTotal, 2),
         ];
+    }
+
+    /**
+     * Apply an offer code (if given) to already-calculated totals, adjusting
+     * `total` by the discount and stamping offer_id/discount_amount for
+     * storage on the order. Mirrors OfferController::validateCode()'s
+     * eligibility check, applied here at actual-order time instead of just
+     * preview time.
+     */
+    public function applyOffer(array $totals, ?string $offerCode, string $customerType): array
+    {
+        $totals['offer_id']        = null;
+        $totals['discount_amount'] = 0.0;
+
+        if (!$offerCode) {
+            return $totals;
+        }
+
+        $offer = Offer::where('code', strtoupper($offerCode))->first();
+
+        if (!$offer || !$offer->isValid()) {
+            throw new \RuntimeException('Invalid or expired offer code.');
+        }
+
+        if ($offer->customer_type !== 'all' && $offer->customer_type !== $customerType) {
+            throw new \RuntimeException('This offer code is not applicable to your account type.');
+        }
+
+        $discount = $offer->calculateDiscount($totals['subtotal']);
+
+        $totals['offer_id']        = $offer->id;
+        $totals['discount_amount'] = $discount;
+        $totals['total']           = round($totals['total'] - $discount, 2);
+
+        return $totals;
     }
 
     /**

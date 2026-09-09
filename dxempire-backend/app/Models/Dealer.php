@@ -11,6 +11,7 @@ class Dealer extends Model
     protected $fillable = [
         'user_id', 'business_name', 'gst_number', 'kyc_status',
         'credit_limit', 'credit_used', 'price_tier', 'state', 'pincode',
+        'assigned_salesman_id',
     ];
 
     protected $casts = [
@@ -21,6 +22,11 @@ class Dealer extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function salesman(): BelongsTo
+    {
+        return $this->belongsTo(SalesHierarchy::class, 'assigned_salesman_id');
     }
 
     public function orders(): HasMany

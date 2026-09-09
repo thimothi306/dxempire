@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Dealer;
+use App\Models\Lead;
+use App\Models\Order;
+use App\Models\SalesHierarchy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -43,6 +47,17 @@ class DashboardController extends Controller
      */
     private function getSalesmanDashboard($user): array
     {
+        $dealerIds = $this->dealerIdsFor([$user->id]);
+
+        $totalLeads = Lead::where('assigned_to', $user->id)->count();
+        $wonLeads   = Lead::where('assigned_to', $user->id)->where('stage', 'won')->count();
+
+        $monthRevenue = Order::whereIn('dealer_id', $dealerIds)
+            ->where('status', 'delivered')
+            ->whereMonth('delivered_at', now()->month)
+            ->whereYear('delivered_at', now()->year)
+            ->sum('total_amount');
+
         return [
             'user_info' => [
                 'name' => $user->name,
@@ -53,10 +68,10 @@ class DashboardController extends Controller
                 'reports_to_code' => $user->parent?->unique_code,
             ],
             'my_stats' => [
-                'total_orders' => 0, // TODO: fetch from Order model where user_id = $user->id
-                'total_leads' => 0, // TODO: fetch from Lead model where user_id = $user->id
-                'conversion_rate' => '0%', // TODO: calculate
-                'month_revenue' => '₹0', // TODO: calculate
+                'total_orders'    => Order::whereIn('dealer_id', $dealerIds)->count(),
+                'total_leads'     => $totalLeads,
+                'conversion_rate' => $totalLeads > 0 ? round($wonLeads / $totalLeads * 100, 1) . '%' : '0%',
+                'month_revenue'   => '₹' . number_format((float) $monthRevenue, 2),
             ],
             'quick_actions' => [
                 'create_lead',
@@ -65,8 +80,46 @@ class DashboardController extends Controller
                 'view_leads',
                 'update_profile',
             ],
-            'recent_orders' => [], // TODO: fetch last 5 orders
-            'recent_leads' => [], // TODO: fetch last 5 leads
+            'recent_orders' => Order::whereIn('dealer_id', $dealerIds)
+                ->latest()
+                ->limit(5)
+                ->get(['id', 'order_number', 'status', 'total_amount', 'created_at']),
+            'recent_leads' => Lead::where('assigned_to', $user->id)
+                ->latest('updated_at')
+                ->limit(5)
+                ->get(['id', 'contact_name', 'business_name', 'stage', 'updated_at']),
+        ];
+    }
+
+    /**
+     * Dealer IDs attributed to the given salesman user IDs, via their
+     * SalesHierarchy node's assigned_salesman_id link.
+     */
+    private function dealerIdsFor(array $userIds): \Illuminate\Support\Collection
+    {
+        $nodeIds = SalesHierarchy::whereIn('user_id', $userIds)->pluck('id');
+
+        return Dealer::whereIn('assigned_salesman_id', $nodeIds)->pluck('id');
+    }
+
+    /**
+     * Real order/lead/revenue totals for a set of salesman user IDs — used
+     * to replace the hardcoded-zero team/zone/state stats below.
+     */
+    private function computeSalesMetrics(array $userIds): array
+    {
+        if (empty($userIds)) {
+            return ['orders' => 0, 'leads' => 0, 'revenue' => 0.0];
+        }
+
+        $dealerIds = $this->dealerIdsFor($userIds);
+
+        return [
+            'orders'  => Order::whereIn('dealer_id', $dealerIds)->count(),
+            'leads'   => Lead::whereIn('assigned_to', $userIds)->count(),
+            'revenue' => (float) Order::whereIn('dealer_id', $dealerIds)
+                ->where('status', 'delivered')
+                ->sum('total_amount'),
         ];
     }
 
@@ -77,6 +130,9 @@ class DashboardController extends Controller
     private function getDistrictManagerDashboard($user): array
     {
         $subordinates = $this->getAllSubordinates($user);
+        $subIds       = array_column($subordinates, 'id');
+        $teamMetrics  = $this->computeSalesMetrics($subIds);
+        $myMetrics    = $this->computeSalesMetrics([$user->id]);
 
         return [
             'user_info' => [
@@ -94,14 +150,14 @@ class DashboardController extends Controller
                 'team_members' => $subordinates,
             ],
             'team_stats' => [
-                'total_orders' => 0, // TODO: sum of all team members' orders
-                'total_leads' => 0, // TODO: sum of all team members' leads
-                'team_revenue' => '₹0', // TODO: sum of all team members' revenue
-                'average_conversion' => '0%', // TODO: average conversion rate
+                'total_orders'       => $teamMetrics['orders'],
+                'total_leads'        => $teamMetrics['leads'],
+                'team_revenue'       => '₹' . number_format($teamMetrics['revenue'], 2),
+                'average_conversion' => $this->conversionRate($subIds),
             ],
             'my_stats' => [
-                'my_orders' => 0, // TODO: my personal orders
-                'my_leads' => 0, // TODO: my personal leads
+                'my_orders' => $myMetrics['orders'],
+                'my_leads'  => $myMetrics['leads'],
             ],
             'quick_actions' => [
                 'view_team',
@@ -123,6 +179,8 @@ class DashboardController extends Controller
     private function getAreaManagerDashboard($user): array
     {
         $subordinates = $this->getAllSubordinates($user);
+        $subIds       = array_column($subordinates, 'id');
+        $zoneMetrics  = $this->computeSalesMetrics($subIds);
 
         return [
             'user_info' => [
@@ -140,10 +198,10 @@ class DashboardController extends Controller
                 'salesmen' => $this->countByRole($subordinates)['salesman'] ?? 0,
             ],
             'zone_stats' => [
-                'total_orders' => 0, // TODO: sum of all zone members' orders
-                'total_leads' => 0, // TODO: sum of all zone members' leads
-                'zone_revenue' => '₹0', // TODO: sum of zone revenue
-                'zone_conversion' => '0%',
+                'total_orders'     => $zoneMetrics['orders'],
+                'total_leads'      => $zoneMetrics['leads'],
+                'zone_revenue'     => '₹' . number_format($zoneMetrics['revenue'], 2),
+                'zone_conversion'  => $this->conversionRate($subIds),
             ],
             'quick_actions' => [
                 'view_zone',
@@ -164,6 +222,8 @@ class DashboardController extends Controller
     private function getStateManagerDashboard($user): array
     {
         $subordinates = $this->getAllSubordinates($user);
+        $subIds       = array_column($subordinates, 'id');
+        $stateMetrics = $this->computeSalesMetrics($subIds);
 
         return [
             'user_info' => [
@@ -179,10 +239,10 @@ class DashboardController extends Controller
                 'area_managers' => $user->subordinates()->count(),
             ],
             'state_stats' => [
-                'total_orders' => 0, // TODO: sum of all state members' orders
-                'total_leads' => 0, // TODO: sum of all state members' leads
-                'state_revenue' => '₹0', // TODO: sum of state revenue
-                'state_conversion' => '0%',
+                'total_orders'      => $stateMetrics['orders'],
+                'total_leads'       => $stateMetrics['leads'],
+                'state_revenue'     => '₹' . number_format($stateMetrics['revenue'], 2),
+                'state_conversion'  => $this->conversionRate($subIds),
             ],
             'quick_actions' => [
                 'view_state_structure',
@@ -202,23 +262,26 @@ class DashboardController extends Controller
      */
     private function getCEODashboard($user): array
     {
+        $allSalesUserIds = SalesHierarchy::whereNotNull('user_id')->pluck('user_id')->toArray();
+        $companyMetrics  = $this->computeSalesMetrics($allSalesUserIds);
+
         return [
             'user_info' => [
                 'name' => $user->name,
                 'role' => 'CEO',
             ],
             'company_stats' => [
-                'total_users' => 0, // TODO: count all users
-                'total_state_managers' => 0, // TODO: count SM*
-                'total_area_managers' => 0, // TODO: count AM*
-                'total_district_managers' => 0, // TODO: count DM*
-                'total_salesmen' => 0, // TODO: count SG*
+                'total_users'             => \App\Models\User::count(),
+                'total_state_managers'    => \App\Models\User::where('unique_code', 'like', 'SM%')->count(),
+                'total_area_managers'     => \App\Models\User::where('unique_code', 'like', 'AM%')->count(),
+                'total_district_managers' => \App\Models\User::where('unique_code', 'like', 'DM%')->count(),
+                'total_salesmen'          => \App\Models\User::where('unique_code', 'like', 'SG%')->count(),
             ],
             'company_performance' => [
-                'total_orders' => 0, // TODO: sum all orders
-                'total_leads' => 0, // TODO: sum all leads
-                'total_revenue' => '₹0', // TODO: sum all revenue
-                'overall_conversion' => '0%',
+                'total_orders'        => $companyMetrics['orders'],
+                'total_leads'         => $companyMetrics['leads'],
+                'total_revenue'       => '₹' . number_format($companyMetrics['revenue'], 2),
+                'overall_conversion'  => $this->conversionRate($allSalesUserIds),
             ],
             'quick_actions' => [
                 'view_company_structure',
@@ -229,6 +292,25 @@ class DashboardController extends Controller
             ],
             'state_performance' => [], // TODO: all states performance
         ];
+    }
+
+    /**
+     * Won-lead percentage for a set of salesman user IDs, formatted for display.
+     */
+    private function conversionRate(array $userIds): string
+    {
+        if (empty($userIds)) {
+            return '0%';
+        }
+
+        $total = Lead::whereIn('assigned_to', $userIds)->count();
+        if ($total === 0) {
+            return '0%';
+        }
+
+        $won = Lead::whereIn('assigned_to', $userIds)->where('stage', 'won')->count();
+
+        return round($won / $total * 100, 1) . '%';
     }
 
     /**

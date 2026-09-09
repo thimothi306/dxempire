@@ -10,6 +10,7 @@ use App\Http\Traits\ApiResponse;
 use App\Models\AuditLog;
 use App\Models\Dealer;
 use App\Models\Invoice;
+use App\Models\Offer;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Product;
@@ -53,6 +54,7 @@ class OrderController extends Controller
             $dealer = $request->dealer_id ? Dealer::lockForUpdate()->find($request->dealer_id) : null;
 
             $totals = $this->orderService->calculateTotals($products, $dealer);
+            $totals = $this->orderService->applyOffer($totals, $request->offer_code, 'b2b');
 
             // Dealer credit check
             $creditUsed = 0.0;
@@ -77,6 +79,8 @@ class OrderController extends Controller
                 'subtotal'       => $totals['subtotal'],
                 'gst_amount'     => $totals['gst_amount'],
                 'total_amount'   => $totals['total'],
+                'offer_id'       => $totals['offer_id'],
+                'discount_amount'=> $totals['discount_amount'],
                 'credit_used'    => $creditUsed,
                 'billing_state'  => $billingState,
                 'shipping_state' => $request->shipping_state ?? $billingState,
@@ -89,6 +93,10 @@ class OrderController extends Controller
 
             // STOCK LOCK: reserve all products so they cannot be added to another order
             Product::whereIn('id', $productIds)->update(['status' => 'reserved']);
+
+            if ($totals['offer_id']) {
+                Offer::where('id', $totals['offer_id'])->increment('usage_count');
+            }
 
             AuditLog::record(
                 auth()->id(),

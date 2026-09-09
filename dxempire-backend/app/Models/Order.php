@@ -16,18 +16,25 @@ class Order extends Model
         'order_number', 'dealer_id', 'customer_id', 'retail_customer_id', 'order_channel',
         'status', 'payment_status',
         'subtotal', 'gst_amount', 'total_amount', 'credit_used',
+        'offer_id', 'discount_amount',
         'billing_state', 'shipping_state',
         'awb_number', 'logistics_provider', 'dispatched_at', 'delivered_at', 'notes',
     ];
 
     protected $casts = [
-        'subtotal'      => 'decimal:2',
-        'gst_amount'    => 'decimal:2',
-        'total_amount'  => 'decimal:2',
-        'credit_used'   => 'decimal:2',
-        'dispatched_at' => 'datetime',
-        'delivered_at'  => 'datetime',
+        'subtotal'        => 'decimal:2',
+        'gst_amount'      => 'decimal:2',
+        'total_amount'    => 'decimal:2',
+        'credit_used'     => 'decimal:2',
+        'discount_amount' => 'decimal:2',
+        'dispatched_at'   => 'datetime',
+        'delivered_at'    => 'datetime',
     ];
+
+    public function offer(): BelongsTo
+    {
+        return $this->belongsTo(Offer::class);
+    }
 
     public function dealer(): BelongsTo
     {

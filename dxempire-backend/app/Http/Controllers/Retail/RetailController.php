@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Retail;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Offer;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\RetailCartItem;
@@ -137,6 +138,7 @@ class RetailController extends Controller
             'product_ids.*'   => ['integer', 'exists:products,id'],
             'shipping_state'  => ['nullable', 'string', 'max:60'],
             'shipping_address'=> ['nullable', 'string'],
+            'offer_code'      => ['nullable', 'string', 'max:50'],
         ]);
 
         $productIds = array_unique($request->product_ids);
@@ -145,6 +147,7 @@ class RetailController extends Controller
         try {
             $products = $this->orderService->validateAndLockStock($productIds);
             $totals   = $this->orderService->calculateRetailTotals($products);
+            $totals   = $this->orderService->applyOffer($totals, $request->offer_code, 'retail');
 
             $customer      = $request->customer;
             $buyerState    = $request->shipping_state ?? $customer->state;
@@ -158,6 +161,8 @@ class RetailController extends Controller
                 'subtotal'            => $totals['subtotal'],
                 'gst_amount'          => $totals['gst_amount'],
                 'total_amount'        => $totals['total'],
+                'offer_id'            => $totals['offer_id'],
+                'discount_amount'     => $totals['discount_amount'],
                 'billing_state'       => $buyerState,
                 'shipping_state'      => $buyerState,
                 'notes'               => $request->shipping_address,
@@ -174,6 +179,10 @@ class RetailController extends Controller
             RetailCartItem::where('customer_id', $customer->id)
                 ->whereIn('product_id', $productIds)
                 ->delete();
+
+            if ($totals['offer_id']) {
+                Offer::where('id', $totals['offer_id'])->increment('usage_count');
+            }
 
             DB::commit();
         } catch (\RuntimeException $e) {

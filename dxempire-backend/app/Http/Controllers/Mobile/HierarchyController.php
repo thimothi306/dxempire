@@ -4,6 +4,10 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Models\Dealer;
+use App\Models\Lead;
+use App\Models\Order;
+use App\Models\SalesHierarchy;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -143,22 +147,32 @@ class HierarchyController extends Controller
     }
 
     /**
-     * Helper: Get total orders from subordinates
-     * TODO: Implement based on your Orders model
+     * Helper: Get total orders from subordinates, via each subordinate's
+     * SalesHierarchy node → assigned dealers → their orders.
      */
     private function getTotalOrders(array $subordinates): int
     {
-        // Placeholder - implement based on your Order model
-        return 0;
+        $userIds = array_column($subordinates, 'id');
+        if (empty($userIds)) {
+            return 0;
+        }
+
+        $nodeIds   = SalesHierarchy::whereIn('user_id', $userIds)->pluck('id');
+        $dealerIds = Dealer::whereIn('assigned_salesman_id', $nodeIds)->pluck('id');
+
+        return Order::whereIn('dealer_id', $dealerIds)->count();
     }
 
     /**
-     * Helper: Get total leads from subordinates
-     * TODO: Implement based on your Leads model
+     * Helper: Get total leads assigned to subordinates
      */
     private function getTotalLeads(array $subordinates): int
     {
-        // Placeholder - implement based on your Lead model
-        return 0;
+        $userIds = array_column($subordinates, 'id');
+        if (empty($userIds)) {
+            return 0;
+        }
+
+        return Lead::whereIn('assigned_to', $userIds)->count();
     }
 }
