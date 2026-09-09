@@ -7,7 +7,9 @@ use Illuminate\Support\Facades\Log;
 
 class ExpoNotificationService
 {
-    private const EXPO_PUSH_URL = 'https://exp.host/api/v2/push/send';
+    // Official documented endpoint (docs.expo.dev) — the "--/" segment is
+    // required, it is not a typo or an old/deprecated form.
+    private const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
     private const BATCH_SIZE    = 100;
 
     public function send(string $expoPushToken, string $title, string $body, array $data = []): void
@@ -17,7 +19,7 @@ class ExpoNotificationService
             return;
         }
 
-        Http::withHeaders($this->headers())
+        $response = Http::withHeaders($this->headers())
             ->post(self::EXPO_PUSH_URL, [
                 'to'    => $expoPushToken,
                 'title' => $title,
@@ -25,6 +27,8 @@ class ExpoNotificationService
                 'sound' => 'default',
                 'data'  => $data,
             ]);
+
+        $this->logTicketErrors($response, [$expoPushToken]);
     }
 
     /**
@@ -39,8 +43,39 @@ class ExpoNotificationService
         }
 
         foreach (array_chunk($messages, self::BATCH_SIZE) as $chunk) {
-            Http::withHeaders($this->headers())
+            $response = Http::withHeaders($this->headers())
                 ->post(self::EXPO_PUSH_URL, $chunk);
+
+            $this->logTicketErrors($response, array_column($chunk, 'to'));
+        }
+    }
+
+    /**
+     * Expo returns HTTP 200 even when individual messages fail (e.g. a
+     * stale/uninstalled token gives "DeviceNotRegistered") — the failure is
+     * only visible in each response ticket, never the HTTP status, so it
+     * was previously invisible unless someone went looking at Expo's own
+     * dashboard. Logs it here instead.
+     */
+    private function logTicketErrors($response, array $tokens): void
+    {
+        if (!$response->successful()) {
+            Log::warning('Expo push HTTP error: ' . $response->status() . ' ' . $response->body());
+            return;
+        }
+
+        $tickets = $response->json('data', []);
+        // A single-message send returns one ticket object, not an array of them.
+        if (isset($tickets['status'])) {
+            $tickets = [$tickets];
+        }
+
+        foreach ($tickets as $i => $ticket) {
+            if (($ticket['status'] ?? null) === 'error') {
+                Log::warning('Expo push ticket error for token ' . ($tokens[$i] ?? '?') . ': '
+                    . ($ticket['message'] ?? 'unknown') . ' ('
+                    . ($ticket['details']['error'] ?? 'no error code') . ')');
+            }
         }
     }
 
