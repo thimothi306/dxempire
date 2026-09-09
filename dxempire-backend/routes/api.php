@@ -379,14 +379,21 @@ Route::prefix('v1')->group(function () {
         });
 
         // ── Offer Engine ──────────────────────────────────────────────────
-        Route::middleware('permission:offers.manage')->prefix('offers')->group(function () {
-            Route::get('/',                 [OfferController::class, 'index']);
-            Route::post('/',                [OfferController::class, 'store']);
-            Route::get('active',            [OfferController::class, 'active']);
-            Route::post('validate',         [OfferController::class, 'validateCode']);
-            Route::get('{offer}',           [OfferController::class, 'show']);
-            Route::put('{offer}',           [OfferController::class, 'update']);
-            Route::delete('{offer}',        [OfferController::class, 'destroy']);
+        // Read endpoints are open to any authenticated user (e.g. B2B
+        // Partners need to see/validate offers to use them at checkout) —
+        // OfferController scopes the actual rows returned by role.
+        // Only create/edit/deactivate require offers.manage.
+        Route::prefix('offers')->group(function () {
+            Route::get('/',          [OfferController::class, 'index']);
+            Route::get('active',     [OfferController::class, 'active']);
+            Route::post('validate',  [OfferController::class, 'validateCode']);
+            Route::get('{offer}',    [OfferController::class, 'show']);
+
+            Route::middleware('permission:offers.manage')->group(function () {
+                Route::post('/',          [OfferController::class, 'store']);
+                Route::put('{offer}',     [OfferController::class, 'update']);
+                Route::delete('{offer}',  [OfferController::class, 'destroy']);
+            });
         });
 
         // ── Peti to Peti ──────────────────────────────────────────────────

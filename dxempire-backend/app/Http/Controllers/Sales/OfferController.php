@@ -14,9 +14,24 @@ class OfferController extends Controller
 {
     use ApiResponse;
 
+    /**
+     * Staff (offers.manage) see every offer. Everyone else authenticated
+     * (chiefly B2B Partners, who need to see/apply offers at checkout but
+     * never created any) only ever sees offers actually usable by them —
+     * customer_type 'all' or 'b2b', never 'retail'-only ones.
+     */
+    private function scopeVisibleOffers($query, Request $request)
+    {
+        if (!$request->user()->hasPermissionTo('offers.manage')) {
+            $query->whereIn('customer_type', ['all', 'b2b']);
+        }
+
+        return $query;
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $offers = Offer::with('createdBy:id,name')
+        $offers = $this->scopeVisibleOffers(Offer::with('createdBy:id,name'), $request)
             ->when($request->is_active !== null, fn($q) => $q->where('is_active', (bool) $request->is_active))
             ->when($request->customer_type, fn($q) => $q->where('customer_type', $request->customer_type))
             ->orderByDesc('valid_from')
@@ -56,8 +71,12 @@ class OfferController extends Controller
         return $this->created($offer, 'Offer created.');
     }
 
-    public function show(Offer $offer): JsonResponse
+    public function show(Request $request, Offer $offer): JsonResponse
     {
+        if (!$request->user()->hasPermissionTo('offers.manage') && !in_array($offer->customer_type, ['all', 'b2b'])) {
+            return $this->error('Offer not found.', 404);
+        }
+
         return $this->success($offer->load('createdBy:id,name'));
     }
 
@@ -128,7 +147,9 @@ class OfferController extends Controller
 
         $offer = Offer::where('code', strtoupper($request->code))->first();
 
-        if (!$offer || !$offer->isValid()) {
+        $visible = $offer && ($request->user()->hasPermissionTo('offers.manage') || in_array($offer->customer_type, ['all', 'b2b']));
+
+        if (!$visible || !$offer->isValid()) {
             return $this->error('Invalid or expired offer code.', 422);
         }
 
@@ -141,9 +162,10 @@ class OfferController extends Controller
         ], 'Offer applied.');
     }
 
-    public function active(): JsonResponse
+    public function active(Request $request): JsonResponse
     {
-        $offers = Offer::where('is_active', true)
+        $offers = $this->scopeVisibleOffers(Offer::query(), $request)
+            ->where('is_active', true)
             ->where('valid_from', '<=', now())
             ->where('valid_to', '>=', now())
             ->whereRaw('(max_usage IS NULL OR usage_count < max_usage)')

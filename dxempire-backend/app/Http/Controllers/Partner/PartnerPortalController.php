@@ -8,6 +8,7 @@ use App\Integrations\Payment\CashfreeService;
 use App\Models\AuditLog;
 use App\Models\Dealer;
 use App\Models\Grade;
+use App\Models\Offer;
 use App\Models\Order;
 use App\Models\Invoice;
 use App\Models\Product;
@@ -102,6 +103,7 @@ class PartnerPortalController extends Controller
             'items.*.grade'      => ['required', 'string', Rule::in(Grade::activeCodes())],
             'items.*.category'   => ['nullable', 'string', 'in:phone,laptop'],
             'items.*.quantity'   => ['required', 'integer', 'min:1', 'max:50'],
+            'offer_code'         => ['nullable', 'string', 'max:50'],
             'notes'              => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -133,6 +135,7 @@ class PartnerPortalController extends Controller
 
             $products = $this->orderService->validateAndLockStock($productIds);
             $totals   = $this->orderService->calculateTotals($products, $dealer);
+            $totals   = $this->orderService->applyOffer($totals, $data['offer_code'] ?? null, 'b2b');
 
             // Locks the dealer row, checks, and reserves credit atomically —
             // the earlier $dealer above was fetched unlocked via the auth
@@ -152,6 +155,8 @@ class PartnerPortalController extends Controller
                 'subtotal'       => $totals['subtotal'],
                 'gst_amount'     => $totals['gst_amount'],
                 'total_amount'   => $totals['total'],
+                'offer_id'       => $totals['offer_id'],
+                'discount_amount'=> $totals['discount_amount'],
                 'credit_used'    => $totals['total'],
                 'billing_state'  => $dealer->state,
                 'shipping_state' => $dealer->state,
@@ -163,6 +168,10 @@ class PartnerPortalController extends Controller
             }
 
             Product::whereIn('id', $productIds)->update(['status' => 'reserved']);
+
+            if ($totals['offer_id']) {
+                Offer::where('id', $totals['offer_id'])->increment('usage_count');
+            }
 
             AuditLog::record(
                 $request->user()->id,
