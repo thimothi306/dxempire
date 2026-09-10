@@ -42,6 +42,71 @@ class InventoryController extends Controller
         return $this->success($product);
     }
 
+    /**
+     * Manually add a unit outside the receiving/PO flow — e.g. a
+     * correction or a unit that arrived through an untracked channel.
+     */
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'imei'               => ['nullable', 'string', 'max:20', 'unique:products,imei'],
+            'serial_number'      => ['nullable', 'string', 'max:100'],
+            'category'           => ['required', 'in:phone,laptop,accessory'],
+            'brand'              => ['required', 'string', 'max:100'],
+            'model'              => ['required', 'string', 'max:200'],
+            'grade'              => ['nullable', 'in:S1,S2,S3,S4,S5'],
+            'status'             => ['nullable', 'in:received,qc_pending,in_stock,sold,returned,rejected,refurbishment'],
+            'bin_id'             => ['nullable', 'exists:bins,id'],
+            'purchase_price'     => ['required', 'numeric', 'min:0'],
+            'selling_price'      => ['nullable', 'numeric', 'min:0'],
+            'supplier_id'        => ['required', 'exists:suppliers,id'],
+        ]);
+
+        $data['status'] = $data['status'] ?? 'received';
+
+        $product = Product::create($data);
+
+        return $this->created($product->load(['bin', 'supplier']), 'Product created.');
+    }
+
+    public function update(Request $request, Product $product): JsonResponse
+    {
+        $data = $request->validate([
+            'imei'               => ['nullable', 'string', 'max:20', 'unique:products,imei,' . $product->id],
+            'serial_number'      => ['nullable', 'string', 'max:100'],
+            'category'           => ['sometimes', 'in:phone,laptop,accessory'],
+            'brand'              => ['sometimes', 'string', 'max:100'],
+            'model'              => ['sometimes', 'string', 'max:200'],
+            'grade'              => ['nullable', 'in:S1,S2,S3,S4,S5'],
+            'status'             => ['sometimes', 'in:received,qc_pending,in_stock,sold,returned,rejected,refurbishment'],
+            'bin_id'             => ['nullable', 'exists:bins,id'],
+            'purchase_price'     => ['sometimes', 'numeric', 'min:0'],
+            'selling_price'      => ['nullable', 'numeric', 'min:0'],
+            'supplier_id'        => ['sometimes', 'exists:suppliers,id'],
+        ]);
+
+        $product->update($data);
+
+        return $this->success($product->fresh()->load(['bin', 'supplier']), 'Product updated.');
+    }
+
+    /**
+     * Soft delete only — Product uses SoftDeletes, so this is fully
+     * reversible (row stays, just excluded from default queries). Sold
+     * units are blocked here to keep order history resolvable; use
+     * deactivate() instead to pull a sold/listed unit from view.
+     */
+    public function destroy(Product $product): JsonResponse
+    {
+        if ($product->status === 'sold') {
+            return $this->error('Cannot delete a sold product — it is linked to order history. Use deactivate instead.', 422);
+        }
+
+        $product->delete();
+
+        return $this->success(null, 'Product deleted.');
+    }
+
     public function show(Product $product): JsonResponse
     {
         $product->load([

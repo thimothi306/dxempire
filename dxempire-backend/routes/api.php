@@ -165,6 +165,12 @@ Route::prefix('v1')->group(function () {
                 Route::post('{product}/deactivate', [InventoryController::class, 'deactivate']);
                 Route::post('{product}/activate',   [InventoryController::class, 'activate']);
             });
+
+            Route::middleware('permission:inventory.manage')->group(function () {
+                Route::post('/',          [InventoryController::class, 'store']);
+                Route::put('{product}',   [InventoryController::class, 'update']);
+                Route::delete('{product}',[InventoryController::class, 'destroy']);
+            });
         });
 
         Route::middleware('permission:bins.manage')->prefix('bins')->group(function () {
@@ -172,6 +178,11 @@ Route::prefix('v1')->group(function () {
             Route::post('/',              [BinController::class, 'store']);
             Route::post('move',           [BinController::class, 'move']);
             Route::get('{bin}/products',  [BinController::class, 'products']);
+
+            Route::middleware('permission:inventory.manage')->group(function () {
+                Route::put('{bin}',       [BinController::class, 'update']);
+                Route::delete('{bin}',    [BinController::class, 'destroy']);
+            });
         });
 
         Route::middleware('permission:warehouses.manage')->prefix('warehouses')->group(function () {

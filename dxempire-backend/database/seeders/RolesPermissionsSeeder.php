@@ -17,7 +17,7 @@ class RolesPermissionsSeeder extends Seeder
         // just made toggleable instead of hardcoded in route middleware.
         $permissions = [
             'users.manage', 'catalog_images.manage', 'audit_logs.view', 'settings.edit',
-            'inventory.view', 'inventory.export', 'inventory.edit',
+            'inventory.view', 'inventory.export', 'inventory.edit', 'inventory.manage',
             'procurement.view', 'procurement.edit',
             'bins.manage', 'warehouses.manage', 'grades.manage',
             'qc.view', 'qc.grade',

@@ -112,6 +112,37 @@ class BinController extends Controller
         return $this->created($bin, 'Bin created.');
     }
 
+    public function update(Request $request, Bin $bin): JsonResponse
+    {
+        $data = $request->validate([
+            'code'         => ['sometimes', 'string', 'max:50', 'unique:bins,code,' . $bin->id],
+            'warehouse_id' => ['nullable', 'exists:warehouses,id'],
+            'zone'         => ['nullable', 'string', 'max:50'],
+            'row'          => ['nullable', 'string', 'max:50'],
+            'shelf'        => ['nullable', 'string', 'max:50'],
+            'capacity'     => ['sometimes', 'integer', 'min:1'],
+        ]);
+
+        if (isset($data['capacity']) && $data['capacity'] < $bin->current_count) {
+            return $this->error("Capacity can't be set below the current count ({$bin->current_count} products already in this bin).", 422);
+        }
+
+        $bin->update($data);
+
+        return $this->success($bin->fresh(), 'Bin updated.');
+    }
+
+    public function destroy(Bin $bin): JsonResponse
+    {
+        if ($bin->current_count > 0) {
+            return $this->error("Cannot delete bin {$bin->code} — it still has {$bin->current_count} product(s) in it. Move them out first.", 422);
+        }
+
+        $bin->delete();
+
+        return $this->success(null, 'Bin deleted.');
+    }
+
     public function products(Request $request, Bin $bin): JsonResponse
     {
         $products = $bin->products()
