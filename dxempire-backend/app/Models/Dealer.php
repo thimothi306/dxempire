@@ -11,7 +11,7 @@ class Dealer extends Model
     protected $fillable = [
         'user_id', 'business_name', 'gst_number', 'kyc_status',
         'credit_limit', 'credit_used', 'price_tier', 'state', 'pincode',
-        'assigned_salesman_id', 'referral_code', 'referred_by_dealer_id',
+        'assigned_salesman_id', 'unique_code', 'referred_by_dealer_id',
     ];
 
     protected $casts = [

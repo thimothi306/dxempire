@@ -12,7 +12,7 @@ use App\Models\Dealer;
 use App\Models\OtpCode;
 use App\Models\PushToken;
 use App\Models\User;
-use App\Services\ReferralCodeGenerator;
+use App\Services\PartnerCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -181,29 +181,30 @@ class AuthController extends Controller
             'name'          => ['required', 'string', 'max:200'],
             'business_name' => ['required', 'string', 'max:200'],
             'email'         => ['nullable', 'email', Rule::unique('users', 'email')],
-            'password'      => ['nullable', 'string', 'min:8'],
+            'password'      => ['required', 'string', 'min:8'],
             'gst_number'    => ['nullable', 'string', 'max:20'],
             'state'         => ['required', 'string', 'max:100'],
             'pincode'       => ['required', 'string', 'max:10'],
-            'referral_code' => ['nullable', 'string', 'max:6'],
+            // The unique_code of whoever referred them — required for self-registration.
+            // Admin-created dealers (CRM screen) go through a separate, unrelated flow
+            // and are not subject to this — that's how the very first partners, or any
+            // partner with no existing referrer, get onboarded.
+            'unique_code'   => ['required', 'string', 'max:6'],
         ]);
 
-        $referredBy = null;
-        if (!empty($data['referral_code'])) {
-            $referredBy = Dealer::where('referral_code', strtoupper($data['referral_code']))->first();
+        $referredBy = Dealer::where('unique_code', strtoupper($data['unique_code']))->first();
 
-            if (!$referredBy) {
-                return $this->error('Invalid referral code.', 422);
-            }
+        if (!$referredBy) {
+            return $this->error('Invalid unique code.', 422);
         }
 
         DB::beginTransaction();
         try {
-            $user->update(array_filter([
+            $user->update([
                 'name'     => $data['name'],
                 'email'    => $data['email'] ?? null,
-                'password' => isset($data['password']) ? Hash::make($data['password']) : null,
-            ]));
+                'password' => Hash::make($data['password']),
+            ]);
 
             $dealer = Dealer::create([
                 'user_id'               => $user->id,
@@ -212,8 +213,8 @@ class AuthController extends Controller
                 'kyc_status'            => 'pending',
                 'state'                 => $data['state'],
                 'pincode'               => $data['pincode'],
-                'referral_code'         => ReferralCodeGenerator::generate(),
-                'referred_by_dealer_id' => $referredBy?->id,
+                'unique_code'           => PartnerCodeGenerator::generate(),
+                'referred_by_dealer_id' => $referredBy->id,
             ]);
 
             DB::commit();
@@ -223,10 +224,10 @@ class AuthController extends Controller
         }
 
         return $this->success([
-            'business_name'  => $dealer->business_name,
-            'kyc_status'     => $dealer->kyc_status,
-            'referral_code'  => $dealer->referral_code,
-            'referred_by'    => $referredBy?->business_name,
+            'business_name' => $dealer->business_name,
+            'kyc_status'    => $dealer->kyc_status,
+            'unique_code'   => $dealer->unique_code,
+            'referred_by'   => $referredBy->business_name,
         ], 'Registration complete. Your account is pending KYC approval.');
     }
 
@@ -255,7 +256,7 @@ class AuthController extends Controller
                 'state'         => $dealer?->state,
                 'pincode'       => $dealer?->pincode,
                 'price_tier'    => $dealer?->price_tier,
-                'referral_code' => $dealer?->referral_code,
+                'unique_code'   => $dealer?->unique_code,
                 'referred_by'   => $dealer?->referredBy?->business_name,
                 'has_dealer'    => (bool) $dealer,
             ]);

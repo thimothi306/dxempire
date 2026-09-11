@@ -8,6 +8,7 @@ use App\Http\Traits\ApiResponse;
 use App\Models\Dealer;
 use App\Models\User;
 use App\Services\NotificationService;
+use App\Services\PartnerCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,7 @@ class DealerController extends Controller
                 'credit_limit'  => $request->credit_limit ?? 0,
                 'price_tier'    => $request->price_tier,
                 'kyc_status'    => 'pending',
+                'unique_code'   => PartnerCodeGenerator::generate(),
             ]);
 
             $user->update(['partner_id' => $dealer->id]);
@@ -136,6 +138,26 @@ class DealerController extends Controller
         $dealer->user?->update(['is_active' => true]);
 
         return $this->success($dealer->fresh('user')->toArray(), 'Partner account activated.');
+    }
+
+    /**
+     * Hard delete — only for partners with zero order history, so no
+     * financial/order record ever loses its dealer reference. Anyone with
+     * real order history should be deactivated instead (see above), never
+     * deleted.
+     */
+    public function destroy(Dealer $dealer): JsonResponse
+    {
+        if ($dealer->orders()->exists()) {
+            return $this->error(
+                'Cannot delete a partner with order history. Deactivate their account instead to preserve order records.',
+                422
+            );
+        }
+
+        $dealer->delete();
+
+        return $this->success(null, 'Partner deleted.');
     }
 
     public function updateCredit(Request $request, Dealer $dealer): JsonResponse

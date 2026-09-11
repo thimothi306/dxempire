@@ -97,6 +97,7 @@ export const dealersService = {
   ledger: (id: number, params?: Record<string, string>) => DEMO_MODE ? mock([]) : api.get(`/dealers/${id}/ledger`, { params }).then((r) => r.data.data),
   activate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/activate`).then((r) => r.data),
   deactivate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/deactivate`).then((r) => r.data),
+  destroy: (id: number) => DEMO_MODE ? mock({}) : api.delete(`/dealers/${id}`).then((r) => r.data),
 };
 
 // ─── Leads ───────────────────────────────────────────────────────────────────

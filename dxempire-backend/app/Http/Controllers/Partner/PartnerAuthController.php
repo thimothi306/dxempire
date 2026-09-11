@@ -77,7 +77,7 @@ class PartnerAuthController extends Controller
             'state'         => $dealer?->state,
             'pincode'       => $dealer?->pincode,
             'price_tier'    => $dealer?->price_tier,
-            'referral_code' => $dealer?->referral_code,
+            'unique_code'   => $dealer?->unique_code,
             'referred_by'   => $dealer?->referredBy?->business_name,
             'has_dealer'    => (bool) $dealer,
         ];

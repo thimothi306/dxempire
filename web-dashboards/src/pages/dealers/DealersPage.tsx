@@ -68,6 +68,12 @@ export default function DealersPage() {
     onError: () => toast.error('Failed'),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => dealersService.destroy(id),
+    onSuccess: () => { toast.success('Partner deleted'); qc.invalidateQueries({ queryKey: ['dealers'] }); setSelected(null); },
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to delete partner'),
+  });
+
   const createMut = useMutation({
     mutationFn: () => dealersService.create({
       ...createForm,
@@ -232,6 +238,22 @@ export default function DealersPage() {
                   ) : (
                     <Button size="sm" variant="danger" onClick={() => deactivateMut.mutate(selected.id)} loading={deactivateMut.isPending}>Deactivate Account</Button>
                   )}
+                </div>
+
+                {/* Delete — only succeeds for partners with zero order history */}
+                <div className="flex gap-2 pt-2 border-t mt-2">
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    loading={deleteMut.isPending}
+                    onClick={() => {
+                      if (window.confirm(`Delete ${selected.business_name}? This can't be undone. Partners with any order history can't be deleted — deactivate them instead.`)) {
+                        deleteMut.mutate(selected.id);
+                      }
+                    }}
+                  >
+                    Delete Partner
+                  </Button>
                 </div>
 
                 {/* Credit limit update */}

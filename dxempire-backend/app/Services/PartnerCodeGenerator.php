@@ -4,7 +4,7 @@ namespace App\Services;
 
 use App\Models\Dealer;
 
-class ReferralCodeGenerator
+class PartnerCodeGenerator
 {
     private const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — avoids look-alike codes
 
@@ -14,7 +14,7 @@ class ReferralCodeGenerator
             $code = 'DX' . collect(range(1, 4))
                 ->map(fn () => self::CHARS[random_int(0, strlen(self::CHARS) - 1)])
                 ->implode('');
-        } while (Dealer::where('referral_code', $code)->exists());
+        } while (Dealer::where('unique_code', $code)->exists());
 
         return $code;
     }

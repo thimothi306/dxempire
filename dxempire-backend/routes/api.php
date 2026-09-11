@@ -232,6 +232,7 @@ Route::prefix('v1')->group(function () {
             Route::put('dealers/{dealer}/credit',    [DealerController::class, 'updateCredit']);
             Route::post('dealers/{dealer}/deactivate', [DealerController::class, 'deactivate']);
             Route::post('dealers/{dealer}/activate',   [DealerController::class, 'activate']);
+            Route::delete('dealers/{dealer}',          [DealerController::class, 'destroy']);
         });
 
         // Support tickets — any authenticated user can create, sales/admin can manage
