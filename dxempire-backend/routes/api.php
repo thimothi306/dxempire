@@ -66,6 +66,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/auth/me',       [AuthController::class, 'me']);
         Route::post('/auth/refresh', [AuthController::class, 'refresh']);
         Route::post('/auth/logout',  [AuthController::class, 'logout']);
+        Route::post('/auth/complete-registration', [AuthController::class, 'completeRegistration']);
 
         // Push tokens
         Route::post('/users/push-token',   [PushTokenController::class, 'register']);

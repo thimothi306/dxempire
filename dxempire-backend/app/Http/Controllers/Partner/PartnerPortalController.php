@@ -56,6 +56,8 @@ class PartnerPortalController extends Controller
         return $this->success([
             'business_name'      => $dealer->business_name,
             'kyc_status'         => $dealer->kyc_status,
+            'referral_code'      => $dealer->referral_code,
+            'referred_by'        => $dealer->referredBy?->business_name,
             'total_orders'       => (clone $orders)->count(),
             'active_orders'      => (clone $orders)->whereIn('status', ['pending', 'approved', 'picking', 'packing', 'packed', 'dispatched'])->count(),
             'delivered_orders'   => (clone $orders)->where('status', 'delivered')->count(),

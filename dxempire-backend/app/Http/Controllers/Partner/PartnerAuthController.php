@@ -40,7 +40,7 @@ class PartnerAuthController extends Controller
             return $this->error('Your account has been deactivated. Please contact your sales representative.', 403);
         }
 
-        $user->loadMissing('dealer');
+        $user->loadMissing('dealer.referredBy');
         $user->update(['last_login_at' => now()]);
 
         $token = $user->createToken('partner_portal', ['partner'], now()->addDays(30));
@@ -53,7 +53,7 @@ class PartnerAuthController extends Controller
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->loadMissing('dealer');
+        $user = $request->user()->loadMissing('dealer.referredBy');
         return $this->success($this->partnerPayload($user));
     }
 
@@ -77,6 +77,8 @@ class PartnerAuthController extends Controller
             'state'         => $dealer?->state,
             'pincode'       => $dealer?->pincode,
             'price_tier'    => $dealer?->price_tier,
+            'referral_code' => $dealer?->referral_code,
+            'referred_by'   => $dealer?->referredBy?->business_name,
             'has_dealer'    => (bool) $dealer,
         ];
     }

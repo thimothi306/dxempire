@@ -8,12 +8,16 @@ use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Http\Traits\ApiResponse;
 use App\Jobs\SendOtpJob;
+use App\Models\Dealer;
 use App\Models\OtpCode;
 use App\Models\PushToken;
 use App\Models\User;
+use App\Services\ReferralCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
@@ -157,6 +161,75 @@ class AuthController extends Controller
         ], 'Login successful');
     }
 
+    /**
+     * Second step of partner self-registration — called with the token
+     * verifyOtp() already issued. Turns the bare User created there into a
+     * real partner by creating its Dealer profile. kyc_status always starts
+     * 'pending' regardless of input; Dealer::canPlaceOrder() already blocks
+     * ordering until an admin verifies it, so no separate gate is needed
+     * here — creating the Dealer is what turns that gate on.
+     */
+    public function completeRegistration(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->dealer) {
+            return $this->error('This account is already registered.', 422);
+        }
+
+        $data = $request->validate([
+            'name'          => ['required', 'string', 'max:200'],
+            'business_name' => ['required', 'string', 'max:200'],
+            'email'         => ['nullable', 'email', Rule::unique('users', 'email')],
+            'password'      => ['nullable', 'string', 'min:8'],
+            'gst_number'    => ['nullable', 'string', 'max:20'],
+            'state'         => ['required', 'string', 'max:100'],
+            'pincode'       => ['required', 'string', 'max:10'],
+            'referral_code' => ['nullable', 'string', 'max:6'],
+        ]);
+
+        $referredBy = null;
+        if (!empty($data['referral_code'])) {
+            $referredBy = Dealer::where('referral_code', strtoupper($data['referral_code']))->first();
+
+            if (!$referredBy) {
+                return $this->error('Invalid referral code.', 422);
+            }
+        }
+
+        DB::beginTransaction();
+        try {
+            $user->update(array_filter([
+                'name'     => $data['name'],
+                'email'    => $data['email'] ?? null,
+                'password' => isset($data['password']) ? Hash::make($data['password']) : null,
+            ]));
+
+            $dealer = Dealer::create([
+                'user_id'               => $user->id,
+                'business_name'         => $data['business_name'],
+                'gst_number'            => $data['gst_number'] ?? null,
+                'kyc_status'            => 'pending',
+                'state'                 => $data['state'],
+                'pincode'               => $data['pincode'],
+                'referral_code'         => ReferralCodeGenerator::generate(),
+                'referred_by_dealer_id' => $referredBy?->id,
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $this->success([
+            'business_name'  => $dealer->business_name,
+            'kyc_status'     => $dealer->kyc_status,
+            'referral_code'  => $dealer->referral_code,
+            'referred_by'    => $referredBy?->business_name,
+        ], 'Registration complete. Your account is pending KYC approval.');
+    }
+
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -173,7 +246,7 @@ class AuthController extends Controller
         ];
 
         if ($user->role === 'b2b_partner') {
-            $user->loadMissing('dealer');
+            $user->loadMissing('dealer.referredBy');
             $dealer = $user->dealer;
             $payload = array_merge($payload, [
                 'kyc_status'    => $dealer?->kyc_status,
@@ -182,6 +255,8 @@ class AuthController extends Controller
                 'state'         => $dealer?->state,
                 'pincode'       => $dealer?->pincode,
                 'price_tier'    => $dealer?->price_tier,
+                'referral_code' => $dealer?->referral_code,
+                'referred_by'   => $dealer?->referredBy?->business_name,
                 'has_dealer'    => (bool) $dealer,
             ]);
         }
