@@ -104,8 +104,8 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
       >
         {/* Logo */}
         <div className="border-b border-navy-600">
-          <div className="bg-white h-20 px-4 flex items-center justify-center overflow-hidden shadow-md shadow-black/20">
-            <img src="/DX_Empire_Logo_Admin.jpg" alt="DXEmpire Admin Panel" className="max-h-full max-w-full object-contain" />
+          <div className="bg-white h-36 px-4 py-3 flex items-center justify-center overflow-hidden shadow-md shadow-black/20">
+            <img src="/DX_Empire_Crown_Logo.png" alt="DXEmpire Admin Panel" className="max-h-full max-w-full object-contain" />
           </div>
         </div>
 
