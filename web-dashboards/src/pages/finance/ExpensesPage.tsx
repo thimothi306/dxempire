@@ -51,7 +51,7 @@ export default function ExpensesPage() {
 
   const expenses: Expense[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
-  const totalShown = expenses.reduce((s, e) => s + e.amount, 0);
+  const totalShown = expenses.reduce((s, e) => s + Number(e.amount), 0);
 
   return (
     <div>
