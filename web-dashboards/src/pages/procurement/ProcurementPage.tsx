@@ -10,7 +10,7 @@ const PO_STATUS_COLORS: Record<string, string> = {
   draft: 'gray', sent: 'blue', received: 'green', partial: 'yellow', cancelled: 'red',
 };
 
-const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', gst_number: '', address: '' };
+const EMPTY_SUPPLIER = { name: '', type: '', phone: '', email: '', gst_number: '', address: '' };
 const EMPTY_PO = { supplier_id: '' };
 type SupplierFormState = typeof EMPTY_SUPPLIER;
 
@@ -29,17 +29,25 @@ function SupplierForm({
   return (
     <div className="space-y-4">
       <Input label="Supplier Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input label="Contact Person" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
-        <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-      </div>
+      <Select
+        label="Type *"
+        value={form.type}
+        onChange={(e) => setForm({ ...form, type: e.target.value })}
+        options={[
+          { value: '', label: 'Select type...' },
+          { value: 'dealer', label: 'Dealer' },
+          { value: 'importer', label: 'Importer' },
+          { value: 'buyback_partner', label: 'Buyback Partner' },
+        ]}
+      />
+      <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         <Input label="GST Number" value={form.gst_number} onChange={(e) => setForm({ ...form, gst_number: e.target.value })} />
       </div>
       <Input label="Address" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
       <div className="flex gap-3 pt-2">
-        <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
+        <Button onClick={onSubmit} loading={loading} disabled={!form.name || !form.type} className="flex-1 justify-center">Save</Button>
         <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
       </div>
     </div>
@@ -119,7 +127,7 @@ export default function ProcurementPage() {
       setShowSupplier(false);
       setSupplierForm(EMPTY_SUPPLIER);
     },
-    onError: () => toast.error('Failed to add supplier'),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to add supplier'),
   });
 
   const updateSupplierMut = useMutation({
@@ -129,7 +137,7 @@ export default function ProcurementPage() {
       qc.invalidateQueries({ queryKey: ['suppliers'] });
       setEditSupplier(null);
     },
-    onError: () => toast.error('Failed to update supplier'),
+    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to update supplier'),
   });
 
   const deleteSupplierMut = useMutation({
@@ -143,7 +151,7 @@ export default function ProcurementPage() {
   });
 
   const openEditSupplier = (s: any) => {
-    setSupplierForm({ name: s.name ?? '', contact_name: s.contact_name ?? '', phone: s.phone ?? '', email: s.email ?? '', gst_number: s.gst_number ?? '', address: s.address ?? '' });
+    setSupplierForm({ name: s.name ?? '', type: s.type ?? '', phone: s.phone ?? '', email: s.email ?? '', gst_number: s.gst_number ?? '', address: s.address ?? '' });
     setEditSupplier(s);
   };
 
@@ -213,7 +221,7 @@ export default function ProcurementPage() {
             <Table
               columns={[
                 { key: 'name', header: 'Supplier Name', render: (s) => <span className="font-medium">{s.name}</span> },
-                { key: 'contact_name', header: 'Contact', render: (s) => s.contact_name ?? '—' },
+                { key: 'type', header: 'Type', render: (s) => <Badge label={s.type ?? '—'} color="blue" /> },
                 { key: 'phone', header: 'Phone', render: (s) => s.phone ?? '—' },
                 { key: 'email', header: 'Email', render: (s) => s.email ?? '—' },
                 { key: 'gst_number', header: 'GST', render: (s) => s.gst_number ?? '—' },
