@@ -45,7 +45,7 @@ export const inventoryService = {
   lowStock: () => DEMO_MODE ? mock([]) : api.get('/inventory/low-stock').then((r) => r.data.data),
   aiSearch: (query: string) => DEMO_MODE ? mock({}) : api.post('/inventory/ai-search', { query }).then((r) => r.data.data),
   export: () => api.get('/inventory/export', { responseType: 'blob' }).then((r) => r.data),
-  moveBin: (productId: number, binId: number) => DEMO_MODE ? mock({}) : api.post('/bins/move', { product_id: productId, to_bin_id: binId }).then((r) => r.data),
+  moveBin: (productId: number, binId: number) => DEMO_MODE ? mock({}) : api.post('/bins/move', { product_id: productId, bin_id: binId }).then((r) => r.data),
 };
 
 // ─── Bins ────────────────────────────────────────────────────────────────────

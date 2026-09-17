@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Download, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { inventoryService, procurementService, gradeService } from '../../services';
+import { inventoryService, procurementService, gradeService, binsService } from '../../services';
 import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR } from '../../components/ui';
 import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 import { AiSearchBox, type AiSearchFilters } from '../../components/AiSearchBox';
@@ -81,6 +81,8 @@ export default function InventoryPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addSupplierId, setAddSupplierId] = useState('');
   const [addItems, setAddItems] = useState<ReceiveItemRow[]>([{ ...EMPTY_RECEIVE_ITEM }]);
+  const [moveTarget, setMoveTarget] = useState<Product | null>(null);
+  const [moveBinId, setMoveBinId] = useState('');
 
   const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
   const gradeCodes: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
@@ -111,6 +113,26 @@ export default function InventoryPage() {
       setAddItems([{ ...EMPTY_RECEIVE_ITEM }]);
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to add product'),
+  });
+
+  const { data: binsData } = useQuery({
+    queryKey: ['bins-all'],
+    queryFn: () => binsService.list({ per_page: '200' }),
+    enabled: !!moveTarget,
+  });
+  const bins: any[] = Array.isArray(binsData?.data) ? binsData.data : [];
+
+  const moveBinMut = useMutation({
+    mutationFn: () => inventoryService.moveBin(moveTarget!.id, Number(moveBinId)),
+    onSuccess: () => {
+      toast.success('Product moved to bin');
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+      qc.invalidateQueries({ queryKey: ['bins'] });
+      qc.invalidateQueries({ queryKey: ['bins-all'] });
+      setMoveTarget(null);
+      setMoveBinId('');
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to move product'),
   });
 
   const products: Product[] = Array.isArray(data?.data) ? data.data : [];
@@ -164,6 +186,13 @@ export default function InventoryPage() {
                 { key: 'status', header: 'Status', render: (p) => <Badge label={p.status.replace('_', ' ')} color={STATUS_COLORS[p.status] ?? 'gray'} /> },
                 { key: 'selling_price', header: 'Price', render: (p) => fmtINR(p.selling_price) },
                 { key: 'bin', header: 'Bin', render: (p) => p.bin?.code ?? '—' },
+                {
+                  key: 'actions', header: '', render: (p) => (
+                    <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setMoveTarget(p); setMoveBinId(''); }}>
+                      Move to Bin
+                    </Button>
+                  ),
+                },
               ]}
               data={products}
               keyField="id"
@@ -188,6 +217,26 @@ export default function InventoryPage() {
           <div className="flex gap-3 pt-2">
             <Button onClick={() => addProductMut.mutate()} loading={addProductMut.isPending} disabled={!addSupplierId} className="flex-1 justify-center">Add Product</Button>
             <Button variant="outline" onClick={() => setShowAdd(false)} className="flex-1 justify-center">Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Move to Bin Modal */}
+      <Modal open={!!moveTarget} onClose={() => setMoveTarget(null)} title={`Move ${moveTarget?.brand ?? ''} ${moveTarget?.model ?? ''}`}>
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">Currently in: <span className="font-mono">{moveTarget?.bin?.code ?? 'no bin assigned'}</span></p>
+          <Select
+            label="Move to Bin"
+            value={moveBinId}
+            onChange={(e) => setMoveBinId(e.target.value)}
+            options={[
+              { value: '', label: 'Select bin...' },
+              ...bins.filter((b) => b.id !== moveTarget?.bin?.id).map((b) => ({ value: String(b.id), label: `${b.code}${b.zone ? ' — ' + b.zone : ''} (${b.current_count ?? 0}/${b.capacity ?? '∞'})` })),
+            ]}
+          />
+          <div className="flex gap-3 pt-2">
+            <Button onClick={() => moveBinMut.mutate()} loading={moveBinMut.isPending} disabled={!moveBinId} className="flex-1 justify-center">Move</Button>
+            <Button variant="outline" onClick={() => setMoveTarget(null)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>
       </Modal>

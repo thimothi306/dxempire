@@ -2,24 +2,20 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { binsService, inventoryService, warehouseService } from '../../services';
+import { binsService, warehouseService } from '../../services';
 import { Card, Table, Pagination, Button, PageHeader, Spinner, Modal, Input, Select } from '../../components/ui';
-import type { Bin, Product } from '../../types';
+import type { Bin } from '../../types';
 
 export default function BinsPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
-  const [moveTarget, setMoveTarget] = useState<Product | null>(null);
-  const [moveForm, setMoveForm] = useState({ bin_id: '' });
   const [form, setForm] = useState({ code: '', zone: '', capacity: '', warehouse_id: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ['bins', page],
     queryFn: () => binsService.list({ page: String(page) }),
   });
-
-  const { data: binsAll } = useQuery({ queryKey: ['bins-all'], queryFn: () => binsService.list({ per_page: '200' }) });
 
   // Only fetched/shown when there's more than one warehouse — single-warehouse
   // installs never see this selector, bins auto-assign to the one warehouse.
@@ -35,15 +31,8 @@ export default function BinsPage() {
     onError: () => toast.error('Failed to create bin'),
   });
 
-  const moveMut = useMutation({
-    mutationFn: () => inventoryService.moveBin(moveTarget!.id, Number(moveForm.bin_id)),
-    onSuccess: () => { toast.success('Product moved'); qc.invalidateQueries({ queryKey: ['bins'] }); setMoveTarget(null); },
-    onError: () => toast.error('Failed to move product'),
-  });
-
   const bins: Bin[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
-  const allBins: Bin[] = Array.isArray(binsAll?.data) ? binsAll.data : [];
 
   return (
     <div>
@@ -104,22 +93,6 @@ export default function BinsPage() {
           <div className="flex gap-3 pt-2">
             <Button onClick={() => createMut.mutate()} loading={createMut.isPending} className="flex-1 justify-center">Create</Button>
             <Button variant="outline" onClick={() => setShowCreate(false)} className="flex-1 justify-center">Cancel</Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Move Product Modal */}
-      <Modal open={!!moveTarget} onClose={() => setMoveTarget(null)} title={`Move ${moveTarget?.brand} ${moveTarget?.model}`}>
-        <div className="space-y-4">
-          <Select
-            label="Move to Bin"
-            value={moveForm.bin_id}
-            onChange={(e) => setMoveForm({ bin_id: e.target.value })}
-            options={[{ value: '', label: 'Select bin...' }, ...allBins.map((b) => ({ value: String(b.id), label: `${b.code}${b.zone ? ' — ' + b.zone : ''}` }))]}
-          />
-          <div className="flex gap-3 pt-2">
-            <Button onClick={() => moveMut.mutate()} loading={moveMut.isPending} className="flex-1 justify-center">Move</Button>
-            <Button variant="outline" onClick={() => setMoveTarget(null)} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>
       </Modal>
