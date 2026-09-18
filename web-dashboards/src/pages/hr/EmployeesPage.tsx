@@ -143,6 +143,11 @@ export default function EmployeesPage() {
         action={<Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Employee</Button>}
       />
 
+      <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">
+        <p>This is <span className="font-semibold">HR data</span> — salary, department, attendance, payroll. It has nothing to do with logging in.</p>
+        <p>It's separate from <span className="font-semibold">Staff Users</span> (login access). Adding someone here doesn't give them a login, and vice versa.</p>
+      </div>
+
       <div className="mb-5 max-w-xs">
         <Select
           value={departmentFilter}

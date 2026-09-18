@@ -57,7 +57,7 @@ const NAV: NavItem[] = [
     ],
   },
   { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['super_admin', 'sales', 'accounts'] },
-  { label: 'Users',     to: '/users',     icon: <Users size={18} />,     roles: ['super_admin'] },
+  { label: 'Staff Users', to: '/users',   icon: <Users size={18} />,     roles: ['super_admin'] },
   { label: 'Permissions', to: '/permissions', icon: <ShieldCheck size={18} />, roles: ['super_admin'] },
   { label: 'Audit Logs',to: '/audit',     icon: <ScrollText size={18} />,roles: ['super_admin'] },
   { label: 'Settings',  to: '/settings',  icon: <Settings size={18} />,  roles: ['super_admin'] },

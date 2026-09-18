@@ -61,10 +61,15 @@ export default function UsersPage() {
   return (
     <div>
       <PageHeader
-        title="User Management"
+        title="Staff Users"
         subtitle="All admin and staff users"
         action={<Button onClick={() => setShowCreate(true)}><UserPlus size={15} /> Add User</Button>}
       />
+
+      <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">
+        <p>This is <span className="font-semibold">login access</span> — who can sign in and what they're allowed to do (role, permissions).</p>
+        <p>It's separate from <span className="font-semibold">Employees</span> (HR records — salary, department, attendance). Adding someone here doesn't add their HR record, and vice versa.</p>
+      </div>
 
       <Card>
         {isLoading ? <Spinner /> : (
