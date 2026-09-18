@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Search, ExternalLink, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { ordersService, logisticsService, financeService } from '../../services';
-import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, orderStatusBadge, fmtINR, fmtDateTime } from '../../components/ui';
+import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, orderStatusBadge, fmtINR, fmtDateTime, ExportButton } from '../../components/ui';
 import type { Order, OrderStatus } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import PartnerOrdersPage from '../partner/PartnerOrdersPage';
@@ -120,7 +120,16 @@ function StaffOrdersPage() {
 
   return (
     <div>
-      <PageHeader title="Orders" subtitle={`${meta?.total ?? 0} total orders`} />
+      <PageHeader
+        title="Orders"
+        subtitle={`${meta?.total ?? 0} total orders`}
+        action={
+          <ExportButton
+            filenameBase="orders"
+            onExport={(format) => ordersService.export(format, { ...(status && { status }), ...(search && { search }) })}
+          />
+        }
+      />
 
       <div className="flex gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">

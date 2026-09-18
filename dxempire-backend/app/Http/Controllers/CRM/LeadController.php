@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\CRM\StoreLeadRequest;
 use App\Http\Requests\CRM\UpdateLeadStageRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\AuditLog;
 use App\Models\Dealer;
 use App\Models\Lead;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\DB;
 
 class LeadController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(private SalesVisibilityService $visibility) {}
 
@@ -39,6 +40,28 @@ class LeadController extends Controller
             ->paginate(50);
 
         return $this->paginated($leads);
+    }
+
+    public function export(Request $request)
+    {
+        $visibleIds = $this->visibility->visibleUserIds($request->user());
+
+        $leads = Lead::with('assignedUser')
+            ->when($visibleIds !== null, fn($q) => $q->whereIn('assigned_to', $visibleIds))
+            ->filter($request)
+            ->orderByDesc('updated_at')
+            ->get();
+
+        $headers = ['Contact Name', 'Business Name', 'Phone', 'Email', 'City', 'Source', 'Stage', 'Assigned To', 'Created'];
+        $rows = $leads->map(fn($l) => [
+            $l->contact_name, $l->business_name ?? '-', $l->phone ?? '-', $l->email ?? '-',
+            $l->city ?? '-', $l->source, $l->stage, $l->assignedUser?->name ?? '-', $l->created_at->format('Y-m-d'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Leads', $headers, $rows, "leads_{$stamp}.pdf")
+            : $this->exportCsv("leads_{$stamp}.csv", $headers, $rows);
     }
 
     /**

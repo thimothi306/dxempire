@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { financeService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate, ExportButton } from '../../components/ui';
 import type { Expense } from '../../types';
 
 const FALLBACK_CATEGORIES = ['Logistics', 'Marketing', 'Office Supplies', 'Travel', 'Utilities', 'Other'];
@@ -58,7 +58,12 @@ export default function ExpensesPage() {
       <PageHeader
         title="Expenses"
         subtitle={`${meta?.total ?? 0} expense records`}
-        action={<Button onClick={() => setShowCreate(true)}><Plus size={15} /> Add Expense</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button onClick={() => setShowCreate(true)}><Plus size={15} /> Add Expense</Button>
+            <ExportButton filenameBase="expenses" onExport={(format) => financeService.exportExpenses(format)} />
+          </div>
+        }
       />
 
       {expenses.length > 0 && (

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CRM\StoreDealerRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Dealer;
 use App\Models\User;
 use App\Services\NotificationService;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 class DealerController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(private NotificationService $notifications) {}
 
@@ -33,6 +34,27 @@ class DealerController extends Controller
             ->paginate(50);
 
         return $this->paginated($dealers);
+    }
+
+    public function export(Request $request)
+    {
+        $dealers = Dealer::with('user')
+            ->when($request->kyc_status, fn($q) => $q->where('kyc_status', $request->kyc_status))
+            ->when($request->state,      fn($q) => $q->where('state', $request->state))
+            ->when($request->district,   fn($q) => $q->where('district', $request->district))
+            ->orderBy('business_name')
+            ->get();
+
+        $headers = ['Business', 'Owner', 'Phone', 'State', 'District', 'KYC Status', 'Credit Limit', 'Credit Used', 'Unique Code'];
+        $rows = $dealers->map(fn($d) => [
+            $d->business_name, $d->user?->name ?? '-', $d->user?->phone ?? '-', $d->state ?? '-',
+            $d->district ?? '-', $d->kyc_status, $d->credit_limit, $d->credit_used, $d->unique_code ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Business Partners', $headers, $rows, "business_partners_{$stamp}.pdf")
+            : $this->exportCsv("business_partners_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(StoreDealerRequest $request): JsonResponse

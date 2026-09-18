@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dealersService } from '../../services';
-import { Card, Table, Pagination, Select, Button, Badge, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Select, Button, Badge, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate, ExportButton } from '../../components/ui';
 import type { Dealer } from '../../types';
 
 const BLANK_FORM = {
@@ -115,9 +115,15 @@ export default function DealersPage() {
         title="Business Partners"
         subtitle={`${meta?.total ?? 0} registered business partners`}
         action={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus size={15} /> New Dealer
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus size={15} /> New Dealer
+            </Button>
+            <ExportButton
+              filenameBase="business_partners"
+              onExport={(format) => dealersService.export(format, { ...(kycFilter && { kyc_status: kycFilter }), ...(districtFilter && { district: districtFilter }) })}
+            />
+          </div>
         }
       />
 

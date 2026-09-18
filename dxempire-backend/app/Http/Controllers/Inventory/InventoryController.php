@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers\Inventory;
 
-use App\Exports\InventoryExport;
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Product;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
 
 class InventoryController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -193,9 +192,19 @@ class InventoryController extends Controller
 
     public function export(Request $request)
     {
-        $filename = 'inventory_' . now()->format('Ymd_His') . '.xlsx';
+        $products = Product::with(['bin', 'supplier'])->filter($request)->orderByDesc('created_at')->get();
 
-        return Excel::download(new InventoryExport($request), $filename);
+        $headers = ['ID', 'IMEI', 'Serial Number', 'Category', 'Brand', 'Model', 'Grade', 'Status', 'Bin', 'Purchase Price', 'Selling Price', 'Supplier', 'QC Passed At', 'Created At'];
+        $rows = $products->map(fn($p) => [
+            $p->id, $p->imei ?? '-', $p->serial_number ?? '-', $p->category, $p->brand, $p->model,
+            $p->grade ?? '-', $p->status, $p->bin?->code ?? '-', $p->purchase_price, $p->selling_price ?? '-',
+            $p->supplier?->name ?? '-', $p->qc_passed_at?->format('Y-m-d H:i') ?? '-', $p->created_at->format('Y-m-d H:i'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Inventory', $headers, $rows, "inventory_{$stamp}.pdf")
+            : $this->exportCsv("inventory_{$stamp}.csv", $headers, $rows);
     }
 
     /**

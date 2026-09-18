@@ -218,6 +218,7 @@ Route::prefix('v1')->group(function () {
         // ── CRM & Sales ───────────────────────────────────────────────────
         Route::middleware('permission:crm.edit')->group(function () {
             Route::get('leads',                      [LeadController::class, 'index']);
+            Route::get('leads/export',               [LeadController::class, 'export']);
             Route::post('leads',                     [LeadController::class, 'store']);
             Route::get('leads/{lead}',               [LeadController::class, 'show']);
             Route::put('leads/{lead}',               [LeadController::class, 'update']);
@@ -225,6 +226,7 @@ Route::prefix('v1')->group(function () {
             Route::post('leads/{lead}/convert',      [LeadController::class, 'convert']);
 
             Route::get('dealers',                    [DealerController::class, 'index']);
+            Route::get('dealers/export',              [DealerController::class, 'export']);
             Route::get('dealers/{dealer}',           [DealerController::class, 'show']);
             Route::get('dealers/{dealer}/ledger',    [DealerController::class, 'ledger']);
         });
@@ -252,6 +254,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('orders')->group(function () {
             // Any authenticated user can view orders they are associated with
             Route::get('/',                              [OrderController::class, 'index']);
+            Route::get('/export',                        [OrderController::class, 'export']);
             Route::get('/{order}',                       [OrderController::class, 'show']);
             Route::get('/{order}/payments',              [OrderController::class, 'payments']);
             Route::get('/{order}/invoice/download',      [OrderController::class, 'downloadInvoice']);
@@ -295,6 +298,7 @@ Route::prefix('v1')->group(function () {
             // Expenses
             Route::prefix('finance/expenses')->group(function () {
                 Route::get('/',                [ExpenseController::class, 'index']);
+                Route::get('/export',          [ExpenseController::class, 'export']);
                 Route::post('/',               [ExpenseController::class, 'store']);
                 Route::get('/categories',      [ExpenseController::class, 'categories']);
                 Route::get('/{expense}',       [ExpenseController::class, 'show']);

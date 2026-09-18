@@ -44,7 +44,8 @@ export const inventoryService = {
   availability: () => DEMO_MODE ? mock({}) : api.get('/inventory/availability').then((r) => r.data.data),
   lowStock: () => DEMO_MODE ? mock([]) : api.get('/inventory/low-stock').then((r) => r.data.data),
   aiSearch: (query: string) => DEMO_MODE ? mock({}) : api.post('/inventory/ai-search', { query }).then((r) => r.data.data),
-  export: () => api.get('/inventory/export', { responseType: 'blob' }).then((r) => r.data),
+  export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/inventory/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
   moveBin: (productId: number, binId: number) => DEMO_MODE ? mock({}) : api.post('/bins/move', { product_id: productId, bin_id: binId }).then((r) => r.data),
 };
 
@@ -82,6 +83,8 @@ export const ordersService = {
   deliver: (id: number) => DEMO_MODE ? mock({}) : api.post(`/orders/${id}/deliver`).then((r) => r.data),
   return: (id: number) => DEMO_MODE ? mock({}) : api.post(`/orders/${id}/return`).then((r) => r.data),
   payments: (id: number) => DEMO_MODE ? mock([]) : api.get(`/orders/${id}/payments`).then((r) => r.data.data),
+  export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/orders/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
 };
 
 // ─── Dealers ─────────────────────────────────────────────────────────────────
@@ -98,6 +101,8 @@ export const dealersService = {
   activate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/activate`).then((r) => r.data),
   deactivate: (id: number) => DEMO_MODE ? mock({}) : api.post(`/dealers/${id}/deactivate`).then((r) => r.data),
   destroy: (id: number) => DEMO_MODE ? mock({}) : api.delete(`/dealers/${id}`).then((r) => r.data),
+  export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/dealers/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
 };
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
@@ -108,6 +113,8 @@ export const leadsService = {
   update: (id: number, data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.put(`/leads/${id}`, data).then((r) => r.data.data),
   updateStage: (id: number, data: { stage: string }) => DEMO_MODE ? mock({}) : api.put(`/leads/${id}/stage`, data).then((r) => r.data),
   convert: (id: number) => DEMO_MODE ? mock({}) : api.post(`/leads/${id}/convert`).then((r) => r.data),
+  export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/leads/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
 };
 
 // ─── Finance ─────────────────────────────────────────────────────────────────
@@ -120,6 +127,8 @@ export const financeService = {
   expenseCategories: () => DEMO_MODE ? mock(['Logistics', 'Office', 'Utilities', 'Marketing', 'Repairs', 'Other']) : api.get('/finance/expenses/categories').then((r) => r.data.data),
   createExpense: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post('/finance/expenses', data).then((r) => r.data.data),
   deleteExpense: (id: number) => DEMO_MODE ? mock({}) : api.delete(`/finance/expenses/${id}`),
+  exportExpenses: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/finance/expenses/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
   pl: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_PL) : api.get('/finance/profit-loss', { params }).then((r) => r.data.data),
   profitLoss: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_PL) : api.get('/finance/profit-loss', { params }).then((r) => r.data.data),
   gstReport: (params?: Record<string, string>) => DEMO_MODE ? mock(DEMO_GST) : api.get('/finance/gst-summary', { params }).then((r) => r.data.data),

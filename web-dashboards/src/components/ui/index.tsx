@@ -1,5 +1,5 @@
-import { Loader2 } from 'lucide-react';
-import React from 'react';
+import { Loader2, Download, ChevronDown } from 'lucide-react';
+import React, { useState } from 'react';
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -23,6 +23,53 @@ export const Button = ({ variant = 'primary', size = 'md', loading, children, cl
       {loading && <Loader2 size={14} className="animate-spin" />}
       {children}
     </button>
+  );
+};
+
+// ─── Export Button ───────────────────────────────────────────────────────────
+// Downloads a file returned as a blob (auth needs a Bearer header, so a plain
+// <a href> to the API won't carry it -- axios fetches it, then we hand the
+// browser a temporary object URL to actually save).
+export const ExportButton = ({
+  onExport, filenameBase,
+}: {
+  onExport: (format: 'csv' | 'pdf') => Promise<Blob>;
+  filenameBase: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const run = async (format: 'csv' | 'pdf') => {
+    setOpen(false);
+    setLoading(true);
+    try {
+      const blob = await onExport(format);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${filenameBase}.${format}`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="relative inline-block">
+      <Button variant="outline" loading={loading} onClick={() => setOpen((o) => !o)}>
+        <Download size={15} /> Export <ChevronDown size={13} />
+      </Button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-20 overflow-hidden">
+            <button onClick={() => run('csv')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">CSV</button>
+            <button onClick={() => run('pdf')} className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50">PDF</button>
+          </div>
+        </>
+      )}
+    </div>
   );
 };
 

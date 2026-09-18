@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Download, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { inventoryService, procurementService, gradeService, binsService } from '../../services';
-import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR } from '../../components/ui';
+import { Card, Table, Pagination, Input, Select, Badge, Button, PageHeader, Spinner, Modal, fmtINR, ExportButton } from '../../components/ui';
 import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 import { AiSearchBox, type AiSearchFilters } from '../../components/AiSearchBox';
 import type { Product } from '../../types';
@@ -138,12 +138,6 @@ export default function InventoryPage() {
   const products: Product[] = Array.isArray(data?.data) ? data.data : [];
   const meta = data?.meta || { current_page: 1, last_page: 1, total: 0 };
 
-  const handleExport = async () => {
-    const blob = await inventoryService.export();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'inventory.xlsx'; a.click();
-  };
-
   return (
     <div>
       <PageHeader
@@ -152,7 +146,10 @@ export default function InventoryPage() {
         action={
           <div className="flex gap-2">
             <Button onClick={() => setShowAdd(true)}><Plus size={15} /> Add Product</Button>
-            <Button variant="outline" onClick={handleExport}><Download size={15} /> Export</Button>
+            <ExportButton
+              filenameBase="inventory"
+              onExport={(format) => inventoryService.export(format, Object.fromEntries(Object.entries(filters).filter(([, v]) => v)))}
+            />
           </div>
         }
       />

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Orders\DispatchOrderRequest;
 use App\Http\Requests\Orders\StoreOrderRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\AuditLog;
 use App\Models\Dealer;
 use App\Models\Invoice;
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(
         private OrderService $orderService,
@@ -40,6 +41,28 @@ class OrderController extends Controller
             ->latest();
 
         return $this->paginated($query->paginate($request->integer('per_page', 20)));
+    }
+
+    public function export(Request $request)
+    {
+        $orders = Order::with('dealer')
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->dealer_id, fn($q) => $q->where('dealer_id', $request->dealer_id))
+            ->when($request->payment_status, fn($q) => $q->where('payment_status', $request->payment_status))
+            ->when($request->search, fn($q) => $q->where('order_number', 'like', "%{$request->search}%"))
+            ->latest()
+            ->get();
+
+        $headers = ['Order #', 'Business Partner', 'Status', 'Payment Status', 'Subtotal', 'GST', 'Total', 'Placed On'];
+        $rows = $orders->map(fn($o) => [
+            $o->order_number, $o->dealer?->business_name ?? '-', $o->status, $o->payment_status,
+            $o->subtotal, $o->gst_amount, $o->total_amount, $o->created_at->format('Y-m-d H:i'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Orders', $headers, $rows, "orders_{$stamp}.pdf")
+            : $this->exportCsv("orders_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(StoreOrderRequest $request): JsonResponse

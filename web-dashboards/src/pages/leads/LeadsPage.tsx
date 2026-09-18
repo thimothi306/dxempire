@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { leadsService } from '../../services';
-import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, leadStageBadge, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, leadStageBadge, fmtDate, ExportButton } from '../../components/ui';
 import type { Lead, LeadStage } from '../../types';
 
 const STAGES: LeadStage[] = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'won', 'lost'];
@@ -57,7 +57,12 @@ export default function LeadsPage() {
       <PageHeader
         title="Leads / CRM"
         subtitle="Potential dealer pipeline"
-        action={<Button onClick={() => setShowCreate(true)}><Plus size={15} /> Add Lead</Button>}
+        action={
+          <div className="flex gap-2">
+            <Button onClick={() => setShowCreate(true)}><Plus size={15} /> Add Lead</Button>
+            <ExportButton filenameBase="leads" onExport={(format) => leadsService.export(format, { ...(stageFilter && { stage: stageFilter }) })} />
+          </div>
+        }
       />
 
       {/* Pipeline view */}

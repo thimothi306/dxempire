@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Finance;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\StoreExpenseRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Expense;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 class ExpenseController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -73,6 +74,27 @@ class ExpenseController extends Controller
         $expense->delete();
 
         return $this->success(null, 'Expense deleted.');
+    }
+
+    public function export(Request $request)
+    {
+        $expenses = Expense::with('creator:id,name')
+            ->when($request->category, fn($q) => $q->where('category', $request->category))
+            ->when($request->from, fn($q) => $q->whereDate('incurred_at', '>=', $request->from))
+            ->when($request->to, fn($q) => $q->whereDate('incurred_at', '<=', $request->to))
+            ->orderByDesc('incurred_at')
+            ->get();
+
+        $headers = ['ID', 'Category', 'Description', 'Vendor', 'Amount', 'Date', 'Recorded By'];
+        $rows = $expenses->map(fn($e) => [
+            $e->id, $e->category, $e->description, $e->vendor ?? '-', $e->amount,
+            $e->incurred_at?->format('Y-m-d') ?? '-', $e->creator?->name ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Expenses', $headers, $rows, "expenses_{$stamp}.pdf")
+            : $this->exportCsv("expenses_{$stamp}.csv", $headers, $rows);
     }
 
     public function categories(): JsonResponse
