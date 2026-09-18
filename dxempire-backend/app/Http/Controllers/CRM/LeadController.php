@@ -33,8 +33,15 @@ class LeadController extends Controller
     {
         $visibleIds = $this->visibility->visibleUserIds($request->user());
 
+        // Unassigned leads (assigned_to IS NULL) — every website contact-form
+        // submission lands this way — are shown to anyone with crm.edit
+        // regardless of hierarchy scope. A NULL never matches whereIn(), so
+        // without this an unclaimed lead was invisible to every scoped role
+        // (Salesman, District/Area/State Manager) and only ever showed up
+        // for super_admin/accounts — indistinguishable from the lead never
+        // having been stored at all, from a Salesman's point of view.
         $leads = Lead::with('assignedUser')
-            ->when($visibleIds !== null, fn($q) => $q->whereIn('assigned_to', $visibleIds))
+            ->when($visibleIds !== null, fn($q) => $q->where(fn($q2) => $q2->whereIn('assigned_to', $visibleIds)->orWhereNull('assigned_to')))
             ->filter($request)
             ->orderByDesc('updated_at')
             ->paginate(50);
