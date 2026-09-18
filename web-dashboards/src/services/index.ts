@@ -245,6 +245,14 @@ export const procurementService = {
   purchaseOrderById: (id: number) => DEMO_MODE ? mock(DEMO_PURCHASE_ORDERS.data.find(p => p.id === id)) : api.get(`/purchase-orders/${id}`).then((r) => r.data.data),
   receivePO: (id: number, data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post(`/purchase-orders/${id}/receive`, data).then((r) => r.data),
   receive: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post('/procurement/receive', data).then((r) => r.data),
+  importTemplate: () => api.get('/procurement/receive/template', { responseType: 'blob' }).then((r) => r.data),
+  importReceive: (file: File, supplierId: string, purchaseOrderId?: string) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('supplier_id', supplierId);
+    if (purchaseOrderId) fd.append('purchase_order_id', purchaseOrderId);
+    return DEMO_MODE ? mock({}) : api.post('/procurement/receive/import', fd).then((r) => r.data);
+  },
   history: () => DEMO_MODE ? mock({ data: [] }) : api.get('/procurement/history').then((r) => r.data),
 };
 

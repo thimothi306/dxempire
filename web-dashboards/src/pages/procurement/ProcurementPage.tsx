@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procurementService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR } from '../../components/ui';
@@ -73,6 +73,12 @@ export default function ProcurementPage() {
   const [deleteSupplier, setDeleteSupplier] = useState<any | null>(null);
   const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER);
 
+  // Bulk import state
+  const [showImport, setShowImport] = useState(false);
+  const [importSupplierId, setImportSupplierId] = useState('');
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResult, setImportResult] = useState<any | null>(null);
+
   const { data: poData, isLoading: poLoading } = useQuery({
     queryKey: ['purchase-orders', page],
     queryFn: () => procurementService.purchaseOrders({ page: String(page) }),
@@ -118,6 +124,28 @@ export default function ProcurementPage() {
     },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to record receipt'),
   });
+
+  const importMut = useMutation({
+    mutationFn: () => procurementService.importReceive(importFile!, importSupplierId),
+    onSuccess: (res: any) => {
+      const result = res.data ?? res;
+      setImportResult(result);
+      qc.invalidateQueries({ queryKey: ['inventory'] });
+      if (result.created_count > 0) toast.success(`${result.created_count} item(s) imported`);
+      if (result.failed_count > 0) toast.error(`${result.failed_count} row(s) skipped — see details below`);
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Import failed'),
+  });
+
+  const downloadTemplate = async () => {
+    const blob = await procurementService.importTemplate();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'receiving_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const createSupplierMut = useMutation({
     mutationFn: () => procurementService.createSupplier(supplierForm),
@@ -171,7 +199,14 @@ export default function ProcurementPage() {
         subtitle="Purchase orders & suppliers"
         action={
           tab === 'orders'
-            ? <Button onClick={() => setShowPO(true)}><Plus size={15} /> New PO</Button>
+            ? (
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => { setImportSupplierId(''); setImportFile(null); setImportResult(null); setShowImport(true); }}>
+                  <Upload size={15} /> Bulk Import
+                </Button>
+                <Button onClick={() => setShowPO(true)}><Plus size={15} /> New PO</Button>
+              </div>
+            )
             : <Button onClick={() => { setSupplierForm(EMPTY_SUPPLIER); setShowSupplier(true); }}><Plus size={15} /> Add Supplier</Button>
         }
       />
@@ -274,6 +309,66 @@ export default function ProcurementPage() {
           <div className="flex gap-3 pt-2">
             <Button onClick={() => receiveMut.mutate()} loading={receiveMut.isPending} className="flex-1 justify-center">Confirm Receipt</Button>
             <Button variant="outline" onClick={() => setReceivePO(null)} className="flex-1 justify-center">Cancel</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Bulk Import Modal */}
+      <Modal open={showImport} onClose={() => setShowImport(false)} title="Bulk Import Stock" width="max-w-lg">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            For receiving many units at once instead of typing each one in. Download the template,
+            fill in one row per product (or per batch of identical units — use the quantity column
+            instead of repeating rows), and upload it back.
+          </p>
+
+          <button onClick={downloadTemplate} className="text-sm text-primary hover:underline flex items-center gap-1">
+            <Download size={14} /> Download CSV template
+          </button>
+
+          <Select
+            label="Supplier *"
+            value={importSupplierId}
+            onChange={(e) => setImportSupplierId(e.target.value)}
+            options={[{ value: '', label: 'Select supplier...' }, ...suppliers.map((s: any) => ({ value: String(s.id), label: s.name }))]}
+          />
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">Filled-in CSV *</label>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              className="text-sm border border-gray-300 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:text-xs file:font-medium"
+            />
+          </div>
+
+          {importResult && (
+            <div className="bg-gray-50 rounded-lg p-3 text-sm space-y-2">
+              <div className="flex gap-4">
+                <span className="text-green-700 font-medium">{importResult.created_count} created</span>
+                {importResult.failed_count > 0 && <span className="text-red-600 font-medium">{importResult.failed_count} skipped</span>}
+              </div>
+              {importResult.failed?.length > 0 && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {importResult.failed.map((f: any, i: number) => (
+                    <div key={i} className="text-xs text-red-600">Row {f.row}: {f.reason}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={() => importMut.mutate()}
+              loading={importMut.isPending}
+              disabled={!importSupplierId || !importFile}
+              className="flex-1 justify-center"
+            >
+              Import
+            </Button>
+            <Button variant="outline" onClick={() => setShowImport(false)} className="flex-1 justify-center">Close</Button>
           </div>
         </div>
       </Modal>

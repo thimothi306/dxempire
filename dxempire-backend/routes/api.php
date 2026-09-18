@@ -150,6 +150,8 @@ Route::prefix('v1')->group(function () {
 
             Route::prefix('procurement')->group(function () {
                 Route::post('receive',                    [ReceivingController::class, 'store']);
+                Route::get('receive/template',            [ReceivingController::class, 'importTemplate']);
+                Route::post('receive/import',             [ReceivingController::class, 'import']);
                 Route::get('history',                     [ReceivingController::class, 'history']);
             });
         });
