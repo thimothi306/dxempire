@@ -138,6 +138,7 @@ export default function CatalogImagesPage() {
   const qc = useQueryClient();
   const [showUpload, setShowUpload] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<CatalogImage | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [file, setFile] = useState<File | null>(null);
   const [manualBrand, setManualBrand] = useState(false);
@@ -192,24 +193,33 @@ export default function CatalogImagesPage() {
   });
 
   const images: CatalogImage[] = Array.isArray(data) ? data : [];
+  const filteredImages = categoryFilter ? images.filter((img) => img.category === categoryFilter) : images;
 
   return (
     <div>
       <PageHeader
         title="Catalog Images"
-        subtitle={`${images.length} model photo${images.length === 1 ? '' : 's'} — shown to partners in the app catalog`}
+        subtitle={`${filteredImages.length} model photo${filteredImages.length === 1 ? '' : 's'} — shown to partners in the app catalog`}
         action={<Button onClick={() => { setForm(EMPTY_FORM); setFile(null); setManualBrand(false); setManualModel(false); setShowUpload(true); }}><Plus size={15} /> Upload Image</Button>}
       />
 
+      <div className="mb-5 max-w-xs">
+        <Select
+          value={categoryFilter}
+          onChange={(e) => setCategoryFilter(e.target.value)}
+          options={[{ value: '', label: 'All Categories' }, ...CATEGORIES]}
+        />
+      </div>
+
       <Card className="p-5">
-        {isLoading ? <Spinner /> : images.length === 0 ? (
+        {isLoading ? <Spinner /> : filteredImages.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <ImageOff size={32} className="mx-auto mb-2" />
-            <p className="text-sm">No catalog images uploaded yet.</p>
+            <p className="text-sm">{images.length === 0 ? 'No catalog images uploaded yet.' : 'No images in this category.'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {images.map((img) => (
+            {filteredImages.map((img) => (
               <div key={img.id} className="border border-gray-200 rounded-lg overflow-hidden group relative">
                 <img src={img.image_url} alt={img.model} className="w-full aspect-square object-cover bg-gray-50" />
                 <div className="p-2">

@@ -57,6 +57,9 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/send-otp',    [AuthController::class, 'sendOtp']);
         Route::post('/auth/verify-otp',  [AuthController::class, 'verifyOtp']);
         Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
+
+        // Marketing site's contact form — no auth, deliberately narrow (see LeadController::publicContact).
+        Route::post('/public/contact', [LeadController::class, 'publicContact']);
     });
 
     // ── Authenticated routes ───────────────────────────────────────────────

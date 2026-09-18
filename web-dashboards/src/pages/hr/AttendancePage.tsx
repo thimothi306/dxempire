@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { hrService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Select, fmtDateTime, fmtDate } from '../../components/ui';
 import type { AttendanceRecord } from '../../types';
+import { DEPARTMENTS } from './EmployeesPage';
 
 const STATUS_COLORS: Record<string, string> = {
   present: 'green', absent: 'red', late: 'yellow', half_day: 'orange', holiday: 'blue',
@@ -13,12 +14,21 @@ const STATUS_COLORS: Record<string, string> = {
 export default function AttendancePage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10));
+  const today = new Date().toISOString().slice(0, 10);
+  const [fromFilter, setFromFilter] = useState(today);
+  const [toFilter, setToFilter] = useState(today);
   const [employeeFilter, setEmployeeFilter] = useState('');
+  const [departmentFilter, setDepartmentFilter] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['attendance', page, dateFilter, employeeFilter],
-    queryFn: () => hrService.attendance({ page: String(page), date: dateFilter, ...(employeeFilter && { employee_id: employeeFilter }) }),
+    queryKey: ['attendance', page, fromFilter, toFilter, employeeFilter, departmentFilter],
+    queryFn: () => hrService.attendance({
+      page: String(page),
+      from: fromFilter,
+      to: toFilter,
+      ...(employeeFilter && { employee_id: employeeFilter }),
+      ...(departmentFilter && { department: departmentFilter }),
+    }),
   });
 
   const { data: empData } = useQuery({
@@ -46,17 +56,36 @@ export default function AttendancePage() {
     <div>
       <PageHeader title="Attendance" subtitle="Daily check-in / check-out" />
 
-      <div className="flex flex-wrap gap-3 mb-5">
-        <input
-          type="date"
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
-          value={dateFilter}
-          onChange={(e) => { setDateFilter(e.target.value); setPage(1); }}
-        />
+      <div className="flex flex-wrap items-end gap-3 mb-5">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">From</label>
+          <input
+            type="date"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            value={fromFilter}
+            max={toFilter}
+            onChange={(e) => { setFromFilter(e.target.value); setPage(1); }}
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">To</label>
+          <input
+            type="date"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30"
+            value={toFilter}
+            min={fromFilter}
+            onChange={(e) => { setToFilter(e.target.value); setPage(1); }}
+          />
+        </div>
         <Select
           value={employeeFilter}
           onChange={(e) => { setEmployeeFilter(e.target.value); setPage(1); }}
           options={[{ value: '', label: 'All Employees' }, ...employees.map((e: any) => ({ value: String(e.id), label: e.name }))]}
+        />
+        <Select
+          value={departmentFilter}
+          onChange={(e) => { setDepartmentFilter(e.target.value); setPage(1); }}
+          options={[{ value: '', label: 'All Departments' }, ...DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))]}
         />
       </div>
 

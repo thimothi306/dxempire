@@ -41,6 +41,33 @@ class LeadController extends Controller
         return $this->paginated($leads);
     }
 
+    /**
+     * Public — hit directly by the marketing site's contact form, no auth.
+     * Deliberately its own narrow method rather than reusing store(): only
+     * the four real contact-form fields are accepted, source and stage are
+     * forced server-side, so a public caller can never set assigned_to or
+     * anything else store() otherwise allows a logged-in staff member to.
+     */
+    public function publicContact(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'    => ['required', 'string', 'max:200'],
+            'email'   => ['required', 'email', 'max:150'],
+            'subject' => ['nullable', 'string', 'max:200'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
+
+        $lead = Lead::create([
+            'source'       => 'website',
+            'contact_name' => $data['name'],
+            'email'        => $data['email'],
+            'notes'        => trim(($data['subject'] ?? '') . "\n\n" . $data['message']),
+            'stage'        => 'new',
+        ]);
+
+        return $this->created(['id' => $lead->id], 'Message received — our team will reach out soon.');
+    }
+
     public function store(StoreLeadRequest $request): JsonResponse
     {
         $lead = Lead::create([

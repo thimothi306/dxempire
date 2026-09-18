@@ -28,6 +28,9 @@ class AttendanceController extends Controller
                 ->whereMonth('date', $request->month)
                 ->whereYear('date', $request->year)
             )
+            ->when($request->from, fn($q) => $q->whereDate('date', '>=', $request->from))
+            ->when($request->to, fn($q) => $q->whereDate('date', '<=', $request->to))
+            ->when($request->department, fn($q) => $q->whereHas('employee', fn($e) => $e->where('department', $request->department)))
             ->when($request->status, fn($q) => $q->where('status', $request->status))
             ->orderByDesc('date')
             ->paginate($request->integer('per_page', 50));

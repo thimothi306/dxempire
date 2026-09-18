@@ -6,7 +6,7 @@ import { hrService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
 import type { Employee } from '../../types';
 
-const DEPARTMENTS = ['warehouse', 'sales', 'qc', 'accounts', 'hr', 'logistics', 'management'];
+export const DEPARTMENTS = ['warehouse', 'sales', 'qc', 'accounts', 'hr', 'logistics', 'management'];
 const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract'];
 const EMPTY_FORM = { name: '', phone: '', email: '', department: 'warehouse', designation: '', employment_type: 'full_time', salary: '', joining_date: '', incentive_enabled: false, commission_rate: '' };
 type EmployeeFormState = typeof EMPTY_FORM;
@@ -74,14 +74,15 @@ function EmployeeForm({
 export default function EmployeesPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
+  const [departmentFilter, setDepartmentFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['employees', page],
-    queryFn: () => hrService.employees({ page: String(page) }),
+    queryKey: ['employees', page, departmentFilter],
+    queryFn: () => hrService.employees({ page: String(page), ...(departmentFilter && { department: departmentFilter }) }),
   });
 
   const createMut = useMutation({
@@ -141,6 +142,14 @@ export default function EmployeesPage() {
         subtitle={`${meta?.total ?? 0} staff members`}
         action={<Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Employee</Button>}
       />
+
+      <div className="mb-5 max-w-xs">
+        <Select
+          value={departmentFilter}
+          onChange={(e) => { setDepartmentFilter(e.target.value); setPage(1); }}
+          options={[{ value: '', label: 'All Departments' }, ...DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))]}
+        />
+      </div>
 
       <Card>
         {isLoading ? <Spinner /> : (

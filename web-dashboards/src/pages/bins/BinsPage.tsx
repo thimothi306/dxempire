@@ -42,6 +42,13 @@ export default function BinsPage() {
         action={<Button onClick={() => setShowCreate(true)}><Plus size={15} /> New Bin</Button>}
       />
 
+      <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 text-sm text-gray-700 space-y-1.5">
+        <p><span className="font-semibold">What a bin is:</span> a physical shelf/location slot inside a warehouse — this screen only creates the slot. Creating a bin here does not put any stock into it.</p>
+        <p><span className="font-semibold">How stock actually gets into a bin:</span> go to <span className="font-medium">Inventory</span>, find the product, and use its <span className="font-medium">"Move to Bin"</span> button. That's the only action that changes a bin's occupancy count.</p>
+        <p><span className="font-semibold">Occupancy</span> (e.g. <span className="font-mono">12/50</span>) is current units placed / maximum capacity you set when creating the bin. A new bin always starts at 0 and stays there until a product is moved into it from Inventory.</p>
+        <p><span className="font-semibold">Zone</span> is just a label for grouping bins (e.g. "Zone A") — it doesn't affect capacity or behavior, purely for organizing the warehouse floor.</p>
+      </div>
+
       <Card>
         {isLoading ? <Spinner /> : (
           <>

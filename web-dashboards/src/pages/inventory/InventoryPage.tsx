@@ -185,6 +185,7 @@ export default function InventoryPage() {
                 { key: 'grade', header: 'Grade', render: (p) => <Badge label={p.grade} color="purple" /> },
                 { key: 'status', header: 'Status', render: (p) => <Badge label={p.status.replace('_', ' ')} color={STATUS_COLORS[p.status] ?? 'gray'} /> },
                 { key: 'selling_price', header: 'Price', render: (p) => fmtINR(p.selling_price) },
+                { key: 'supplier', header: 'Source', render: (p) => p.supplier?.name ?? '—' },
                 { key: 'bin', header: 'Bin', render: (p) => p.bin?.code ?? '—' },
                 {
                   key: 'actions', header: '', render: (p) => (
