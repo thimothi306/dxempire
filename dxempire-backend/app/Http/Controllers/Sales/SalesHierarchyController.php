@@ -19,6 +19,7 @@ class SalesHierarchyController extends Controller
         $nodes = SalesHierarchy::with(['parent:id,name,tree_id', 'user:id,name,phone'])
             ->when($request->role,   fn($q) => $q->where('hierarchy_role', $request->role))
             ->when($request->state,  fn($q) => $q->where('state', $request->state))
+            ->when($request->district, fn($q) => $q->where('district', $request->district))
             ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
                 ->orWhere('tree_id', 'like', "%{$request->search}%"))
             ->when($request->parent_id, fn($q) => $q->where('parent_id', $request->parent_id))

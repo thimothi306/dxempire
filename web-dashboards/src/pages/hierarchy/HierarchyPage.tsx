@@ -28,6 +28,25 @@ const INDIAN_STATES = [
 ];
 
 const EMPTY_FORM = { name: '', phone: '', email: '', hierarchy_role: 'salesman', parent_unique_code: '', state: '', area: '', district: '' };
+
+// Recursive — the API loads 4 levels of children per node, so a manager's
+// downline is a real tree, not a flat list of direct reports.
+function DownlineNode({ node, depth }: { node: any; depth: number }) {
+  const children = node.children ?? [];
+  return (
+    <div>
+      <div className="flex justify-between text-xs bg-gray-50 px-3 py-2 rounded" style={{ marginLeft: depth * 16 }}>
+        <span><code className="text-primary font-bold">{node.tree_id}</code> — {node.name}</span>
+        <Badge label={node.hierarchy_role.replace(/_/g, ' ')} color={ROLE_COLORS[node.hierarchy_role]} />
+      </div>
+      {children.length > 0 && (
+        <div className="mt-1 space-y-1">
+          {children.map((child: any) => <DownlineNode key={child.id} node={child} depth={depth + 1} />)}
+        </div>
+      )}
+    </div>
+  );
+}
 type HierarchyFormState = typeof EMPTY_FORM;
 
 // Defined OUTSIDE the page component: an inline component definition would be
@@ -88,6 +107,7 @@ export default function HierarchyPage() {
   const [page, setPage] = useState(1);
   const [roleFilter, setRoleFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
@@ -95,11 +115,12 @@ export default function HierarchyPage() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['hierarchy', page, roleFilter, stateFilter],
+    queryKey: ['hierarchy', page, roleFilter, stateFilter, districtFilter],
     queryFn: () => hierarchyService.list({
       page: String(page),
       ...(roleFilter && { role: roleFilter }),
       ...(stateFilter && { state: stateFilter }),
+      ...(districtFilter && { district: districtFilter }),
     }),
   });
 
@@ -155,6 +176,8 @@ export default function HierarchyPage() {
           options={[{ value: '', label: 'All Roles' }, ...ROLES]} />
         <Select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
           options={[{ value: '', label: 'All States' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
+        <Input placeholder="Filter by district..." value={districtFilter}
+          onChange={e => { setDistrictFilter(e.target.value); setPage(1); }} className="max-w-[220px]" />
       </div>
 
       <Card>
@@ -238,13 +261,10 @@ export default function HierarchyPage() {
                     </div>
                     {(downlineData.tree ?? []).length > 0 && (
                       <div>
-                        <div className="text-xs font-medium text-gray-500 mb-2">Direct Reports</div>
-                        <div className="space-y-1">
+                        <div className="text-xs font-medium text-gray-500 mb-2">Full downline (every level below)</div>
+                        <div className="space-y-1 max-h-72 overflow-y-auto">
                           {downlineData.tree.map((child: any) => (
-                            <div key={child.id} className="flex justify-between text-xs bg-gray-50 px-3 py-2 rounded">
-                              <span><code className="text-primary font-bold">{child.tree_id}</code> — {child.name}</span>
-                              <Badge label={child.hierarchy_role.replace(/_/g, ' ')} color={ROLE_COLORS[child.hierarchy_role]} />
-                            </div>
+                            <DownlineNode key={child.id} node={child} depth={0} />
                           ))}
                         </div>
                       </div>
