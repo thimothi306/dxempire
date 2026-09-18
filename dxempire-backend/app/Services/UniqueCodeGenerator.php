@@ -11,6 +11,7 @@ class UniqueCodeGenerator
         $prefixes = [
             'super_admin'      => 'SA',
             'sales'            => 'SM',
+            'state_manager'    => 'STM',
             'district_manager' => 'DM',
             'area_manager'     => 'AM',
             'sales_guy'        => 'SG',

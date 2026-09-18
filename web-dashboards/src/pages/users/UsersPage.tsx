@@ -7,7 +7,7 @@ import { Button, Badge, Table, Pagination, Modal, Input, Select, PageHeader, Car
 import type { User, Role } from '../../types';
 
 const ROLES: Role[] = [
-  'super_admin', 'sales',
+  'super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager',
   'warehouse_staff', 'warehouse_manager', 'qc_engineer', 'product_manager', 'packing_staff', 'placement_staff',
   'accounts', 'hr_manager', 'logistics',
 ];

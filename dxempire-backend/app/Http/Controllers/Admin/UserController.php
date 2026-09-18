@@ -25,6 +25,7 @@ class UserController extends Controller
         'super_admin', 'warehouse_staff', 'warehouse_manager', 'qc_engineer',
         'product_manager', 'packing_staff', 'placement_staff',
         'sales', 'accounts', 'hr_manager', 'logistics',
+        'state_manager', 'area_manager', 'district_manager',
     ];
 
     public function index(Request $request): JsonResponse

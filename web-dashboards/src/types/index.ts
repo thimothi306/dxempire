@@ -1,5 +1,6 @@
 export type Role =
-  | 'super_admin' | 'sales' | 'warehouse_staff' | 'warehouse_manager'
+  | 'super_admin' | 'sales' | 'state_manager' | 'area_manager' | 'district_manager'
+  | 'warehouse_staff' | 'warehouse_manager'
   | 'qc_engineer' | 'product_manager' | 'packing_staff' | 'placement_staff'
   | 'accounts' | 'hr_manager' | 'b2b_partner' | 'logistics';
 

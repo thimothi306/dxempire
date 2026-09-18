@@ -20,7 +20,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'sales', 'warehouse_staff', 'warehouse_manager', 'qc_engineer', 'product_manager', 'packing_staff', 'placement_staff', 'accounts', 'hr_manager', 'logistics', 'b2b_partner'] },
+  { label: 'Dashboard', to: '/dashboard', icon: <LayoutDashboard size={18} />, roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager', 'warehouse_staff', 'warehouse_manager', 'qc_engineer', 'product_manager', 'packing_staff', 'placement_staff', 'accounts', 'hr_manager', 'logistics', 'b2b_partner'] },
   { label: 'My Orders',   to: '/orders',       icon: <ShoppingCart size={18} />,   roles: ['b2b_partner'] },
   { label: 'My Invoices', to: '/invoices',     icon: <FileText size={18} />,       roles: ['b2b_partner'] },
   { label: 'My Dues',     to: '/dues',         icon: <Wallet size={18} />,         roles: ['b2b_partner'] },
@@ -32,10 +32,10 @@ const NAV: NavItem[] = [
   { label: 'Warehouses',  to: '/warehouses',   icon: <Warehouse size={18} />,      roles: ['super_admin', 'warehouse_manager'] },
   { label: 'Grades',      to: '/grades',       icon: <Award size={18} />,          roles: ['super_admin', 'product_manager'] },
   { label: 'Procurement', to: '/procurement',  icon: <Archive size={18} />,        roles: ['super_admin', 'warehouse_staff', 'warehouse_manager'] },
-  { label: 'Business Partners', to: '/dealers', icon: <Building2 size={18} />, roles: ['super_admin', 'sales'] },
-  { label: 'Leads',       to: '/leads',        icon: <UserPlus size={18} />,       roles: ['super_admin', 'sales'] },
-  { label: 'Hierarchy',   to: '/hierarchy',    icon: <GitBranch size={18} />,      roles: ['super_admin', 'sales'] },
-  { label: 'Offers',           to: '/offers',           icon: <Tag size={18} />,        roles: ['super_admin', 'sales'] },
+  { label: 'Business Partners', to: '/dealers', icon: <Building2 size={18} />, roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager'] },
+  { label: 'Leads',       to: '/leads',        icon: <UserPlus size={18} />,       roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager'] },
+  { label: 'Hierarchy',   to: '/hierarchy',    icon: <GitBranch size={18} />,      roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager'] },
+  { label: 'Offers',           to: '/offers',           icon: <Tag size={18} />,        roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager'] },
   { label: 'Support Tickets', to: '/support', icon: <LifeBuoy size={18} />, roles: ['super_admin', 'sales', 'accounts', 'warehouse_staff'] },
   { label: 'Peti to Peti',to: '/peti',         icon: <PackageCheck size={18} />,   roles: ['super_admin', 'warehouse_staff', 'warehouse_manager'] },
   {
@@ -56,7 +56,7 @@ const NAV: NavItem[] = [
       { label: 'Payroll',    to: '/payroll',    icon: <Banknote size={15} /> },
     ],
   },
-  { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['super_admin', 'sales', 'accounts'] },
+  { label: 'Analytics', to: '/analytics', icon: <BarChart3 size={18} />, roles: ['super_admin', 'sales', 'state_manager', 'area_manager', 'district_manager', 'accounts'] },
   { label: 'Staff Users', to: '/users',   icon: <Users size={18} />,     roles: ['super_admin'] },
   { label: 'Permissions', to: '/permissions', icon: <ShieldCheck size={18} />, roles: ['super_admin'] },
   { label: 'Audit Logs',to: '/audit',     icon: <ScrollText size={18} />,roles: ['super_admin'] },
