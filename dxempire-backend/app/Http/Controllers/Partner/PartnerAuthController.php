@@ -75,6 +75,7 @@ class PartnerAuthController extends Controller
             'kyc_status'    => $dealer?->kyc_status,
             'gst_number'    => $dealer?->gst_number,
             'state'         => $dealer?->state,
+            'district'      => $dealer?->district,
             'pincode'       => $dealer?->pincode,
             'price_tier'    => $dealer?->price_tier,
             'unique_code'   => $dealer?->unique_code,

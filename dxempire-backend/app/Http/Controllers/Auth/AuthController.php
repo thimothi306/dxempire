@@ -63,6 +63,7 @@ class AuthController extends Controller
                 'kyc_status'    => $dealer?->kyc_status,
                 'gst_number'    => $dealer?->gst_number,
                 'state'         => $dealer?->state,
+                'district'      => $dealer?->district,
                 'pincode'       => $dealer?->pincode,
                 'price_tier'    => $dealer?->price_tier,
                 'has_dealer'    => (bool) $dealer,
@@ -184,6 +185,7 @@ class AuthController extends Controller
             'password'      => ['required', 'string', 'min:8'],
             'gst_number'    => ['nullable', 'string', 'max:20'],
             'state'         => ['required', 'string', 'max:100'],
+            'district'      => ['nullable', 'string', 'max:100'],
             'pincode'       => ['required', 'string', 'max:10'],
             // The unique_code of whoever referred them — required for self-registration.
             // Admin-created dealers (CRM screen) go through a separate, unrelated flow
@@ -212,6 +214,7 @@ class AuthController extends Controller
                 'gst_number'            => $data['gst_number'] ?? null,
                 'kyc_status'            => 'pending',
                 'state'                 => $data['state'],
+                'district'              => $data['district'] ?? null,
                 'pincode'               => $data['pincode'],
                 'unique_code'           => PartnerCodeGenerator::generate(),
                 'referred_by_dealer_id' => $referredBy->id,
@@ -254,6 +257,7 @@ class AuthController extends Controller
                 'business_name' => $dealer?->business_name,
                 'gst_number'    => $dealer?->gst_number,
                 'state'         => $dealer?->state,
+                'district'      => $dealer?->district,
                 'pincode'       => $dealer?->pincode,
                 'price_tier'    => $dealer?->price_tier,
                 'unique_code'   => $dealer?->unique_code,

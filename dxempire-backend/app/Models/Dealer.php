@@ -10,7 +10,7 @@ class Dealer extends Model
 {
     protected $fillable = [
         'user_id', 'business_name', 'gst_number', 'kyc_status',
-        'credit_limit', 'credit_used', 'price_tier', 'state', 'pincode',
+        'credit_limit', 'credit_used', 'price_tier', 'state', 'district', 'pincode',
         'assigned_salesman_id', 'unique_code', 'referred_by_dealer_id',
     ];
 

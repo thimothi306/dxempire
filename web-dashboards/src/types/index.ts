@@ -108,6 +108,7 @@ export interface Dealer {
   owner_name?: string;
   gst_number?: string;
   state?: string;
+  district?: string;
   city?: string;
   pincode?: string;
   phone?: string;

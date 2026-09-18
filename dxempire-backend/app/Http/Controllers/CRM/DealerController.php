@@ -24,6 +24,7 @@ class DealerController extends Controller
         $dealers = Dealer::with('user')
             ->when($request->kyc_status, fn($q) => $q->where('kyc_status', $request->kyc_status))
             ->when($request->state,      fn($q) => $q->where('state', $request->state))
+            ->when($request->district,   fn($q) => $q->where('district', $request->district))
             ->when($request->search,     fn($q) => $q->where(function ($q2) use ($request) {
                 $q2->where('business_name', 'like', '%' . $request->search . '%')
                    ->orWhere('gst_number', 'like', '%' . $request->search . '%');
@@ -60,6 +61,7 @@ class DealerController extends Controller
                 'business_name' => $request->business_name,
                 'gst_number'    => $request->gst_number,
                 'state'         => $request->state,
+                'district'      => $request->district,
                 'pincode'       => $request->pincode,
                 'credit_limit'  => $request->credit_limit ?? 0,
                 'price_tier'    => $request->price_tier,

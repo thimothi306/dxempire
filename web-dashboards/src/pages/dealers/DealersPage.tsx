@@ -8,13 +8,14 @@ import type { Dealer } from '../../types';
 
 const BLANK_FORM = {
   name: '', phone: '', email: '', business_name: '',
-  gst_number: '', state: '', pincode: '', credit_limit: '', price_tier: '',
+  gst_number: '', state: '', district: '', pincode: '', credit_limit: '', price_tier: '',
 };
 
 export default function DealersPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [kycFilter, setKycFilter] = useState('');
+  const [districtFilter, setDistrictFilter] = useState('');
   const [selected, setSelected] = useState<Dealer | null>(null);
   const [creditForm, setCreditForm] = useState({ credit_limit: '' });
   const [activeTab, setActiveTab] = useState<'info' | 'ledger'>('info');
@@ -22,8 +23,12 @@ export default function DealersPage() {
   const [createForm, setCreateForm] = useState({ ...BLANK_FORM });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dealers', page, kycFilter],
-    queryFn: () => dealersService.list({ page: String(page), ...(kycFilter && { kyc_status: kycFilter }) }),
+    queryKey: ['dealers', page, kycFilter, districtFilter],
+    queryFn: () => dealersService.list({
+      page: String(page),
+      ...(kycFilter && { kyc_status: kycFilter }),
+      ...(districtFilter && { district: districtFilter }),
+    }),
   });
 
   const { data: detail } = useQuery({
@@ -116,7 +121,7 @@ export default function DealersPage() {
         }
       />
 
-      <div className="mb-5">
+      <div className="mb-5 flex flex-wrap gap-3">
         <Select
           value={kycFilter}
           onChange={(e) => { setKycFilter(e.target.value); setPage(1); }}
@@ -126,6 +131,12 @@ export default function DealersPage() {
             { value: 'verified', label: 'Verified' },
             { value: 'rejected', label: 'Rejected' },
           ]}
+        />
+        <Input
+          placeholder="Filter by district..."
+          value={districtFilter}
+          onChange={(e) => { setDistrictFilter(e.target.value); setPage(1); }}
+          className="max-w-[220px]"
         />
       </div>
 
@@ -138,6 +149,7 @@ export default function DealersPage() {
                 { key: 'owner_name', header: 'Owner', render: (d) => d.owner_name ?? d.user?.name ?? '—' },
                 { key: 'phone', header: 'Phone', render: (d) => d.phone ?? d.user?.phone ?? '—' },
                 { key: 'city', header: 'City/State', render: (d) => d.city ?? d.state ?? '—' },
+                { key: 'district', header: 'District', render: (d) => d.district ?? '—' },
                 { key: 'kyc_status', header: 'KYC', render: (d) => kycBadge(d.kyc_status) },
                 { key: 'status', header: 'Status', render: (d) => d.user?.is_active === false ? <Badge label="Inactive" color="red" /> : <Badge label="Active" color="green" /> },
                 { key: 'credit_limit', header: 'Credit Limit', render: (d) => fmtINR(d.credit_limit ?? 0) },
@@ -162,6 +174,7 @@ export default function DealersPage() {
             <Input label="Business Name *" value={createForm.business_name} onChange={(e) => setCreateForm({ ...createForm, business_name: e.target.value })} placeholder="Company / shop name" />
             <Input label="GST Number" value={createForm.gst_number} onChange={(e) => setCreateForm({ ...createForm, gst_number: e.target.value })} placeholder="Optional" />
             <Input label="State" value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })} placeholder="e.g. Maharashtra" />
+            <Input label="District" value={createForm.district} onChange={(e) => setCreateForm({ ...createForm, district: e.target.value })} placeholder="e.g. Pune" />
             <Input label="Pincode" value={createForm.pincode} onChange={(e) => setCreateForm({ ...createForm, pincode: e.target.value })} placeholder="6-digit pincode" />
             <Input label="Credit Limit (₹)" type="number" value={createForm.credit_limit} onChange={(e) => setCreateForm({ ...createForm, credit_limit: e.target.value })} placeholder="0" />
           </div>
