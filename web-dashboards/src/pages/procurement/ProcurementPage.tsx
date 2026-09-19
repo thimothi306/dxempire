@@ -147,6 +147,16 @@ export default function ProcurementPage() {
     URL.revokeObjectURL(url);
   };
 
+  const downloadTemplateExcel = async () => {
+    const blob = await procurementService.importTemplateExcel();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'receiving_template.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const createSupplierMut = useMutation({
     mutationFn: () => procurementService.createSupplier(supplierForm),
     onSuccess: () => {
@@ -317,14 +327,24 @@ export default function ProcurementPage() {
       <Modal open={showImport} onClose={() => setShowImport(false)} title="Bulk Import Stock" width="max-w-lg">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            For receiving many units at once instead of typing each one in. Download the template,
+            For receiving many units at once instead of typing each one in. Download a template,
             fill in one row per product (or per batch of identical units — use the quantity column
             instead of repeating rows), and upload it back.
           </p>
 
-          <button onClick={downloadTemplate} className="text-sm text-primary hover:underline flex items-center gap-1">
-            <Download size={14} /> Download CSV template
-          </button>
+          <div className="bg-blue-50 border border-blue-100 text-blue-800 text-xs rounded-lg px-3 py-2">
+            Accepted file formats: <strong>.csv</strong> or <strong>.xlsx (Excel)</strong>. In the Excel
+            template, the "category" column has a dropdown — only "phone" or "laptop" is accepted.
+          </div>
+
+          <div className="flex gap-4">
+            <button onClick={downloadTemplate} className="text-sm text-primary hover:underline flex items-center gap-1">
+              <Download size={14} /> Download CSV template
+            </button>
+            <button onClick={downloadTemplateExcel} className="text-sm text-primary hover:underline flex items-center gap-1">
+              <Download size={14} /> Download Excel template
+            </button>
+          </div>
 
           <Select
             label="Supplier *"
@@ -334,10 +354,10 @@ export default function ProcurementPage() {
           />
 
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Filled-in CSV *</label>
+            <label className="text-xs font-medium text-gray-600">Filled-in CSV or Excel file *</label>
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
               className="text-sm border border-gray-300 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:text-xs file:font-medium"
             />

@@ -81,18 +81,24 @@ class LeadController extends Controller
     public function publicContact(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name'    => ['required', 'string', 'max:200'],
-            'email'   => ['required', 'email', 'max:150'],
-            'subject' => ['nullable', 'string', 'max:200'],
-            'message' => ['required', 'string', 'max:5000'],
+            'name'          => ['required', 'string', 'max:200'],
+            'email'         => ['required', 'email', 'max:150'],
+            'phone'         => ['required', 'string', 'max:20'],
+            'business_name' => ['nullable', 'string', 'max:200'],
+            'city'          => ['nullable', 'string', 'max:100'],
+            'subject'       => ['nullable', 'string', 'max:200'],
+            'message'       => ['required', 'string', 'max:5000'],
         ]);
 
         $lead = Lead::create([
-            'source'       => 'website',
-            'contact_name' => $data['name'],
-            'email'        => $data['email'],
-            'notes'        => trim(($data['subject'] ?? '') . "\n\n" . $data['message']),
-            'stage'        => 'new',
+            'source'        => 'website',
+            'contact_name'  => $data['name'],
+            'email'         => $data['email'],
+            'phone'         => $data['phone'],
+            'business_name' => $data['business_name'] ?? null,
+            'city'          => $data['city'] ?? null,
+            'notes'         => trim(($data['subject'] ?? '') . "\n\n" . $data['message']),
+            'stage'         => 'new',
         ]);
 
         return $this->created(['id' => $lead->id], 'Message received — our team will reach out soon.');

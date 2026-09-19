@@ -246,12 +246,13 @@ export const procurementService = {
   receivePO: (id: number, data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post(`/purchase-orders/${id}/receive`, data).then((r) => r.data),
   receive: (data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.post('/procurement/receive', data).then((r) => r.data),
   importTemplate: () => api.get('/procurement/receive/template', { responseType: 'blob' }).then((r) => r.data),
+  importTemplateExcel: () => api.get('/procurement/receive/template-excel', { responseType: 'blob' }).then((r) => r.data),
   importReceive: (file: File, supplierId: string, purchaseOrderId?: string) => {
     const fd = new FormData();
     fd.append('file', file);
     fd.append('supplier_id', supplierId);
     if (purchaseOrderId) fd.append('purchase_order_id', purchaseOrderId);
-    return DEMO_MODE ? mock({}) : api.post('/procurement/receive/import', fd).then((r) => r.data);
+    return DEMO_MODE ? mock({}) : api.post('/procurement/receive/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data);
   },
   history: () => DEMO_MODE ? mock({ data: [] }) : api.get('/procurement/history').then((r) => r.data),
 };
