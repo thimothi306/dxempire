@@ -4,7 +4,7 @@ import { Plus, Trash2, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { petiService } from '../../services/newModules';
 import { procurementService, gradeService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate, ExportButton } from '../../components/ui';
 
 const STATUS_COLORS: Record<string, string> = { draft: 'gray', approved: 'blue', completed: 'green', cancelled: 'red' };
 const EMPTY_ITEM = { category: 'phone', brand: '', model: '', grade: 'S1', quantity: '1', unit_price: '' };
@@ -80,7 +80,12 @@ export default function PetiPage() {
       <PageHeader
         title="Peti to Peti"
         subtitle="Bulk box trading & internal stock transfers"
-        action={<Button onClick={() => { resetForm(); setShowCreate(true); }}><Plus size={15} /> New Transfer</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="peti_transfers" onExport={(format) => petiService.export(format)} />
+            <Button onClick={() => { resetForm(); setShowCreate(true); }}><Plus size={15} /> New Transfer</Button>
+          </div>
+        }
       />
 
       <div className="mb-5">

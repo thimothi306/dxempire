@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hrService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, fmtDate, ExportButton } from '../../components/ui';
 import type { Employee } from '../../types';
 
 export const DEPARTMENTS = ['warehouse', 'sales', 'qc', 'accounts', 'hr', 'logistics', 'management'];
@@ -140,7 +140,12 @@ export default function EmployeesPage() {
       <PageHeader
         title="Employees"
         subtitle={`${meta?.total ?? 0} staff members`}
-        action={<Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Employee</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="employees" onExport={(format) => hrService.exportEmployees(format, { ...(departmentFilter && { department: departmentFilter }) })} />
+            <Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Employee</Button>
+          </div>
+        }
       />
 
       <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogIn, LogOut } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hrService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Select, fmtDateTime, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Select, fmtDateTime, fmtDate, ExportButton } from '../../components/ui';
 import type { AttendanceRecord } from '../../types';
 import { DEPARTMENTS } from './EmployeesPage';
 
@@ -54,7 +54,20 @@ export default function AttendancePage() {
 
   return (
     <div>
-      <PageHeader title="Attendance" subtitle="Daily check-in / check-out" />
+      <PageHeader
+        title="Attendance"
+        subtitle="Daily check-in / check-out"
+        action={
+          <ExportButton
+            filenameBase="attendance"
+            onExport={(format) => hrService.exportAttendance(format, {
+              from: fromFilter, to: toFilter,
+              ...(employeeFilter && { employee_id: employeeFilter }),
+              ...(departmentFilter && { department: departmentFilter }),
+            })}
+          />
+        }
+      />
 
       <div className="flex flex-wrap items-end gap-3 mb-5">
         <div>

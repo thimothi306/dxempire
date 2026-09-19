@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminService } from '../../services';
-import { Button, Badge, Table, Pagination, Modal, Input, Select, PageHeader, Card, Spinner } from '../../components/ui';
+import { Button, Badge, Table, Pagination, Modal, Input, Select, PageHeader, Card, Spinner, ExportButton } from '../../components/ui';
 import type { User, Role } from '../../types';
 
 const ROLES: Role[] = [
@@ -63,7 +63,12 @@ export default function UsersPage() {
       <PageHeader
         title="Staff Users"
         subtitle="All admin and staff users"
-        action={<Button onClick={() => setShowCreate(true)}><UserPlus size={15} /> Add User</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="staff_users" onExport={(format) => adminService.exportUsers(format)} />
+            <Button onClick={() => setShowCreate(true)}><UserPlus size={15} /> Add User</Button>
+          </div>
+        }
       />
 
       <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">

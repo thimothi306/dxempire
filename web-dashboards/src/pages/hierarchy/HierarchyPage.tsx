@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, ChevronRight, Users, TrendingUp, Trash2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hierarchyService } from '../../services/newModules';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, ExportButton } from '../../components/ui';
 import { STATE_NAMES, districtsForState } from '../../data/statesDistricts';
 
 const ROLES = [
@@ -161,7 +161,19 @@ export default function HierarchyPage() {
       <PageHeader
         title="Sales Hierarchy"
         subtitle={`${meta?.total ?? 0} members`}
-        action={<Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Member</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton
+              filenameBase="hierarchy"
+              onExport={(format) => hierarchyService.export(format, {
+                ...(roleFilter && { role: roleFilter }),
+                ...(stateFilter && { state: stateFilter }),
+                ...(districtFilter && { district: districtFilter }),
+              })}
+            />
+            <Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Member</Button>
+          </div>
+        }
       />
 
       {/* Filters */}

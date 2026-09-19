@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Trash2, Upload, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procurementService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, ExportButton } from '../../components/ui';
 import { ReceiveItemsForm, EMPTY_RECEIVE_ITEM, expandReceiveItems, type ReceiveItemRow } from '../../components/ReceiveItemsForm';
 
 const PO_STATUS_COLORS: Record<string, string> = {
@@ -211,13 +211,19 @@ export default function ProcurementPage() {
           tab === 'orders'
             ? (
               <div className="flex gap-2">
+                <ExportButton filenameBase="purchase_orders" onExport={(format) => procurementService.exportPurchaseOrders(format)} />
                 <Button variant="outline" onClick={() => { setImportSupplierId(''); setImportFile(null); setImportResult(null); setShowImport(true); }}>
                   <Upload size={15} /> Bulk Import
                 </Button>
                 <Button onClick={() => setShowPO(true)}><Plus size={15} /> New PO</Button>
               </div>
             )
-            : <Button onClick={() => { setSupplierForm(EMPTY_SUPPLIER); setShowSupplier(true); }}><Plus size={15} /> Add Supplier</Button>
+            : (
+              <div className="flex gap-2">
+                <ExportButton filenameBase="suppliers" onExport={(format) => procurementService.exportSuppliers(format)} />
+                <Button onClick={() => { setSupplierForm(EMPTY_SUPPLIER); setShowSupplier(true); }}><Plus size={15} /> Add Supplier</Button>
+              </div>
+            )
         }
       />
 

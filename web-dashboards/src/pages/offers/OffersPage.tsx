@@ -4,7 +4,7 @@ import { Plus, Tag, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { offersService } from '../../services/newModules';
 import { gradeService } from '../../services';
-import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtDate, ExportButton } from '../../components/ui';
 
 const DISCOUNT_TYPES = [{ value: 'percentage', label: 'Percentage (%)' }, { value: 'fixed', label: 'Fixed Amount (₹)' }];
 const APPLICABLE_TO = [{ value: 'all', label: 'All Products' }, { value: 'phone', label: 'Phones' }, { value: 'laptop', label: 'Laptops' }];
@@ -108,7 +108,12 @@ export default function OffersPage() {
       <PageHeader
         title="Offer Engine"
         subtitle={`${meta?.total ?? 0} offers`}
-        action={<Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Create Offer</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="offers" onExport={(format) => offersService.export(format)} />
+            <Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Create Offer</Button>
+          </div>
+        }
       />
 
       <Card>

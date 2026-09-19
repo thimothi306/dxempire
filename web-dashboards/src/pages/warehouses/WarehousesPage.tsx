@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Star, Boxes } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { warehouseService } from '../../services';
-import { Card, Table, Button, Badge, PageHeader, Spinner, Modal, Input } from '../../components/ui';
+import { Card, Table, Button, Badge, PageHeader, Spinner, Modal, Input, ExportButton } from '../../components/ui';
 
 interface Warehouse {
   id: number;
@@ -123,7 +123,12 @@ export default function WarehousesPage() {
       <PageHeader
         title="Warehouses"
         subtitle={`${warehouses.length} warehouse${warehouses.length === 1 ? '' : 's'} — bins are assigned to whichever warehouse you pick here`}
-        action={<Button onClick={openCreate}><Plus size={15} /> Add Warehouse</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="warehouses" onExport={(format) => warehouseService.export(format)} />
+            <Button onClick={openCreate}><Plus size={15} /> Add Warehouse</Button>
+          </div>
+        }
       />
 
       <Card>

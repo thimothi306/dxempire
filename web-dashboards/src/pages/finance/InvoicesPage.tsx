@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { financeService } from '../../services';
-import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, fmtINR, fmtDate } from '../../components/ui';
+import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, fmtINR, fmtDate, ExportButton } from '../../components/ui';
 import type { Invoice } from '../../types';
 import { useAuthStore } from '../../stores/authStore';
 import PartnerInvoicesPage from '../partner/PartnerInvoicesPage';
@@ -37,7 +37,11 @@ function StaffInvoicesPage() {
 
   return (
     <div>
-      <PageHeader title="Invoices" subtitle={`${meta?.total ?? 0} invoices`} />
+      <PageHeader
+        title="Invoices"
+        subtitle={`${meta?.total ?? 0} invoices`}
+        action={<ExportButton filenameBase="invoices" onExport={(format) => financeService.exportInvoices(format, { ...(paymentStatus && { payment_status: paymentStatus }) })} />}
+      />
 
       <div className="mb-5">
         <Select

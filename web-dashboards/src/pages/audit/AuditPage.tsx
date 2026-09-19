@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { adminService } from '../../services';
-import { Card, Table, Pagination, Input, PageHeader, Spinner, fmtDateTime } from '../../components/ui';
+import { Card, Table, Pagination, Input, PageHeader, Spinner, fmtDateTime, ExportButton } from '../../components/ui';
 import type { AuditLog } from '../../types';
 
 export default function AuditPage() {
@@ -18,7 +18,11 @@ export default function AuditPage() {
 
   return (
     <div>
-      <PageHeader title="Audit Logs" subtitle="Full activity log for all users" />
+      <PageHeader
+        title="Audit Logs"
+        subtitle="Full activity log for all users"
+        action={<ExportButton filenameBase="audit_logs" onExport={(format) => adminService.exportAuditLogs(format, Object.fromEntries(Object.entries(filters).filter(([, v]) => v)))} />}
+      />
 
       {/* Filters */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">

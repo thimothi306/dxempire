@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { binsService, warehouseService } from '../../services';
-import { Card, Table, Pagination, Button, PageHeader, Spinner, Modal, Input, Select } from '../../components/ui';
+import { Card, Table, Pagination, Button, PageHeader, Spinner, Modal, Input, Select, ExportButton } from '../../components/ui';
 import type { Bin } from '../../types';
 
 export default function BinsPage() {
@@ -39,7 +39,12 @@ export default function BinsPage() {
       <PageHeader
         title="Bin Management"
         subtitle="Warehouse storage locations"
-        action={<Button onClick={() => setShowCreate(true)}><Plus size={15} /> New Bin</Button>}
+        action={
+          <div className="flex gap-2">
+            <ExportButton filenameBase="bins" onExport={(format) => binsService.export(format)} />
+            <Button onClick={() => setShowCreate(true)}><Plus size={15} /> New Bin</Button>
+          </div>
+        }
       />
 
       <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 text-sm text-gray-700 space-y-1.5">

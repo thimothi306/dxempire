@@ -11,6 +11,8 @@ export const hierarchyService = {
   downline:       (id: number) => api.get(`/sales/hierarchy/${id}/downline`).then(r => r.data.data),
   performance:    (id: number) => api.get(`/sales/hierarchy/${id}/performance`).then(r => r.data.data),
   assignDealer:   (id: number, dealer_id: number) => api.post(`/sales/hierarchy/${id}/assign-dealer`, { dealer_id }).then(r => r.data),
+  export:         (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/sales/hierarchy/export', { params: { ...params, format }, responseType: 'blob' }).then(r => r.data),
 };
 
 // ─── Offers ───────────────────────────────────────────────────────────────────
@@ -21,6 +23,8 @@ export const offersService = {
   update:   (id: number, data: Record<string, unknown>) => api.put(`/offers/${id}`, data).then(r => r.data.data),
   remove:   (id: number) => api.delete(`/offers/${id}`),
   validate: (code: string, order_total: number) => api.post('/offers/validate', { code, order_total }).then(r => r.data.data),
+  export:   (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/offers/export', { params: { ...params, format }, responseType: 'blob' }).then(r => r.data),
 };
 
 // ─── Peti Transfers ───────────────────────────────────────────────────────────
@@ -31,4 +35,6 @@ export const petiService = {
   approve:  (id: number) => api.post(`/peti-transfers/${id}/approve`).then(r => r.data),
   complete: (id: number) => api.post(`/peti-transfers/${id}/complete`).then(r => r.data),
   cancel:   (id: number) => api.post(`/peti-transfers/${id}/cancel`).then(r => r.data),
+  export:   (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
+    api.get('/peti-transfers/export', { params: { ...params, format }, responseType: 'blob' }).then(r => r.data),
 };

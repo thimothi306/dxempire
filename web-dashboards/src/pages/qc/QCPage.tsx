@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { qcService, gradeService } from '../../services';
-import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, Modal } from '../../components/ui';
+import { Card, Table, Pagination, Select, Badge, Button, PageHeader, Spinner, Modal, ExportButton } from '../../components/ui';
 import type { Product } from '../../types';
 
 const ISSUE_OPTIONS = [
@@ -55,7 +55,11 @@ export default function QCPage() {
 
   return (
     <div>
-      <PageHeader title="Quality Control" subtitle="Grade incoming products" />
+      <PageHeader
+        title="Quality Control"
+        subtitle="Grade incoming products"
+        action={<ExportButton filenameBase="qc_records" onExport={(format) => qcService.export(format)} />}
+      />
 
       {/* Stats row */}
       {stats && (

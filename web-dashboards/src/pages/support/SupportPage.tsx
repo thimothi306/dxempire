@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supportService } from '../../services';
-import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, Badge, fmtDateTime } from '../../components/ui';
+import { Card, Table, Pagination, Select, Button, PageHeader, Spinner, Modal, Input, Badge, fmtDateTime, ExportButton } from '../../components/ui';
 
 interface SupportTicketReply {
   id: number;
@@ -129,9 +129,12 @@ export default function SupportPage() {
         title="Support Tickets"
         subtitle={`${meta?.total ?? 0} total tickets`}
         action={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus size={15} /> New Ticket
-          </Button>
+          <div className="flex gap-2">
+            <ExportButton filenameBase="support_tickets" onExport={(format) => supportService.export(format)} />
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus size={15} /> New Ticket
+            </Button>
+          </div>
         }
       />
 
