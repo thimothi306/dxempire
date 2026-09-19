@@ -5,13 +5,14 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\HR\StoreEmployeeRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class EmployeeController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -28,6 +29,32 @@ class EmployeeController extends Controller
             ->paginate($request->integer('per_page', 20));
 
         return $this->paginated($employees);
+    }
+
+    public function export(Request $request)
+    {
+        $employees = Employee::with('user:id,name,phone,email,role')
+            ->when($request->department, fn($q) => $q->where('department', $request->department))
+            ->when($request->shift, fn($q) => $q->where('shift', $request->shift))
+            ->when(isset($request->is_active), fn($q) => $q->where('is_active', (bool) $request->is_active))
+            ->when($request->search, fn($q) => $q->where(function ($qq) use ($request) {
+                $qq->where('name', 'like', "%{$request->search}%")
+                   ->orWhere('phone', 'like', "%{$request->search}%")
+                   ->orWhere('employee_code', 'like', "%{$request->search}%");
+            }))
+            ->orderByDesc('id')
+            ->get();
+
+        $headers = ['Employee Code', 'Name', 'Phone', 'Department', 'Shift', 'Basic Salary', 'Join Date', 'Active'];
+        $rows = $employees->map(fn($e) => [
+            $e->employee_code, $e->name ?? $e->user?->name ?? '-', $e->phone ?? $e->user?->phone ?? '-',
+            $e->department ?? '-', $e->shift, $e->basic_salary ?? 0, $e->join_date ?? '-', $e->is_active ? 'Yes' : 'No',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Employees', $headers, $rows, "employees_{$stamp}.pdf")
+            : $this->exportCsv("employees_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(StoreEmployeeRequest $request): JsonResponse

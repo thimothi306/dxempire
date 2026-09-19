@@ -5,6 +5,7 @@ namespace App\Http\Controllers\CRM;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CRM\StoreSupportTicketRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\SupportTicket;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
 
 class SupportTicketController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -24,6 +25,27 @@ class SupportTicketController extends Controller
             ->paginate(50);
 
         return $this->paginated($tickets);
+    }
+
+    public function export(Request $request)
+    {
+        $tickets = SupportTicket::with(['creator', 'assignee', 'order'])
+            ->when($request->status,      fn($q) => $q->where('status', $request->status))
+            ->when($request->priority,    fn($q) => $q->where('priority', $request->priority))
+            ->when($request->assigned_to, fn($q) => $q->where('assigned_to', $request->assigned_to))
+            ->orderByDesc('created_at')
+            ->get();
+
+        $headers = ['Subject', 'Order #', 'Status', 'Priority', 'Created By', 'Assigned To', 'Created'];
+        $rows = $tickets->map(fn($t) => [
+            $t->subject, $t->order_id ?? '-', $t->status, $t->priority,
+            $t->creator?->name ?? '-', $t->assignee?->name ?? '-', $t->created_at->format('Y-m-d'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Support Tickets', $headers, $rows, "support_tickets_{$stamp}.pdf")
+            : $this->exportCsv("support_tickets_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(StoreSupportTicketRequest $request): JsonResponse

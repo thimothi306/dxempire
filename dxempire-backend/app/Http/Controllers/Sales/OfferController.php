@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Grade;
 use App\Models\Offer;
 use Illuminate\Http\JsonResponse;
@@ -12,7 +13,7 @@ use Illuminate\Validation\Rule;
 
 class OfferController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     /**
      * Staff (offers.manage) see every offer. Everyone else authenticated
@@ -38,6 +39,28 @@ class OfferController extends Controller
             ->paginate($request->integer('per_page', 20));
 
         return $this->paginated($offers);
+    }
+
+    public function export(Request $request)
+    {
+        $offers = $this->scopeVisibleOffers(Offer::with('createdBy:id,name'), $request)
+            ->when($request->is_active !== null, fn($q) => $q->where('is_active', (bool) $request->is_active))
+            ->when($request->customer_type, fn($q) => $q->where('customer_type', $request->customer_type))
+            ->orderByDesc('valid_from')
+            ->get();
+
+        $headers = ['Code', 'Title', 'Discount', 'Applicable To', 'Customer Type', 'Valid From', 'Valid To', 'Usage', 'Active'];
+        $rows = $offers->map(fn($o) => [
+            $o->code, $o->title,
+            $o->discount_type === 'percentage' ? "{$o->discount_value}%" : "₹{$o->discount_value}",
+            $o->applicable_to, $o->customer_type, $o->valid_from->format('Y-m-d'), $o->valid_to->format('Y-m-d'),
+            $o->usage_count . ($o->max_usage ? "/{$o->max_usage}" : ''), $o->is_active ? 'Yes' : 'No',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Offers', $headers, $rows, "offers_{$stamp}.pdf")
+            : $this->exportCsv("offers_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(Request $request): JsonResponse

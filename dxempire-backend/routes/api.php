@@ -97,6 +97,7 @@ Route::prefix('v1')->group(function () {
             Route::middleware('permission:users.manage')->group(function () {
                 Route::get('roles',                       [UserController::class, 'roles']);
                 Route::get('users',                       [UserController::class, 'index']);
+                Route::get('users/export',                [UserController::class, 'export']);
                 Route::post('users',                      [UserController::class, 'store']);
                 Route::get('users/{user}',                [UserController::class, 'show']);
                 Route::put('users/{user}',                [UserController::class, 'update']);
@@ -123,6 +124,7 @@ Route::prefix('v1')->group(function () {
             // Audit log
             Route::middleware('permission:audit_logs.view')->group(function () {
                 Route::get('audit-logs',                  [AuditLogController::class, 'index']);
+                Route::get('audit-logs/export',           [AuditLogController::class, 'export']);
             });
 
             // Settings management
@@ -137,12 +139,14 @@ Route::prefix('v1')->group(function () {
         // ── Procurement ───────────────────────────────────────────────────
         Route::middleware('permission:procurement.edit')->group(function () {
             Route::get('suppliers',                       [SupplierController::class, 'index']);
+            Route::get('suppliers/export',                [SupplierController::class, 'export']);
             Route::post('suppliers',                      [SupplierController::class, 'store']);
             Route::get('suppliers/{supplier}',            [SupplierController::class, 'show']);
             Route::put('suppliers/{supplier}',            [SupplierController::class, 'update']);
             Route::delete('suppliers/{supplier}',         [SupplierController::class, 'destroy']);
 
             Route::get('purchase-orders',                          [PurchaseOrderController::class, 'index']);
+            Route::get('purchase-orders/export',                   [PurchaseOrderController::class, 'export']);
             Route::post('purchase-orders',                         [PurchaseOrderController::class, 'store']);
             Route::get('purchase-orders/{purchaseOrder}',          [PurchaseOrderController::class, 'show']);
             Route::put('purchase-orders/{purchaseOrder}',          [PurchaseOrderController::class, 'update']);
@@ -182,6 +186,7 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:bins.manage')->prefix('bins')->group(function () {
             Route::get('/',               [BinController::class, 'index']);
+            Route::get('export',          [BinController::class, 'export']);
             Route::post('/',              [BinController::class, 'store']);
             Route::post('move',           [BinController::class, 'move']);
             Route::get('{bin}/products',  [BinController::class, 'products']);
@@ -194,6 +199,7 @@ Route::prefix('v1')->group(function () {
 
         Route::middleware('permission:warehouses.manage')->prefix('warehouses')->group(function () {
             Route::get('/',                    [WarehouseController::class, 'index']);
+            Route::get('export',               [WarehouseController::class, 'export']);
             Route::post('/',                   [WarehouseController::class, 'store']);
             Route::get('{warehouse}',          [WarehouseController::class, 'show']);
             Route::put('{warehouse}',          [WarehouseController::class, 'update']);
@@ -212,6 +218,7 @@ Route::prefix('v1')->group(function () {
             Route::get('pending',                       [QcController::class, 'pending']);
             Route::post('grade',                        [QcController::class, 'grade']);
             Route::get('records',                       [QcController::class, 'records']);
+            Route::get('records/export',                [QcController::class, 'exportRecords']);
             Route::get('stats',                         [QcController::class, 'stats']);
             Route::get('refurbishment',                 [QcController::class, 'refurbishment']);
             Route::post('refurbishment',                [QcController::class, 'sendToRefurbishment']);
@@ -247,6 +254,7 @@ Route::prefix('v1')->group(function () {
         Route::post('support/tickets',               [SupportTicketController::class, 'store']);
         Route::middleware('permission:support.manage')->group(function () {
             Route::get('support/tickets',            [SupportTicketController::class, 'index']);
+            Route::get('support/tickets/export',     [SupportTicketController::class, 'export']);
             Route::get('support/staff',              [SupportTicketController::class, 'staffOptions']);
             Route::get('support/tickets/{supportTicket}', [SupportTicketController::class, 'show']);
             Route::put('support/tickets/{supportTicket}', [SupportTicketController::class, 'update']);
@@ -292,6 +300,7 @@ Route::prefix('v1')->group(function () {
             // Invoices
             Route::prefix('finance/invoices')->group(function () {
                 Route::get('/',                              [InvoiceController::class, 'index']);
+                Route::get('/export',                        [InvoiceController::class, 'export']);
                 Route::get('/{invoice}',                     [InvoiceController::class, 'show']);
                 Route::get('/{invoice}/download',            [InvoiceController::class, 'download']);
                 Route::post('/orders/{order}/generate',      [InvoiceController::class, 'generate']);
@@ -327,6 +336,7 @@ Route::prefix('v1')->group(function () {
             // Employees
             Route::get('employees/departments',          [EmployeeController::class, 'departments']);
             Route::get('employees',                      [EmployeeController::class, 'index']);
+            Route::get('employees/export',               [EmployeeController::class, 'export']);
             Route::post('employees',                     [EmployeeController::class, 'store']);
             Route::get('employees/{employee}',           [EmployeeController::class, 'show']);
             Route::put('employees/{employee}',           [EmployeeController::class, 'update']);
@@ -334,6 +344,7 @@ Route::prefix('v1')->group(function () {
 
             // Attendance
             Route::get('attendance',                     [AttendanceController::class, 'index']);
+            Route::get('attendance/export',              [AttendanceController::class, 'export']);
             Route::post('attendance/bulk',               [AttendanceController::class, 'bulkMark']);
             Route::get('attendance/today',               [AttendanceController::class, 'today']);
             Route::post('attendance/check-in',           [AttendanceController::class, 'checkIn']);
@@ -346,6 +357,7 @@ Route::prefix('v1')->group(function () {
             Route::post('payroll/process',                      [PayrollController::class, 'createAndProcess']);
             Route::get('payroll/{payrollRun}',                  [PayrollController::class, 'show']);
             Route::get('payroll/{payrollRun}/items',            [PayrollController::class, 'items']);
+            Route::get('payroll/{payrollRun}/items/export',     [PayrollController::class, 'exportItems']);
             Route::post('payroll/{payrollRun}/process',         [PayrollController::class, 'process']);
             Route::post('payroll/{payrollRun}/mark-paid',       [PayrollController::class, 'markPaid']);
             Route::post('payroll/{payrollRun}/generate-slips',  [PayrollController::class, 'generateAllSlips']);
@@ -392,6 +404,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('permission:hierarchy.manage')->prefix('sales')->group(function () {
             Route::get('hierarchy',                               [SalesHierarchyController::class, 'index']);
             Route::get('hierarchy/tree',                          [SalesHierarchyController::class, 'tree']);
+            Route::get('hierarchy/export',                        [SalesHierarchyController::class, 'export']);
             Route::post('hierarchy',                              [SalesHierarchyController::class, 'store']);
             Route::get('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'show']);
             Route::put('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'update']);
@@ -408,6 +421,7 @@ Route::prefix('v1')->group(function () {
         // Only create/edit/deactivate require offers.manage.
         Route::prefix('offers')->group(function () {
             Route::get('/',          [OfferController::class, 'index']);
+            Route::get('export',     [OfferController::class, 'export']);
             Route::get('active',     [OfferController::class, 'active']);
             Route::post('validate',  [OfferController::class, 'validateCode']);
             Route::get('{offer}',    [OfferController::class, 'show']);
@@ -422,6 +436,7 @@ Route::prefix('v1')->group(function () {
         // ── Peti to Peti ──────────────────────────────────────────────────
         Route::middleware('permission:peti.manage')->prefix('peti-transfers')->group(function () {
             Route::get('/',                              [PetiTransferController::class, 'index']);
+            Route::get('export',                         [PetiTransferController::class, 'export']);
             Route::post('/',                             [PetiTransferController::class, 'store']);
             Route::get('{petiTransfer}',                 [PetiTransferController::class, 'show']);
             Route::post('{petiTransfer}/approve',        [PetiTransferController::class, 'approve']);

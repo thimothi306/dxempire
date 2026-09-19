@@ -4,6 +4,7 @@ namespace App\Http\Controllers\HR;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Services\PayrollService;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 
 class PayrollController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(private PayrollService $payrollService) {}
 
@@ -145,6 +146,24 @@ class PayrollController extends Controller
     /**
      * List all payroll items for a run with employee details.
      */
+    public function exportItems(PayrollRun $payrollRun, Request $request)
+    {
+        $items = $payrollRun->items()->with('employee.user:id,name,phone')->get();
+
+        $headers = ['Employee Code', 'Name', 'Department', 'Days Worked', 'Basic', 'Deductions', 'Net Salary'];
+        $rows = $items->map(fn($item) => [
+            'EMP-' . str_pad($item->employee_id, 4, '0', STR_PAD_LEFT),
+            $item->employee->name ?? $item->employee->user?->name ?? '-',
+            $item->employee->department ?? '-', $item->days_worked, $item->basic, $item->deductions, $item->net_salary,
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        $title = "Payroll {$payrollRun->month}-{$payrollRun->year}";
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf($title, $headers, $rows, "payroll_{$payrollRun->year}_{$payrollRun->month}_{$stamp}.pdf")
+            : $this->exportCsv("payroll_{$payrollRun->year}_{$payrollRun->month}_{$stamp}.csv", $headers, $rows);
+    }
+
     public function items(PayrollRun $payrollRun): JsonResponse
     {
         $items = $payrollRun->items()

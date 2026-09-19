@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Warehouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,7 +12,7 @@ use Illuminate\Validation\Rule;
 
 class WarehouseController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -22,6 +23,25 @@ class WarehouseController extends Controller
             ->get();
 
         return $this->success($warehouses);
+    }
+
+    public function export(Request $request)
+    {
+        $warehouses = Warehouse::withCount('bins')
+            ->when(isset($request->is_active), fn($q) => $q->where('is_active', $request->boolean('is_active')))
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get();
+
+        $headers = ['Name', 'Code', 'City', 'State', 'Bins', 'Default', 'Active'];
+        $rows = $warehouses->map(fn($w) => [
+            $w->name, $w->code, $w->city ?? '-', $w->state ?? '-', $w->bins_count, $w->is_default ? 'Yes' : 'No', $w->is_active ? 'Yes' : 'No',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Warehouses', $headers, $rows, "warehouses_{$stamp}.pdf")
+            : $this->exportCsv("warehouses_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(Request $request): JsonResponse

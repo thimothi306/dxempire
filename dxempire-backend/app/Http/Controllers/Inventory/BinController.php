@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Inventory;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Inventory\MoveBinRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Bin;
 use App\Models\BinMovement;
 use App\Models\Product;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 
 class BinController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -27,6 +28,26 @@ class BinController extends Controller
             ->paginate(100);
 
         return $this->paginated($bins);
+    }
+
+    public function export(Request $request)
+    {
+        $bins = Bin::with('warehouse:id,name,code')
+            ->withCount('products')
+            ->when($request->zone, fn($q) => $q->where('zone', $request->zone))
+            ->when($request->warehouse_id, fn($q) => $q->where('warehouse_id', $request->warehouse_id))
+            ->orderBy('code')
+            ->get();
+
+        $headers = ['Code', 'Warehouse', 'Zone', 'Row', 'Shelf', 'Occupied', 'Capacity'];
+        $rows = $bins->map(fn($b) => [
+            $b->code, $b->warehouse?->name ?? '-', $b->zone ?? '-', $b->row ?? '-', $b->shelf ?? '-', $b->current_count, $b->capacity,
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Bins', $headers, $rows, "bins_{$stamp}.pdf")
+            : $this->exportCsv("bins_{$stamp}.csv", $headers, $rows);
     }
 
     public function move(MoveBinRequest $request): JsonResponse

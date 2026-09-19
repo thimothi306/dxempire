@@ -7,6 +7,7 @@ use App\Events\StockAdded;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\QC\StoreGradeRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Product;
 use App\Models\QcRecord;
 use App\Services\GradePricingService;
@@ -16,7 +17,7 @@ use Illuminate\Support\Facades\DB;
 
 class QcController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(private GradePricingService $pricing) {}
 
@@ -113,6 +114,30 @@ class QcController extends Controller
             ->paginate(50);
 
         return $this->paginated($records);
+    }
+
+    public function exportRecords(Request $request)
+    {
+        $records = QcRecord::with(['product', 'engineer'])
+            ->when($request->outcome,   fn($q) => $q->where('outcome', $request->outcome))
+            ->when($request->grade,     fn($q) => $q->where('grade', $request->grade))
+            ->when($request->engineer_id, fn($q) => $q->where('engineer_id', $request->engineer_id))
+            ->when($request->from,      fn($q) => $q->whereDate('graded_at', '>=', $request->from))
+            ->when($request->to,        fn($q) => $q->whereDate('graded_at', '<=', $request->to))
+            ->orderByDesc('graded_at')
+            ->get();
+
+        $headers = ['Product', 'IMEI', 'Outcome', 'Grade', 'Engineer', 'Notes', 'Graded At'];
+        $rows = $records->map(fn($r) => [
+            trim(($r->product->brand ?? '') . ' ' . ($r->product->model ?? '')) ?: '-',
+            $r->product->imei ?? '-', $r->outcome, $r->grade ?? '-', $r->engineer?->name ?? '-',
+            $r->condition_notes ?? '-', $r->graded_at?->format('Y-m-d H:i') ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('QC Records', $headers, $rows, "qc_records_{$stamp}.pdf")
+            : $this->exportCsv("qc_records_{$stamp}.csv", $headers, $rows);
     }
 
     public function sendToRefurbishment(Request $request): JsonResponse

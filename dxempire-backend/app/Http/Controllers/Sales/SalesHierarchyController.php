@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Dealer;
 use App\Models\Order;
 use App\Models\SalesHierarchy;
@@ -12,7 +13,7 @@ use Illuminate\Http\Request;
 
 class SalesHierarchyController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -28,6 +29,30 @@ class SalesHierarchyController extends Controller
             ->paginate($request->integer('per_page', 50));
 
         return $this->paginated($nodes);
+    }
+
+    public function export(Request $request)
+    {
+        $nodes = SalesHierarchy::with(['parent:id,name,tree_id', 'user:id,name,phone'])
+            ->when($request->role,   fn($q) => $q->where('hierarchy_role', $request->role))
+            ->when($request->state,  fn($q) => $q->where('state', $request->state))
+            ->when($request->district, fn($q) => $q->where('district', $request->district))
+            ->when($request->search, fn($q) => $q->where('name', 'like', "%{$request->search}%")
+                ->orWhere('tree_id', 'like', "%{$request->search}%"))
+            ->orderBy('hierarchy_role')
+            ->orderBy('name')
+            ->get();
+
+        $headers = ['Tree ID', 'Name', 'Role', 'Phone', 'State', 'Area', 'District', 'Parent'];
+        $rows = $nodes->map(fn($n) => [
+            $n->tree_id, $n->name, $n->hierarchy_role, $n->phone ?? '-', $n->state ?? '-',
+            $n->area ?? '-', $n->district ?? '-', $n->parent?->name ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Sales Hierarchy', $headers, $rows, "hierarchy_{$stamp}.pdf")
+            : $this->exportCsv("hierarchy_{$stamp}.csv", $headers, $rows);
     }
 
     public function tree(): JsonResponse

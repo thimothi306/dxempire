@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Finance;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\Payment;
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\Storage;
 
 class InvoiceController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function __construct(private InvoiceService $invoiceService) {}
 
@@ -30,6 +31,28 @@ class InvoiceController extends Controller
             ->paginate($request->integer('per_page', 20));
 
         return $this->paginated($invoices);
+    }
+
+    public function export(Request $request)
+    {
+        $invoices = Invoice::with(['order', 'dealer.user'])
+            ->when($request->dealer_id, fn($q) => $q->where('dealer_id', $request->dealer_id))
+            ->when($request->payment_status, fn($q) => $q->whereHas('order', fn($o) => $o->where('payment_status', $request->payment_status)))
+            ->when($request->from, fn($q) => $q->whereDate('issued_at', '>=', $request->from))
+            ->when($request->to, fn($q) => $q->whereDate('issued_at', '<=', $request->to))
+            ->latest('issued_at')
+            ->get();
+
+        $headers = ['Invoice #', 'Order #', 'Dealer', 'Amount', 'Payment Status', 'Issued'];
+        $rows = $invoices->map(fn($i) => [
+            $i->invoice_number, $i->order_id, $i->dealer?->business_name ?? '-',
+            $i->order?->total_amount ?? 0, $i->order?->payment_status ?? '-', $i->issued_at?->format('Y-m-d') ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Invoices', $headers, $rows, "invoices_{$stamp}.pdf")
+            : $this->exportCsv("invoices_{$stamp}.csv", $headers, $rows);
     }
 
     public function generate(Order $order): JsonResponse

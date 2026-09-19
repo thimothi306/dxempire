@@ -4,6 +4,7 @@ import { Plus, ChevronRight, Users, TrendingUp, Trash2, Pencil } from 'lucide-re
 import toast from 'react-hot-toast';
 import { hierarchyService } from '../../services/newModules';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR } from '../../components/ui';
+import { STATE_NAMES, districtsForState } from '../../data/statesDistricts';
 
 const ROLES = [
   { value: 'ceo',              label: 'CEO' },
@@ -17,15 +18,6 @@ const ROLE_COLORS: Record<string, string> = {
   ceo: 'purple', state_manager: 'blue', area_manager: 'green',
   district_manager: 'yellow', salesman: 'orange',
 };
-
-const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu & Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
-];
 
 const EMPTY_FORM = { name: '', phone: '', email: '', hierarchy_role: 'salesman', parent_unique_code: '', state: '', area: '', district: '' };
 
@@ -88,11 +80,13 @@ function MemberForm({
         </div>
       )}
 
-      <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value })}
-        options={[{ value: '', label: 'Select state...' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
+      <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value, district: '' })}
+        options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map(s => ({ value: s, label: s }))]} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Bangalore Zone" />
-        <Input label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })} placeholder="e.g. Jayanagar" />
+        <Select label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })}
+          disabled={!form.state}
+          options={[{ value: '', label: form.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(form.state).map(d => ({ value: d, label: d }))]} />
       </div>
       <div className="flex gap-3 pt-2">
         <Button onClick={onSubmit} loading={loading} className="flex-1 justify-center">Save</Button>
@@ -174,10 +168,11 @@ export default function HierarchyPage() {
       <div className="flex gap-3 mb-5">
         <Select value={roleFilter} onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
           options={[{ value: '', label: 'All Roles' }, ...ROLES]} />
-        <Select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setPage(1); }}
-          options={[{ value: '', label: 'All States' }, ...INDIAN_STATES.map(s => ({ value: s, label: s }))]} />
-        <Input placeholder="Filter by district..." value={districtFilter}
-          onChange={e => { setDistrictFilter(e.target.value); setPage(1); }} className="max-w-[220px]" />
+        <Select value={stateFilter} onChange={e => { setStateFilter(e.target.value); setDistrictFilter(''); setPage(1); }}
+          options={[{ value: '', label: 'All States' }, ...STATE_NAMES.map(s => ({ value: s, label: s }))]} />
+        <Select value={districtFilter} onChange={e => { setDistrictFilter(e.target.value); setPage(1); }}
+          disabled={!stateFilter}
+          options={[{ value: '', label: stateFilter ? 'All Districts' : 'Select a state first' }, ...districtsForState(stateFilter).map(d => ({ value: d, label: d }))]} />
       </div>
 
       <Card>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Inventory;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Grade;
 use App\Models\PetiTransfer;
 use Illuminate\Http\JsonResponse;
@@ -12,7 +13,7 @@ use Illuminate\Validation\Rule;
 
 class PetiTransferController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     public function index(Request $request): JsonResponse
     {
@@ -25,6 +26,28 @@ class PetiTransferController extends Controller
             ->paginate($request->integer('per_page', 20));
 
         return $this->paginated($transfers);
+    }
+
+    public function export(Request $request)
+    {
+        $transfers = PetiTransfer::with(['createdBy:id,name', 'approvedBy:id,name', 'toDealer:id,business_name'])
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->when($request->type,   fn($q) => $q->where('type', $request->type))
+            ->when($request->from,   fn($q) => $q->whereDate('created_at', '>=', $request->from))
+            ->when($request->to,     fn($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->orderByDesc('created_at')
+            ->get();
+
+        $headers = ['Transfer #', 'Type', 'To', 'Total Units', 'Total Value', 'Status', 'Created By', 'Created'];
+        $rows = $transfers->map(fn($t) => [
+            $t->transfer_number, $t->type, $t->toDealer?->business_name ?? $t->to_location ?? '-',
+            $t->total_units, $t->total_value, $t->status, $t->createdBy?->name ?? '-', $t->created_at->format('Y-m-d'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Peti Transfers', $headers, $rows, "peti_transfers_{$stamp}.pdf")
+            : $this->exportCsv("peti_transfers_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(Request $request): JsonResponse

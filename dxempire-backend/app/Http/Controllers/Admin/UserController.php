@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\User;
 use App\Services\UniqueCodeGenerator;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +16,7 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     // b2b_partner is deliberately excluded — partner accounts are created and
     // managed exclusively via Business Partners (New Dealer), which links a
@@ -42,6 +43,31 @@ class UserController extends Controller
             ->paginate($request->integer('per_page', 20));
 
         return $this->paginated($users);
+    }
+
+    public function export(Request $request)
+    {
+        $users = User::with('roles:name')
+            ->where('role', '!=', 'b2b_partner')
+            ->when($request->role, fn($q) => $q->whereHas('roles', fn($r) => $r->where('name', $request->role)))
+            ->when(isset($request->is_active), fn($q) => $q->where('is_active', (bool) $request->is_active))
+            ->when($request->search, fn($q) => $q
+                ->where('name', 'like', "%{$request->search}%")
+                ->orWhere('phone', 'like', "%{$request->search}%")
+            )
+            ->latest()
+            ->get();
+
+        $headers = ['Name', 'Phone', 'Email', 'Role', 'Unique Code', 'Active', 'Created'];
+        $rows = $users->map(fn($u) => [
+            $u->name, $u->phone ?? '-', $u->email ?? '-', $u->role, $u->unique_code ?? '-',
+            $u->is_active ? 'Yes' : 'No', $u->created_at->format('Y-m-d'),
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Staff Users', $headers, $rows, "staff_users_{$stamp}.pdf")
+            : $this->exportCsv("staff_users_{$stamp}.csv", $headers, $rows);
     }
 
     public function store(Request $request): JsonResponse

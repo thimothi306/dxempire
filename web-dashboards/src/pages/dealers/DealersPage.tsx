@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dealersService } from '../../services';
 import { Card, Table, Pagination, Select, Button, Badge, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate, ExportButton } from '../../components/ui';
+import { STATE_NAMES, districtsForState } from '../../data/statesDistricts';
 import type { Dealer } from '../../types';
 
 const BLANK_FORM = {
@@ -15,6 +16,7 @@ export default function DealersPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
   const [kycFilter, setKycFilter] = useState('');
+  const [stateFilter, setStateFilter] = useState('');
   const [districtFilter, setDistrictFilter] = useState('');
   const [selected, setSelected] = useState<Dealer | null>(null);
   const [creditForm, setCreditForm] = useState({ credit_limit: '' });
@@ -23,10 +25,11 @@ export default function DealersPage() {
   const [createForm, setCreateForm] = useState({ ...BLANK_FORM });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['dealers', page, kycFilter, districtFilter],
+    queryKey: ['dealers', page, kycFilter, stateFilter, districtFilter],
     queryFn: () => dealersService.list({
       page: String(page),
       ...(kycFilter && { kyc_status: kycFilter }),
+      ...(stateFilter && { state: stateFilter }),
       ...(districtFilter && { district: districtFilter }),
     }),
   });
@@ -121,7 +124,7 @@ export default function DealersPage() {
             </Button>
             <ExportButton
               filenameBase="business_partners"
-              onExport={(format) => dealersService.export(format, { ...(kycFilter && { kyc_status: kycFilter }), ...(districtFilter && { district: districtFilter }) })}
+              onExport={(format) => dealersService.export(format, { ...(kycFilter && { kyc_status: kycFilter }), ...(stateFilter && { state: stateFilter }), ...(districtFilter && { district: districtFilter }) })}
             />
           </div>
         }
@@ -138,11 +141,16 @@ export default function DealersPage() {
             { value: 'rejected', label: 'Rejected' },
           ]}
         />
-        <Input
-          placeholder="Filter by district..."
+        <Select
+          value={stateFilter}
+          onChange={(e) => { setStateFilter(e.target.value); setDistrictFilter(''); setPage(1); }}
+          options={[{ value: '', label: 'All States' }, ...STATE_NAMES.map((s) => ({ value: s, label: s }))]}
+        />
+        <Select
           value={districtFilter}
           onChange={(e) => { setDistrictFilter(e.target.value); setPage(1); }}
-          className="max-w-[220px]"
+          disabled={!stateFilter}
+          options={[{ value: '', label: stateFilter ? 'All Districts' : 'Select a state first' }, ...districtsForState(stateFilter).map((d) => ({ value: d, label: d }))]}
         />
       </div>
 
@@ -179,8 +187,19 @@ export default function DealersPage() {
             <Input label="Email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} placeholder="Optional" />
             <Input label="Business Name *" value={createForm.business_name} onChange={(e) => setCreateForm({ ...createForm, business_name: e.target.value })} placeholder="Company / shop name" />
             <Input label="GST Number" value={createForm.gst_number} onChange={(e) => setCreateForm({ ...createForm, gst_number: e.target.value })} placeholder="Optional" />
-            <Input label="State" value={createForm.state} onChange={(e) => setCreateForm({ ...createForm, state: e.target.value })} placeholder="e.g. Maharashtra" />
-            <Input label="District" value={createForm.district} onChange={(e) => setCreateForm({ ...createForm, district: e.target.value })} placeholder="e.g. Pune" />
+            <Select
+              label="State"
+              value={createForm.state}
+              onChange={(e) => setCreateForm({ ...createForm, state: e.target.value, district: '' })}
+              options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map((s) => ({ value: s, label: s }))]}
+            />
+            <Select
+              label="District"
+              value={createForm.district}
+              onChange={(e) => setCreateForm({ ...createForm, district: e.target.value })}
+              disabled={!createForm.state}
+              options={[{ value: '', label: createForm.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(createForm.state).map((d) => ({ value: d, label: d }))]}
+            />
             <Input label="Pincode" value={createForm.pincode} onChange={(e) => setCreateForm({ ...createForm, pincode: e.target.value })} placeholder="6-digit pincode" />
             <Input label="Credit Limit (₹)" type="number" value={createForm.credit_limit} onChange={(e) => setCreateForm({ ...createForm, credit_limit: e.target.value })} placeholder="0" />
           </div>

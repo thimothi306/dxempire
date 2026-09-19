@@ -5,6 +5,7 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\HR\MarkAttendanceRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\Exportable;
 use App\Models\Attendance;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
-    use ApiResponse;
+    use ApiResponse, Exportable;
 
     /**
      * List attendance records with optional filters.
@@ -36,6 +37,34 @@ class AttendanceController extends Controller
             ->paginate($request->integer('per_page', 50));
 
         return $this->paginated($records);
+    }
+
+    public function export(Request $request)
+    {
+        $records = Attendance::with('employee.user:id,name')
+            ->when($request->employee_id, fn($q) => $q->where('employee_id', $request->employee_id))
+            ->when($request->date, fn($q) => $q->whereDate('date', $request->date))
+            ->when($request->month && $request->year, fn($q) => $q
+                ->whereMonth('date', $request->month)
+                ->whereYear('date', $request->year)
+            )
+            ->when($request->from, fn($q) => $q->whereDate('date', '>=', $request->from))
+            ->when($request->to, fn($q) => $q->whereDate('date', '<=', $request->to))
+            ->when($request->department, fn($q) => $q->whereHas('employee', fn($e) => $e->where('department', $request->department)))
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->orderByDesc('date')
+            ->get();
+
+        $headers = ['Employee', 'Department', 'Date', 'Status', 'Check In', 'Check Out'];
+        $rows = $records->map(fn($r) => [
+            $r->employee->name ?? $r->employee->user?->name ?? '-', $r->employee->department ?? '-',
+            $r->date, $r->status, $r->check_in?->format('H:i') ?? '-', $r->check_out?->format('H:i') ?? '-',
+        ]);
+
+        $stamp = now()->format('Ymd_His');
+        return $request->get('format') === 'pdf'
+            ? $this->exportPdf('Attendance', $headers, $rows, "attendance_{$stamp}.pdf")
+            : $this->exportCsv("attendance_{$stamp}.csv", $headers, $rows);
     }
 
     /**
