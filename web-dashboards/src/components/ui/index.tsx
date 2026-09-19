@@ -1,5 +1,5 @@
-import { Loader2, Download, ChevronDown } from 'lucide-react';
-import React, { useState } from 'react';
+import { Loader2, Download, ChevronDown, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
 
 // ─── Button ──────────────────────────────────────────────────────────────────
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -148,37 +148,126 @@ export const StatCard = ({ label, value, icon, color = 'text-primary', sub, onCl
 );
 
 // ─── Table ───────────────────────────────────────────────────────────────────
-interface Column<T> { key: string; header: string; render?: (row: T) => React.ReactNode; }
-interface TableProps<T> { columns: Column<T>[]; data: T[]; keyField: keyof T; onRowClick?: (row: T) => void; emptyText?: string; }
-export function Table<T>({ columns, data, keyField, onRowClick, emptyText = 'No data found' }: TableProps<T>) {
+// DataTable-style behavior built into the shared Table: click a column header
+// to sort, and a built-in quick-search box filters whatever rows are
+// currently loaded (the page's own filters still control what's fetched from
+// the server — this narrows further, instantly, with no round trip).
+interface Column<T> {
+  key: string;
+  header: string;
+  render?: (row: T) => React.ReactNode;
+  sortValue?: (row: T) => string | number | null | undefined;
+  sortable?: boolean;
+}
+interface TableProps<T> {
+  columns: Column<T>[];
+  data: T[];
+  keyField: keyof T;
+  onRowClick?: (row: T) => void;
+  emptyText?: string;
+  searchable?: boolean;
+}
+export function Table<T>({ columns, data, keyField, onRowClick, emptyText = 'No data found', searchable = true }: TableProps<T>) {
+  const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const filtered = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return data;
+    return data.filter((row) => JSON.stringify(row).toLowerCase().includes(term));
+  }, [data, search]);
+
+  const sorted = useMemo(() => {
+    if (!sortKey) return filtered;
+    const col = columns.find((c) => c.key === sortKey);
+    if (!col) return filtered;
+    const getValue = (row: T) => col.sortValue ? col.sortValue(row) : (row as Record<string, unknown>)[col.key] as string | number | null | undefined;
+    const arr = [...filtered];
+    arr.sort((a, b) => {
+      const av = getValue(a);
+      const bv = getValue(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === 'number' && typeof bv === 'number') return sortDir === 'asc' ? av - bv : bv - av;
+      const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' });
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+    return arr;
+  }, [filtered, sortKey, sortDir, columns]);
+
+  const toggleSort = (col: Column<T>) => {
+    if (col.sortable === false) return;
+    if (sortKey === col.key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortKey(col.key);
+      setSortDir('asc');
+    }
+  };
+
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100">
-            {columns.map((c) => (
-              <th key={c.key} className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{c.header}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.length === 0 ? (
-            <tr><td colSpan={columns.length} className="py-12 text-center text-gray-400">{emptyText}</td></tr>
-          ) : data.map((row) => (
-            <tr
-              key={String(row[keyField])}
-              className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
-              onClick={() => onRowClick?.(row)}
-            >
-              {columns.map((c) => (
-                <td key={c.key} className="py-3 px-4 text-gray-700 whitespace-nowrap">
-                  {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
-                </td>
-              ))}
+    <div>
+      {searchable && data.length > 0 && (
+        <div className="px-4 pt-3 pb-1">
+          <div className="relative max-w-xs">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Quick search this table..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+            />
+          </div>
+        </div>
+      )}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-100">
+              {columns.map((c) => {
+                const isSortable = c.sortable !== false;
+                const active = sortKey === c.key;
+                return (
+                  <th
+                    key={c.key}
+                    onClick={() => toggleSort(c)}
+                    className={`text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${isSortable ? 'cursor-pointer select-none hover:text-gray-700' : ''}`}
+                  >
+                    <span className="inline-flex items-center gap-1">
+                      {c.header}
+                      {isSortable && (
+                        active
+                          ? (sortDir === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />)
+                          : <ArrowUpDown size={12} className="opacity-30" />
+                      )}
+                    </span>
+                  </th>
+                );
+              })}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.length === 0 ? (
+              <tr><td colSpan={columns.length} className="py-12 text-center text-gray-400">{data.length === 0 ? emptyText : 'No rows match your search.'}</td></tr>
+            ) : sorted.map((row) => (
+              <tr
+                key={String(row[keyField])}
+                className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onRowClick?.(row)}
+              >
+                {columns.map((c) => (
+                  <td key={c.key} className="py-3 px-4 text-gray-700 whitespace-nowrap">
+                    {c.render ? c.render(row) : String((row as Record<string, unknown>)[c.key] ?? '—')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
