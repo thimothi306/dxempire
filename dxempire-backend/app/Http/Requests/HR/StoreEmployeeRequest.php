@@ -30,6 +30,21 @@ class StoreEmployeeRequest extends FormRequest
             'is_active'        => ['boolean'],
             'incentive_enabled'=> ['boolean'],
             'commission_rate'  => ['nullable', 'numeric', 'min:0', 'max:100'],
+
+            // Address Details — optional, matches the client's form.
+            'village_street'   => ['nullable', 'string', 'max:150'],
+            'post_office'      => ['nullable', 'string', 'max:100'],
+            'police_station'   => ['nullable', 'string', 'max:100'],
+            'district'         => ['nullable', 'string', 'max:100'],
+            'state'            => ['nullable', 'string', 'max:100'],
+            'pincode'          => ['nullable', 'string', 'max:10'],
+
+            // Bank Account Details (Payout & Settlement) — required per the client's form.
+            'bank_account_number'    => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:30'],
+            'confirm_account_number' => [$isUpdate ? 'sometimes' : 'required', 'same:bank_account_number'],
+            'account_holder_name'    => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:150'],
+            'bank_name'              => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:150'],
+            'ifsc_code'              => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:15'],
         ];
     }
 }

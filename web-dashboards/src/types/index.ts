@@ -122,6 +122,16 @@ export interface Dealer {
   orders_count?: number;
   created_at?: string;
   user?: { id: number; name: string; phone: string; is_active?: boolean };
+  village_street?: string | null;
+  post_office?: string | null;
+  police_station?: string | null;
+  bank_account_number?: string | null;
+  account_holder_name?: string | null;
+  bank_name?: string | null;
+  ifsc_code?: string | null;
+  aadhaar_number?: string | null;
+  pan_number?: string | null;
+  kyc_documents?: Record<string, boolean>;
 }
 
 // --- Leads ---
@@ -206,6 +216,19 @@ export interface Employee {
   joining_date?: string;
   is_active?: boolean;
   user?: { id: number; name: string; phone: string; email: string | null; role: Role };
+  village_street?: string | null;
+  post_office?: string | null;
+  police_station?: string | null;
+  district?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  bank_account_number?: string | null;
+  account_holder_name?: string | null;
+  bank_name?: string | null;
+  ifsc_code?: string | null;
+  aadhaar_number?: string | null;
+  pan_number?: string | null;
+  kyc_documents?: Record<string, boolean>;
 }
 
 export interface AttendanceRecord {

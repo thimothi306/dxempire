@@ -12,7 +12,9 @@ use App\Services\NotificationService;
 use App\Services\PartnerCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DealerController extends Controller
 {
@@ -110,7 +112,50 @@ class DealerController extends Controller
 
         return $this->success(array_merge($dealer->toArray(), [
             'available_credit' => $dealer->availableCredit(),
+            'kyc_documents'    => $this->documentTypes($dealer),
         ]));
+    }
+
+    /** Maps each document type to whether it's on file — admin uses this to know what's left to chase. */
+    private function documentTypes(Dealer $dealer): array
+    {
+        return collect($this->documentColumns())->map(fn($column) => (bool) $dealer->{$column})->toArray();
+    }
+
+    /** @return array<string,string> document type => Dealer column holding its storage path */
+    private function documentColumns(): array
+    {
+        return [
+            'aadhaar_document'          => 'aadhaar_document_path',
+            'pan_document'              => 'pan_document_path',
+            'passport_photo'            => 'passport_photo_path',
+            'education_certificate'     => 'education_certificate_path',
+            'bank_passbook_document'    => 'bank_passbook_path',
+            'signed_agreement_document' => 'signed_agreement_path',
+        ];
+    }
+
+    /** Streams one of a partner's uploaded KYC documents for admin review. */
+    public function downloadDocument(Dealer $dealer, string $type): Response|JsonResponse
+    {
+        $columns = $this->documentColumns();
+
+        if (!isset($columns[$type])) {
+            return $this->error('Unknown document type.', 404);
+        }
+
+        $path = $dealer->{$columns[$type]};
+
+        if (!$path || !Storage::exists($path)) {
+            return $this->error('Document not found. It may not have been uploaded yet.', 404);
+        }
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        return response(Storage::get($path), 200, [
+            'Content-Type'        => Storage::mimeType($path) ?: 'application/octet-stream',
+            'Content-Disposition' => "inline; filename=\"{$dealer->business_name}_{$type}.{$extension}\"",
+        ]);
     }
 
     public function updateKyc(Request $request, Dealer $dealer): JsonResponse

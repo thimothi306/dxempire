@@ -16,6 +16,10 @@ class Employee extends Model
         'department', 'designation', 'employment_type', 'shift',
         'basic_salary', 'incentive_enabled', 'commission_rate',
         'join_date', 'is_active',
+        'village_street', 'post_office', 'police_station', 'district', 'state', 'pincode',
+        'bank_account_number', 'account_holder_name', 'bank_name', 'ifsc_code',
+        'aadhaar_number', 'pan_number', 'aadhaar_document_path', 'pan_document_path',
+        'passport_photo_path', 'education_certificate_path', 'bank_passbook_path', 'signed_agreement_path',
     ];
 
     protected $casts = [

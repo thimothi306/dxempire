@@ -17,6 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
@@ -192,6 +193,20 @@ class AuthController extends Controller
             // and are not subject to this — that's how the very first partners, or any
             // partner with no existing referrer, get onboarded.
             'unique_code'   => ['required', 'string', 'max:6'],
+
+            // Address Details — optional, matches the client's registration form.
+            'village_street' => ['nullable', 'string', 'max:150'],
+            'post_office'    => ['nullable', 'string', 'max:100'],
+            'police_station' => ['nullable', 'string', 'max:100'],
+
+            // Bank Account Details (Payout & Settlement) — required per the client's
+            // form. confirm_account_number is a frontend-only double-entry check
+            // (must match bank_account_number) and is never stored.
+            'bank_account_number'    => ['required', 'string', 'max:30'],
+            'confirm_account_number' => ['required', 'same:bank_account_number'],
+            'account_holder_name'    => ['required', 'string', 'max:150'],
+            'bank_name'              => ['required', 'string', 'max:150'],
+            'ifsc_code'              => ['required', 'string', 'max:15'],
         ]);
 
         $referredBy = Dealer::where('unique_code', strtoupper($data['unique_code']))->first();
@@ -216,6 +231,13 @@ class AuthController extends Controller
                 'state'                 => $data['state'],
                 'district'              => $data['district'] ?? null,
                 'pincode'               => $data['pincode'],
+                'village_street'        => $data['village_street'] ?? null,
+                'post_office'           => $data['post_office'] ?? null,
+                'police_station'        => $data['police_station'] ?? null,
+                'bank_account_number'   => $data['bank_account_number'],
+                'account_holder_name'   => $data['account_holder_name'],
+                'bank_name'             => $data['bank_name'],
+                'ifsc_code'             => strtoupper($data['ifsc_code']),
                 'unique_code'           => PartnerCodeGenerator::generate(),
                 'referred_by_dealer_id' => $referredBy->id,
             ]);
@@ -253,16 +275,24 @@ class AuthController extends Controller
             $user->loadMissing('dealer.referredBy');
             $dealer = $user->dealer;
             $payload = array_merge($payload, [
-                'kyc_status'    => $dealer?->kyc_status,
-                'business_name' => $dealer?->business_name,
-                'gst_number'    => $dealer?->gst_number,
-                'state'         => $dealer?->state,
-                'district'      => $dealer?->district,
-                'pincode'       => $dealer?->pincode,
-                'price_tier'    => $dealer?->price_tier,
-                'unique_code'   => $dealer?->unique_code,
-                'referred_by'   => $dealer?->referredBy?->business_name,
-                'has_dealer'    => (bool) $dealer,
+                'kyc_status'          => $dealer?->kyc_status,
+                'business_name'       => $dealer?->business_name,
+                'gst_number'          => $dealer?->gst_number,
+                'state'               => $dealer?->state,
+                'district'            => $dealer?->district,
+                'pincode'             => $dealer?->pincode,
+                'village_street'      => $dealer?->village_street,
+                'post_office'         => $dealer?->post_office,
+                'police_station'      => $dealer?->police_station,
+                'account_holder_name' => $dealer?->account_holder_name,
+                'bank_name'           => $dealer?->bank_name,
+                'ifsc_code'           => $dealer?->ifsc_code,
+                'bank_account_last4'  => $dealer?->bank_account_number ? substr($dealer->bank_account_number, -4) : null,
+                'price_tier'          => $dealer?->price_tier,
+                'unique_code'         => $dealer?->unique_code,
+                'referred_by'         => $dealer?->referredBy?->business_name,
+                'has_dealer'          => (bool) $dealer,
+                'kyc_documents'       => $dealer ? $this->documentChecklist($dealer) : null,
             ]);
         }
 
@@ -283,5 +313,85 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return $this->success(null, 'Logged out successfully');
+    }
+
+    /**
+     * KYC document uploads for a partner — deliberately separate from
+     * completeRegistration() and callable any time after: a partner can
+     * submit the core form first (per the client's form, only the bank
+     * details are mandatory there) and add documents whenever they have
+     * them, one at a time or all together. Each field is independent —
+     * uploading just the Aadhaar photo today doesn't require the others.
+     */
+    public function uploadKycDocuments(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $dealer = $user->dealer;
+
+        if (!$dealer) {
+            return $this->error('Complete your registration before uploading documents.', 422);
+        }
+
+        $data = $request->validate([
+            'aadhaar_number'          => ['nullable', 'string', 'max:20'],
+            'pan_number'              => ['nullable', 'string', 'max:15'],
+            'aadhaar_document'        => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'pan_document'            => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'passport_photo'          => ['nullable', 'file', 'mimes:jpg,jpeg,png', 'max:5120'],
+            'education_certificate'   => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'bank_passbook_document'  => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'signed_agreement_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+        ]);
+
+        $update = [];
+        if (array_key_exists('aadhaar_number', $data)) $update['aadhaar_number'] = $data['aadhaar_number'];
+        if (array_key_exists('pan_number', $data)) $update['pan_number'] = $data['pan_number'];
+
+        $fileMap = [
+            'aadhaar_document'          => ['column' => 'aadhaar_document_path', 'dir' => 'aadhaar'],
+            'pan_document'              => ['column' => 'pan_document_path', 'dir' => 'pan'],
+            'passport_photo'            => ['column' => 'passport_photo_path', 'dir' => 'photo'],
+            'education_certificate'     => ['column' => 'education_certificate_path', 'dir' => 'education'],
+            'bank_passbook_document'    => ['column' => 'bank_passbook_path', 'dir' => 'bank_passbook'],
+            'signed_agreement_document' => ['column' => 'signed_agreement_path', 'dir' => 'agreement'],
+        ];
+
+        foreach ($fileMap as $field => $meta) {
+            if (!$request->hasFile($field)) {
+                continue;
+            }
+
+            $oldPath = $dealer->{$meta['column']};
+            if ($oldPath && Storage::exists($oldPath)) {
+                Storage::delete($oldPath);
+            }
+
+            $update[$meta['column']] = $request->file($field)->store("kyc/dealers/{$dealer->id}/{$meta['dir']}");
+        }
+
+        if (empty($update)) {
+            return $this->error('No document or detail provided to save.', 422);
+        }
+
+        $dealer->update($update);
+
+        return $this->success([
+            'kyc_documents' => $this->documentChecklist($dealer->fresh()),
+        ], 'Document(s) saved.');
+    }
+
+    /** Which KYC documents/numbers a dealer has on file — used by me() and after each upload. */
+    private function documentChecklist(Dealer $dealer): array
+    {
+        return [
+            'aadhaar_number'           => (bool) $dealer->aadhaar_number,
+            'pan_number'               => (bool) $dealer->pan_number,
+            'aadhaar_document'         => (bool) $dealer->aadhaar_document_path,
+            'pan_document'             => (bool) $dealer->pan_document_path,
+            'passport_photo'           => (bool) $dealer->passport_photo_path,
+            'education_certificate'    => (bool) $dealer->education_certificate_path,
+            'bank_passbook_document'   => (bool) $dealer->bank_passbook_path,
+            'signed_agreement_document'=> (bool) $dealer->signed_agreement_path,
+        ];
     }
 }

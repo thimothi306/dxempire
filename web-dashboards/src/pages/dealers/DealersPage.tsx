@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, Download, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dealersService } from '../../services';
 import { Card, Table, Pagination, Select, Button, Badge, PageHeader, Spinner, Modal, Input, kycBadge, fmtINR, fmtDate, ExportButton } from '../../components/ui';
@@ -11,6 +11,15 @@ const BLANK_FORM = {
   name: '', phone: '', email: '', business_name: '',
   gst_number: '', state: '', district: '', pincode: '', credit_limit: '', price_tier: '',
 };
+
+const DOCUMENT_TYPES: { key: string; label: string }[] = [
+  { key: 'aadhaar_document', label: 'Aadhaar Card' },
+  { key: 'pan_document', label: 'PAN Card' },
+  { key: 'passport_photo', label: 'Passport Size Photo' },
+  { key: 'education_certificate', label: 'Educational Qualification Certificate' },
+  { key: 'bank_passbook_document', label: 'Bank Passbook / Cancelled Cheque' },
+  { key: 'signed_agreement_document', label: 'Signed Agreement Document' },
+];
 
 export default function DealersPage() {
   const qc = useQueryClient();
@@ -105,6 +114,16 @@ export default function DealersPage() {
       ? ledgerData.transactions.data
       : [];
   const ledgerSummary = ledgerData?.summary ?? null;
+
+  const downloadDealerDocument = async (id: number, type: string, label: string) => {
+    const blob = await dealersService.document(id, type);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${dealerDetail?.business_name ?? 'partner'}_${label}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const openDealer = (d: Dealer) => {
     setSelected(d);
@@ -260,6 +279,51 @@ export default function DealersPage() {
                   <div><span className="text-gray-500 block text-xs">Available</span><span className="font-semibold text-green-700">{fmtINR(dealerDetail?.available_credit ?? 0)}</span></div>
                   <div><span className="text-gray-500 block text-xs">Joined</span>{fmtDate(dealerDetail?.created_at ?? selected.created_at ?? '')}</div>
                 </div>
+
+                {/* Address & bank details — self-submitted by the partner via the mobile app registration form */}
+                {(dealerDetail?.village_street || dealerDetail?.post_office || dealerDetail?.police_station || dealerDetail?.bank_account_number) && (
+                  <div className="border-t pt-3 mt-2">
+                    <div className="text-xs font-medium text-gray-500 mb-2">Address &amp; Bank Details (submitted by partner)</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                      {dealerDetail?.village_street && <div><span className="text-gray-500 block text-xs">Village / Street</span>{dealerDetail.village_street}</div>}
+                      {dealerDetail?.post_office && <div><span className="text-gray-500 block text-xs">Post Office</span>{dealerDetail.post_office}</div>}
+                      {dealerDetail?.police_station && <div><span className="text-gray-500 block text-xs">Police Station</span>{dealerDetail.police_station}</div>}
+                      {dealerDetail?.bank_account_number && <div><span className="text-gray-500 block text-xs">Bank Account No.</span><span className="font-mono text-xs">{dealerDetail.bank_account_number}</span></div>}
+                      {dealerDetail?.account_holder_name && <div><span className="text-gray-500 block text-xs">Account Holder</span>{dealerDetail.account_holder_name}</div>}
+                      {dealerDetail?.bank_name && <div><span className="text-gray-500 block text-xs">Bank Name</span>{dealerDetail.bank_name}</div>}
+                      {dealerDetail?.ifsc_code && <div><span className="text-gray-500 block text-xs">IFSC Code</span><span className="font-mono text-xs">{dealerDetail.ifsc_code}</span></div>}
+                      {dealerDetail?.aadhaar_number && <div><span className="text-gray-500 block text-xs">Aadhaar No.</span><span className="font-mono text-xs">{dealerDetail.aadhaar_number}</span></div>}
+                      {dealerDetail?.pan_number && <div><span className="text-gray-500 block text-xs">PAN No.</span><span className="font-mono text-xs">{dealerDetail.pan_number}</span></div>}
+                    </div>
+                  </div>
+                )}
+
+                {/* KYC documents — uploaded by the partner from the mobile app, any time after registration */}
+                {dealerDetail?.kyc_documents && (
+                  <div className="border-t pt-3 mt-2">
+                    <div className="text-xs font-medium text-gray-500 mb-2">KYC Documents</div>
+                    <div className="space-y-1.5">
+                      {DOCUMENT_TYPES.map((doc) => {
+                        const uploaded = dealerDetail.kyc_documents[doc.key];
+                        return (
+                          <div key={doc.key} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2 text-xs">
+                            <span className="flex items-center gap-2">
+                              {uploaded ? <CheckCircle2 size={13} className="text-green-600" /> : <span className="w-[13px] h-[13px] rounded-full border border-gray-300 inline-block" />}
+                              {doc.label}
+                            </span>
+                            {uploaded ? (
+                              <button type="button" onClick={() => downloadDealerDocument(selected.id, doc.key, doc.label)} className="text-primary hover:underline flex items-center gap-1">
+                                <Download size={12} /> View
+                              </button>
+                            ) : (
+                              <span className="text-gray-400">Not uploaded</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* KYC actions */}
                 {(dealerDetail?.kyc_status ?? selected.kyc_status) === 'pending' && (

@@ -12,6 +12,10 @@ class Dealer extends Model
         'user_id', 'business_name', 'gst_number', 'kyc_status',
         'credit_limit', 'credit_used', 'price_tier', 'state', 'district', 'pincode',
         'assigned_salesman_id', 'unique_code', 'referred_by_dealer_id',
+        'village_street', 'post_office', 'police_station',
+        'bank_account_number', 'account_holder_name', 'bank_name', 'ifsc_code',
+        'aadhaar_number', 'pan_number', 'aadhaar_document_path', 'pan_document_path',
+        'passport_photo_path', 'education_certificate_path', 'bank_passbook_path', 'signed_agreement_path',
     ];
 
     protected $casts = [

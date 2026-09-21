@@ -70,6 +70,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/refresh', [AuthController::class, 'refresh']);
         Route::post('/auth/logout',  [AuthController::class, 'logout']);
         Route::post('/auth/complete-registration', [AuthController::class, 'completeRegistration']);
+        Route::post('/auth/kyc-documents', [AuthController::class, 'uploadKycDocuments']);
 
         // Push tokens
         Route::post('/users/push-token',   [PushTokenController::class, 'register']);
@@ -239,6 +240,7 @@ Route::prefix('v1')->group(function () {
             Route::get('dealers/export',              [DealerController::class, 'export']);
             Route::get('dealers/{dealer}',           [DealerController::class, 'show']);
             Route::get('dealers/{dealer}/ledger',    [DealerController::class, 'ledger']);
+            Route::get('dealers/{dealer}/documents/{type}', [DealerController::class, 'downloadDocument']);
         });
 
         Route::middleware('permission:dealers.edit')->group(function () {
@@ -341,6 +343,8 @@ Route::prefix('v1')->group(function () {
             Route::get('employees/{employee}',           [EmployeeController::class, 'show']);
             Route::put('employees/{employee}',           [EmployeeController::class, 'update']);
             Route::delete('employees/{employee}',        [EmployeeController::class, 'destroy']);
+            Route::post('employees/{employee}/documents', [EmployeeController::class, 'uploadDocuments']);
+            Route::get('employees/{employee}/documents/{type}', [EmployeeController::class, 'downloadDocument']);
 
             // Attendance
             Route::get('attendance',                     [AttendanceController::class, 'index']);

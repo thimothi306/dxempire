@@ -107,6 +107,8 @@ export const dealersService = {
   destroy: (id: number) => DEMO_MODE ? mock({}) : api.delete(`/dealers/${id}`).then((r) => r.data),
   export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
     api.get('/dealers/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
+  document: (id: number, type: string) =>
+    api.get(`/dealers/${id}/documents/${type}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
 // ─── Leads ───────────────────────────────────────────────────────────────────
@@ -171,6 +173,10 @@ export const hrService = {
     api.get('/hr/attendance/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
   exportPayrollItems: (id: number, format: 'csv' | 'pdf' = 'csv') =>
     api.get(`/hr/payroll/${id}/items/export`, { params: { format }, responseType: 'blob' }).then((r) => r.data),
+  uploadEmployeeDocuments: (id: number, formData: FormData) =>
+    api.post(`/hr/employees/${id}/documents`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data),
+  employeeDocument: (id: number, type: string) =>
+    api.get(`/hr/employees/${id}/documents/${type}`, { responseType: 'blob' }).then((r) => r.data),
 };
 
 // ─── Admin ───────────────────────────────────────────────────────────────────
