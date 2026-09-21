@@ -41,8 +41,8 @@ function EmployeeForm({
   return (
     <div className="space-y-4">
       <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-      <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-      <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+      <Input label="Mobile Number *" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="Enter 10-digit mobile number" />
+      <Input label="Email ID *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="Enter professional email address" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Select label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
           options={DEPARTMENTS.map((d) => ({ value: d, label: d.charAt(0).toUpperCase() + d.slice(1) }))} />

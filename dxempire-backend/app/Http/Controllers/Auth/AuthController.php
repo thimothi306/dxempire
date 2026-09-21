@@ -182,22 +182,23 @@ class AuthController extends Controller
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:200'],
             'business_name' => ['required', 'string', 'max:200'],
-            'email'         => ['nullable', 'email', Rule::unique('users', 'email')],
+            'email'         => ['required', 'email', Rule::unique('users', 'email')],
             'password'      => ['required', 'string', 'min:8'],
             'gst_number'    => ['nullable', 'string', 'max:20'],
-            'state'         => ['required', 'string', 'max:100'],
-            'district'      => ['nullable', 'string', 'max:100'],
-            'pincode'       => ['required', 'string', 'max:10'],
             // The unique_code of whoever referred them — required for self-registration.
             // Admin-created dealers (CRM screen) go through a separate, unrelated flow
             // and are not subject to this — that's how the very first partners, or any
             // partner with no existing referrer, get onboarded.
             'unique_code'   => ['required', 'string', 'max:6'],
 
-            // Address Details — optional, matches the client's registration form.
+            // Address Details — optional, exactly matching the client's form (no
+            // asterisk on any of these fields there, State and Pin Code included).
             'village_street' => ['nullable', 'string', 'max:150'],
             'post_office'    => ['nullable', 'string', 'max:100'],
             'police_station' => ['nullable', 'string', 'max:100'],
+            'district'       => ['nullable', 'string', 'max:100'],
+            'state'          => ['nullable', 'string', 'max:100'],
+            'pincode'        => ['nullable', 'string', 'max:10'],
 
             // Bank Account Details (Payout & Settlement) — required per the client's
             // form. confirm_account_number is a frontend-only double-entry check
@@ -219,7 +220,7 @@ class AuthController extends Controller
         try {
             $user->update([
                 'name'     => $data['name'],
-                'email'    => $data['email'] ?? null,
+                'email'    => $data['email'],
                 'password' => Hash::make($data['password']),
             ]);
 
@@ -228,9 +229,9 @@ class AuthController extends Controller
                 'business_name'         => $data['business_name'],
                 'gst_number'            => $data['gst_number'] ?? null,
                 'kyc_status'            => 'pending',
-                'state'                 => $data['state'],
+                'state'                 => $data['state'] ?? null,
                 'district'              => $data['district'] ?? null,
-                'pincode'               => $data['pincode'],
+                'pincode'               => $data['pincode'] ?? null,
                 'village_street'        => $data['village_street'] ?? null,
                 'post_office'           => $data['post_office'] ?? null,
                 'police_station'        => $data['police_station'] ?? null,
