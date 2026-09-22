@@ -11,6 +11,7 @@ use App\Jobs\SendOtpJob;
 use App\Models\Dealer;
 use App\Models\OtpCode;
 use App\Models\PushToken;
+use App\Models\SalesHierarchy;
 use App\Models\User;
 use App\Services\PartnerCodeGenerator;
 use Illuminate\Http\JsonResponse;
@@ -185,11 +186,13 @@ class AuthController extends Controller
             'email'         => ['required', 'email', Rule::unique('users', 'email')],
             'password'      => ['required', 'string', 'min:8'],
             'gst_number'    => ['nullable', 'string', 'max:20'],
-            // The unique_code of whoever referred them — required for self-registration.
-            // Admin-created dealers (CRM screen) go through a separate, unrelated flow
-            // and are not subject to this — that's how the very first partners, or any
-            // partner with no existing referrer, get onboarded.
-            'unique_code'   => ['required', 'string', 'max:6'],
+            // The unique_code of the STAFF MEMBER (salesman) this partner is
+            // registering under — e.g. SM001, DM001. Required for self-registration.
+            // This assigns the partner to that salesman (assigned_salesman_id) for
+            // downline/commission tracking, same as an admin doing it manually via
+            // Hierarchy > Assign Dealer. Admin-created dealers (CRM screen) go
+            // through a separate, unrelated flow and are not subject to this.
+            'unique_code'   => ['required', 'string', 'max:10'],
 
             // Address Details — optional, exactly matching the client's form (no
             // asterisk on any of these fields there, State and Pin Code included).
@@ -213,10 +216,16 @@ class AuthController extends Controller
             'ifsc_code'              => ['nullable', 'string', 'max:15'],
         ]);
 
-        $referredBy = Dealer::where('unique_code', strtoupper($data['unique_code']))->first();
+        $salesmanUser = User::where('unique_code', strtoupper($data['unique_code']))->first();
 
-        if (!$referredBy) {
+        if (!$salesmanUser) {
             return $this->error('Invalid unique code.', 422);
+        }
+
+        $salesmanNode = SalesHierarchy::where('user_id', $salesmanUser->id)->first();
+
+        if (!$salesmanNode) {
+            return $this->error('This code is not linked to an active salesman. Contact your admin.', 422);
         }
 
         DB::beginTransaction();
@@ -243,7 +252,7 @@ class AuthController extends Controller
                 'bank_name'             => $data['bank_name'] ?? null,
                 'ifsc_code'             => isset($data['ifsc_code']) ? strtoupper($data['ifsc_code']) : null,
                 'unique_code'           => PartnerCodeGenerator::generate(),
-                'referred_by_dealer_id' => $referredBy->id,
+                'assigned_salesman_id'  => $salesmanNode->id,
             ]);
 
             DB::commit();
@@ -253,10 +262,10 @@ class AuthController extends Controller
         }
 
         return $this->success([
-            'business_name' => $dealer->business_name,
-            'kyc_status'    => $dealer->kyc_status,
-            'unique_code'   => $dealer->unique_code,
-            'referred_by'   => $referredBy->business_name,
+            'business_name'     => $dealer->business_name,
+            'kyc_status'        => $dealer->kyc_status,
+            'unique_code'       => $dealer->unique_code,
+            'assigned_salesman' => $salesmanNode->name,
         ], 'Registration complete. Your account is pending KYC approval.');
     }
 
@@ -276,7 +285,7 @@ class AuthController extends Controller
         ];
 
         if ($user->role === 'b2b_partner') {
-            $user->loadMissing('dealer.referredBy');
+            $user->loadMissing('dealer.salesman');
             $dealer = $user->dealer;
             $payload = array_merge($payload, [
                 'kyc_status'          => $dealer?->kyc_status,
@@ -294,7 +303,7 @@ class AuthController extends Controller
                 'bank_account_last4'  => $dealer?->bank_account_number ? substr($dealer->bank_account_number, -4) : null,
                 'price_tier'          => $dealer?->price_tier,
                 'unique_code'         => $dealer?->unique_code,
-                'referred_by'         => $dealer?->referredBy?->business_name,
+                'assigned_salesman'   => $dealer?->salesman?->name,
                 'has_dealer'          => (bool) $dealer,
                 'kyc_documents'       => $dealer ? $this->documentChecklist($dealer) : null,
             ]);

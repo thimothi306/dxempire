@@ -103,7 +103,7 @@ This is the screen the client specified — all fields below map directly to it.
 | `business_name` | string | **yes** | not on the client's mockup, but required — the partner's shop/company name |
 | `email` | string | **yes** | matches "Email ID *" on the form. Must be a valid, unused email. |
 | `password` | string | **yes** | min 8 characters |
-| `unique_code` | string | **yes** | "Employ Code (Mandatory)" on the form — this is the **referrer's** unique code (e.g. `DX42Y3`), not a new code. Every partner is referred by an existing one; registration fails with "Invalid unique code" if it doesn't match any Dealer. The new partner gets **their own** fresh unique code back in the response. |
+| `unique_code` | string | **yes** | "Employ Code (Mandatory)" on the form — this is the **staff member's (salesman's) own login code** (e.g. `SM001`, `DM001`, `SG001` — from Staff Users, *not* a business partner's code). Entering it assigns this partner to that salesman for downline/commission tracking. Registration fails with "Invalid unique code" if it doesn't match any active staff user, or with a separate message if that staff account isn't linked to an active hierarchy node. The new partner separately gets **their own** fresh partner code back in the response (a different kind of code, `DX`-prefixed — used elsewhere, not for this field). |
 | `gst_number` | string | no | optional GST number |
 
 *(Mobile Number isn't a field on this call — it's the phone number already verified via OTP in step 2, tied to the authenticated session.)*
@@ -139,7 +139,7 @@ These fields still exist on the endpoint (kept nullable, not deleted) in case a 
   "business_name": "Ramesh Electronics",
   "email": "ramesh@example.com",
   "password": "SecurePass123",
-  "unique_code": "DX42Y3",
+  "unique_code": "SM001",
   "village_street": "12 Gandhi Road",
   "post_office": "Shivaji Nagar PO",
   "police_station": "Shivaji Nagar PS",
@@ -148,6 +148,7 @@ These fields still exist on the endpoint (kept nullable, not deleted) in case a 
   "pincode": "411001"
 }
 ```
+Note `unique_code` here is `SM001` — a **staff member's own code**, not a partner code. This is the field the client refers to as "Employee Code" in the app.
 
 **Success (200)**
 ```json
@@ -158,19 +159,17 @@ These fields still exist on the endpoint (kept nullable, not deleted) in case a 
     "business_name": "Ramesh Electronics",
     "kyc_status": "pending",
     "unique_code": "DXFH3H",
-    "referred_by": "Sharma Electronics"
+    "assigned_salesman": "Vikram Singh"
   }
 }
 ```
-`unique_code` here is the **new partner's own** code — show it to them, they'll need it to refer others.
+`unique_code` in the response is a **different, new code** — the partner's own `DX`-prefixed code, unrelated to the `SM001` they entered. `assigned_salesman` confirms who they were assigned to.
 
 **Errors**
 - `422` — "This account is already registered." (already has a Dealer)
-- `422` — "Invalid unique code." (referrer code not found)
-- `422` — field validation errors (`errors.<field>`), including `confirm_account_number` mismatch:
-  ```json
-  { "message": "The confirm account number and bank account number must match.", "errors": { "confirm_account_number": ["..."] } }
-  ```
+- `422` — "Invalid unique code." (no staff user has that code)
+- `422` — "This code is not linked to an active salesman. Contact your admin." (the staff code is real, but that staff member has no Hierarchy node — an admin needs to set one up first)
+- `422` — field validation errors (`errors.<field>`)
 
 ---
 
@@ -256,7 +255,7 @@ Auth required. Call this on app resume to get the partner's current, authoritati
     "bank_account_last4": null,
     "price_tier": null,
     "unique_code": "DXFH3H",
-    "referred_by": "Sharma Electronics",
+    "assigned_salesman": "Vikram Singh",
     "has_dealer": true,
     "kyc_documents": {
       "aadhaar_number": true,
@@ -290,8 +289,10 @@ send-otp → verify-otp
               └─ kyc_status null (has_dealer=false)
                      │
                      ▼
-              complete-registration  (name, business_name, email, password, unique_code —
-                                       address fields optional, no bank fields sent)
+              complete-registration  (name, business_name, email, password,
+                                       unique_code = STAFF/salesman code (assigns partner
+                                       to that salesman) — address fields optional,
+                                       no bank fields sent)
                      │
                      ▼
               kyc-documents  (optional, any time — call once or repeatedly)
