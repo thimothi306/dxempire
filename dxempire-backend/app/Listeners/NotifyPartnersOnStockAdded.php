@@ -30,7 +30,12 @@ class NotifyPartnersOnStockAdded
                 'stock_alert',
                 'New Stock Available',
                 "{$product->brand} {$product->model} (Grade {$product->grade}) is now available.",
-                ['product_id' => (string) $product->id]
+                [
+                    'product_id' => (string) $product->id,
+                    'brand'      => $product->brand,
+                    'model'      => $product->model,
+                    'grade'      => $product->grade,
+                ]
             );
         } catch (\Throwable $e) {
             Log::warning("Stock alert push failed for product {$product->id}: " . $e->getMessage());
