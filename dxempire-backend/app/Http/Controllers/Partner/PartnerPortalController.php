@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Partner;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Integrations\Logistics\LogisticsFactory;
 use App\Integrations\Payment\CashfreeService;
 use App\Models\AuditLog;
 use App\Models\Dealer;
@@ -262,6 +263,36 @@ class PartnerPortalController extends Controller
 
         $order->load(['items.product:id,brand,model,category,grade', 'payments', 'invoice']);
         return $this->success($order);
+    }
+
+    /**
+     * Live courier tracking for one of the partner's own orders — reuses the
+     * exact same Delhivery lookup staff already use (LogisticsController),
+     * just scoped to orders this partner owns. Before an AWB exists (order
+     * still pending/approved/packed), there's nothing to track yet, so that
+     * returns a plain "not shipped" status instead of an error.
+     */
+    public function orderTracking(Request $request, Order $order): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer || $order->dealer_id !== $dealer->id) {
+            return $this->error('Order not found.', 404);
+        }
+
+        if (!$order->awb_number) {
+            return $this->success([
+                'status'  => 'not_shipped',
+                'message' => 'This order has not been dispatched yet.',
+            ]);
+        }
+
+        try {
+            $result = LogisticsFactory::make()->trackShipment($order->awb_number);
+        } catch (\RuntimeException $e) {
+            return $this->error('Tracking is temporarily unavailable: ' . $e->getMessage(), 502);
+        }
+
+        return $this->success($result);
     }
 
     /** Paginated list of the partner's own invoices. */
