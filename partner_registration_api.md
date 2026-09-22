@@ -118,14 +118,16 @@ This is the screen the client specified — all fields below map directly to it.
 | `state` | string | no | max 100 chars |
 | `pincode` | string | no | max 10 chars |
 
-### Section 3 — Bank Account Details *(all required, matches the `*` on the form)*
+### Section 3 — Bank Account Details *(REMOVED from this call — client no longer collects bank details at registration. Do not send these.)*
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `bank_account_number` | string | **yes** | max 30 chars |
-| `confirm_account_number` | string | **yes** | must exactly match `bank_account_number` — validated server-side too, but check client-side first for a fast error |
-| `account_holder_name` | string | **yes** | max 150 chars |
-| `bank_name` | string | **yes** | max 150 chars |
-| `ifsc_code` | string | **yes** | max 15 chars — server uppercases it automatically, send in any case |
+| `bank_account_number` | string | no | max 30 chars — accepted if sent, but the app should not send it |
+| `confirm_account_number` | string | no | must match `bank_account_number` only if both are present |
+| `account_holder_name` | string | no | max 150 chars |
+| `bank_name` | string | no | max 150 chars |
+| `ifsc_code` | string | no | max 15 chars |
+
+These fields still exist on the endpoint (kept nullable, not deleted) in case a future "complete KYC" step ever needs them — but as of now the client does not want bank details collected at registration, and the app should stop sending all five fields. Registration succeeds fully without them.
 
 ### Section 4 — Document Uploads
 **Not part of this call.** Submit the form above first; documents go through the separate endpoint in step 4, any time after registration (can be same screen flow, just a second network call, or a completely separate "Complete your KYC" screen later — your call).
@@ -143,12 +145,7 @@ This is the screen the client specified — all fields below map directly to it.
   "police_station": "Shivaji Nagar PS",
   "district": "Pune",
   "state": "Maharashtra",
-  "pincode": "411001",
-  "bank_account_number": "123456789012",
-  "confirm_account_number": "123456789012",
-  "account_holder_name": "Ramesh Kumar",
-  "bank_name": "State Bank of India",
-  "ifsc_code": "sbin0001234"
+  "pincode": "411001"
 }
 ```
 
@@ -253,10 +250,10 @@ Auth required. Call this on app resume to get the partner's current, authoritati
     "village_street": "12 Gandhi Road",
     "post_office": "Shivaji Nagar PO",
     "police_station": "Shivaji Nagar PS",
-    "account_holder_name": "Ramesh Kumar",
-    "bank_name": "State Bank of India",
-    "ifsc_code": "SBIN0001234",
-    "bank_account_last4": "9012",
+    "account_holder_name": null,
+    "bank_name": null,
+    "ifsc_code": null,
+    "bank_account_last4": null,
     "price_tier": null,
     "unique_code": "DXFH3H",
     "referred_by": "Sharma Electronics",
@@ -276,7 +273,8 @@ Auth required. Call this on app resume to get the partner's current, authoritati
 ```
 
 Notes:
-- `bank_account_last4` — only the last 4 digits are returned here (not the full number), by design.
+- `account_holder_name`/`bank_name`/`ifsc_code`/`bank_account_last4` will normally be `null` now, since registration no longer collects bank details.
+- `bank_account_last4` — only the last 4 digits are returned here (not the full number), by design, for the rare case these do get set later.
 - `has_dealer: false` means registration was never completed → same routing as `kyc_status: null` from step 2.
 - `kyc_status` moves from `pending` → `verified` (or `rejected`) only after admin review in the back office — there's no partner-facing action for that.
 
@@ -292,8 +290,8 @@ send-otp → verify-otp
               └─ kyc_status null (has_dealer=false)
                      │
                      ▼
-              complete-registration  (name, business_name, password, unique_code,
-                                       address fields, ALL bank fields required)
+              complete-registration  (name, business_name, email, password, unique_code —
+                                       address fields optional, no bank fields sent)
                      │
                      ▼
               kyc-documents  (optional, any time — call once or repeatedly)

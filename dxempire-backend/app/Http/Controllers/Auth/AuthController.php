@@ -200,14 +200,17 @@ class AuthController extends Controller
             'state'          => ['nullable', 'string', 'max:100'],
             'pincode'        => ['nullable', 'string', 'max:10'],
 
-            // Bank Account Details (Payout & Settlement) — required per the client's
-            // form. confirm_account_number is a frontend-only double-entry check
-            // (must match bank_account_number) and is never stored.
-            'bank_account_number'    => ['required', 'string', 'max:30'],
-            'confirm_account_number' => ['required', 'same:bank_account_number'],
-            'account_holder_name'    => ['required', 'string', 'max:150'],
-            'bank_name'              => ['required', 'string', 'max:150'],
-            'ifsc_code'              => ['required', 'string', 'max:15'],
+            // Bank Account Details (Payout & Settlement) — no longer collected at
+            // registration per the client's later decision; the app doesn't send
+            // these at all now. Kept nullable (not dropped) so they still validate
+            // correctly if ever sent later (e.g. a future "complete KYC" step).
+            // confirm_account_number is a frontend-only double-entry check (must
+            // match bank_account_number when both are present) and is never stored.
+            'bank_account_number'    => ['nullable', 'string', 'max:30'],
+            'confirm_account_number' => ['nullable', 'same:bank_account_number'],
+            'account_holder_name'    => ['nullable', 'string', 'max:150'],
+            'bank_name'              => ['nullable', 'string', 'max:150'],
+            'ifsc_code'              => ['nullable', 'string', 'max:15'],
         ]);
 
         $referredBy = Dealer::where('unique_code', strtoupper($data['unique_code']))->first();
@@ -235,10 +238,10 @@ class AuthController extends Controller
                 'village_street'        => $data['village_street'] ?? null,
                 'post_office'           => $data['post_office'] ?? null,
                 'police_station'        => $data['police_station'] ?? null,
-                'bank_account_number'   => $data['bank_account_number'],
-                'account_holder_name'   => $data['account_holder_name'],
-                'bank_name'             => $data['bank_name'],
-                'ifsc_code'             => strtoupper($data['ifsc_code']),
+                'bank_account_number'   => $data['bank_account_number'] ?? null,
+                'account_holder_name'   => $data['account_holder_name'] ?? null,
+                'bank_name'             => $data['bank_name'] ?? null,
+                'ifsc_code'             => isset($data['ifsc_code']) ? strtoupper($data['ifsc_code']) : null,
                 'unique_code'           => PartnerCodeGenerator::generate(),
                 'referred_by_dealer_id' => $referredBy->id,
             ]);
