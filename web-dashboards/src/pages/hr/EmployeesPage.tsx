@@ -136,10 +136,69 @@ function EmployeeForm({
   );
 }
 
-// KYC document uploads only make sense once an employee record exists (files
-// attach to an ID) — shown inside the Edit modal, never at creation time.
-// Fetches its own fresh copy of the employee (including kyc_documents, which
-// the list endpoint doesn't return) rather than trusting the row passed in.
+// Shared presentational block for the 6 document uploads + Aadhaar/PAN number
+// fields — used both at creation (no checklist, nothing uploaded yet) and in
+// Edit (with a checklist + View links for whatever's already on file).
+function DocumentUploadFields({
+  aadhaarNumber, panNumber, onAadhaarNumberChange, onPanNumberChange,
+  files, onFileChange, checklist, onView, aadhaarPlaceholder, panPlaceholder,
+}: {
+  aadhaarNumber: string;
+  panNumber: string;
+  onAadhaarNumberChange: (v: string) => void;
+  onPanNumberChange: (v: string) => void;
+  files: Record<string, File | null>;
+  onFileChange: (key: string, file: File | null) => void;
+  checklist?: Record<string, boolean>;
+  onView?: (type: string, label: string) => void;
+  aadhaarPlaceholder?: string;
+  panPlaceholder?: string;
+}) {
+  return (
+    <div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <Input label="Aadhaar Card No." value={aadhaarNumber} onChange={(e) => onAadhaarNumberChange(e.target.value)} placeholder={aadhaarPlaceholder ?? 'Enter Aadhaar number'} />
+        <Input label="PAN Card No." value={panNumber} onChange={(e) => onPanNumberChange(e.target.value)} placeholder={panPlaceholder ?? 'Enter PAN number'} />
+      </div>
+
+      <div className="space-y-2">
+        {DOCUMENT_TYPES.map((doc) => {
+          const uploaded = checklist?.[doc.key];
+          return (
+            <div key={doc.key} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
+              <div className="flex items-center gap-2 min-w-0">
+                {uploaded && <CheckCircle2 size={14} className="text-green-600 shrink-0" />}
+                <span className="text-xs font-medium text-gray-700 truncate">{doc.label}</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {uploaded && onView && (
+                  <button type="button" onClick={() => onView(doc.key, doc.label)} className="text-primary hover:underline text-xs flex items-center gap-1">
+                    <Download size={12} /> View
+                  </button>
+                )}
+                <label className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white hover:bg-gray-50 cursor-pointer flex items-center gap-1">
+                  <Upload size={12} />
+                  {files[doc.key] ? files[doc.key]!.name.slice(0, 14) : (uploaded ? 'Replace' : 'Choose File')}
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    className="hidden"
+                    onChange={(e) => onFileChange(doc.key, e.target.files?.[0] ?? null)}
+                  />
+                </label>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// KYC document uploads for an EXISTING employee — shown inside the Edit
+// modal. Fetches its own fresh copy of the employee (including
+// kyc_documents, which the list endpoint doesn't return) rather than
+// trusting the row passed in, and saves independently of the profile form.
 function EmployeeDocumentsPanel({ employee }: { employee: Employee }) {
   const qc = useQueryClient();
   const [aadhaarNumber, setAadhaarNumber] = useState('');
@@ -188,38 +247,18 @@ function EmployeeDocumentsPanel({ employee }: { employee: Employee }) {
       <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
       <p className="text-xs text-gray-500 mb-3">Optional — can be added now or later. Aadhaar/PAN numbers are saved alongside their document.</p>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-        <Input label="Aadhaar Card No." value={aadhaarNumber} onChange={(e) => setAadhaarNumber(e.target.value)} placeholder={detail?.aadhaar_number ?? 'Enter Aadhaar number'} />
-        <Input label="PAN Card No." value={panNumber} onChange={(e) => setPanNumber(e.target.value)} placeholder={detail?.pan_number ?? 'Enter PAN number'} />
-      </div>
-
-      <div className="space-y-2">
-        {DOCUMENT_TYPES.map((doc) => (
-          <div key={doc.key} className="flex items-center justify-between gap-3 bg-gray-50 rounded-lg px-3 py-2">
-            <div className="flex items-center gap-2 min-w-0">
-              {checklist[doc.key] && <CheckCircle2 size={14} className="text-green-600 shrink-0" />}
-              <span className="text-xs font-medium text-gray-700 truncate">{doc.label}</span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {checklist[doc.key] && (
-                <button type="button" onClick={() => download(doc.key, doc.label)} className="text-primary hover:underline text-xs flex items-center gap-1">
-                  <Download size={12} /> View
-                </button>
-              )}
-              <label className="text-xs border border-gray-300 rounded-md px-2 py-1 bg-white hover:bg-gray-50 cursor-pointer flex items-center gap-1">
-                <Upload size={12} />
-                {files[doc.key] ? files[doc.key]!.name.slice(0, 14) : (checklist[doc.key] ? 'Replace' : 'Choose File')}
-                <input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  className="hidden"
-                  onChange={(e) => setFiles({ ...files, [doc.key]: e.target.files?.[0] ?? null })}
-                />
-              </label>
-            </div>
-          </div>
-        ))}
-      </div>
+      <DocumentUploadFields
+        aadhaarNumber={aadhaarNumber}
+        panNumber={panNumber}
+        onAadhaarNumberChange={setAadhaarNumber}
+        onPanNumberChange={setPanNumber}
+        files={files}
+        onFileChange={(key, file) => setFiles({ ...files, [key]: file })}
+        checklist={checklist}
+        onView={download}
+        aadhaarPlaceholder={detail?.aadhaar_number ?? undefined}
+        panPlaceholder={detail?.pan_number ?? undefined}
+      />
 
       <Button
         variant="outline"
@@ -242,6 +281,11 @@ export default function EmployeesPage() {
   const [editTarget, setEditTarget] = useState<Employee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [createAadhaarNumber, setCreateAadhaarNumber] = useState('');
+  const [createPanNumber, setCreatePanNumber] = useState('');
+  const [createFiles, setCreateFiles] = useState<Record<string, File | null>>({});
+
+  const resetCreateDocs = () => { setCreateAadhaarNumber(''); setCreatePanNumber(''); setCreateFiles({}); };
 
   const { data, isLoading } = useQuery({
     queryKey: ['employees', page, departmentFilter],
@@ -249,14 +293,28 @@ export default function EmployeesPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: () => hrService.createEmployee({ ...form, salary: Number(form.salary), commission_rate: form.commission_rate ? Number(form.commission_rate) : null }),
+    mutationFn: async () => {
+      const employee = await hrService.createEmployee({ ...form, salary: Number(form.salary), commission_rate: form.commission_rate ? Number(form.commission_rate) : null });
+
+      const hasDocs = createAadhaarNumber || createPanNumber || Object.values(createFiles).some(Boolean);
+      if (hasDocs && employee?.id) {
+        const fd = new FormData();
+        if (createAadhaarNumber) fd.append('aadhaar_number', createAadhaarNumber);
+        if (createPanNumber) fd.append('pan_number', createPanNumber);
+        Object.entries(createFiles).forEach(([key, file]) => { if (file) fd.append(key, file); });
+        await hrService.uploadEmployeeDocuments(employee.id, fd);
+      }
+
+      return employee;
+    },
     onSuccess: () => {
       toast.success('Employee added');
       qc.invalidateQueries({ queryKey: ['employees'] });
       setShowCreate(false);
       setForm(EMPTY_FORM);
+      resetCreateDocs();
     },
-    onError: () => toast.error('Failed to add employee'),
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to add employee'),
   });
 
   const updateMut = useMutation({
@@ -371,8 +429,26 @@ export default function EmployeesPage() {
       </Card>
 
       {/* Add Employee Modal */}
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Add Employee">
-        <EmployeeForm form={form} setForm={setForm} onSubmit={() => createMut.mutate()} onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); }} loading={createMut.isPending} />
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); resetCreateDocs(); }} title="Add Employee">
+        <EmployeeForm
+          form={form}
+          setForm={setForm}
+          onSubmit={() => createMut.mutate()}
+          onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); resetCreateDocs(); }}
+          loading={createMut.isPending}
+        />
+        <div className="border-t border-gray-100 mt-4 pt-4">
+          <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
+          <p className="text-xs text-gray-500 mb-3">Optional — attach any that are ready now; the rest can be added later from Edit.</p>
+          <DocumentUploadFields
+            aadhaarNumber={createAadhaarNumber}
+            panNumber={createPanNumber}
+            onAadhaarNumberChange={setCreateAadhaarNumber}
+            onPanNumberChange={setCreatePanNumber}
+            files={createFiles}
+            onFileChange={(key, file) => setCreateFiles({ ...createFiles, [key]: file })}
+          />
+        </div>
       </Modal>
 
       {/* Edit Employee Modal */}
