@@ -22,10 +22,16 @@ export default function UsersPage() {
   const [newRole, setNewRole] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [newUserCode, setNewUserCode] = useState<{ name: string; code: string } | null>(null);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState('');
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-users', page],
-    queryFn: () => adminService.users({ page: String(page) }),
+    queryKey: ['admin-users', page, roleFilter, searchFilter],
+    queryFn: () => adminService.users({
+      page: String(page),
+      ...(roleFilter && { role: roleFilter }),
+      ...(searchFilter && { search: searchFilter }),
+    }),
   });
 
   const createMut = useMutation({
@@ -65,7 +71,10 @@ export default function UsersPage() {
         subtitle="All admin and staff users"
         action={
           <div className="flex gap-2">
-            <ExportButton filenameBase="staff_users" onExport={(format) => adminService.exportUsers(format)} />
+            <ExportButton
+              filenameBase="staff_users"
+              onExport={(format) => adminService.exportUsers(format, { ...(roleFilter && { role: roleFilter }), ...(searchFilter && { search: searchFilter }) })}
+            />
             <Button onClick={() => setShowCreate(true)}><UserPlus size={15} /> Add User</Button>
           </div>
         }
@@ -74,6 +83,20 @@ export default function UsersPage() {
       <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">
         <p>This is <span className="font-semibold">login access</span> — who can sign in and what they're allowed to do (role, permissions).</p>
         <p>It's separate from <span className="font-semibold">Employees</span> (HR records — salary, department, attendance). Adding someone here doesn't add their HR record, and vice versa.</p>
+      </div>
+
+      <div className="mb-5 flex flex-wrap gap-3">
+        <Input
+          placeholder="Search by name..."
+          value={searchFilter}
+          onChange={(e) => { setSearchFilter(e.target.value); setPage(1); }}
+          className="max-w-[220px]"
+        />
+        <Select
+          value={roleFilter}
+          onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+          options={[{ value: '', label: 'All Roles' }, ...ROLES.map((r) => ({ value: r, label: r.replace(/_/g, ' ') }))]}
+        />
       </div>
 
       <Card>
