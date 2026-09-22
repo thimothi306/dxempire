@@ -28,6 +28,18 @@ class InventoryController extends Controller
         return $this->paginated($products);
     }
 
+    /** Distinct brands across all inventory (any status) — powers the Brand filter dropdown. */
+    public function brands(): JsonResponse
+    {
+        $brands = Product::whereNotNull('brand')
+            ->select('brand')
+            ->distinct()
+            ->orderBy('brand')
+            ->pluck('brand');
+
+        return $this->success($brands);
+    }
+
     public function lookupByImei(string $imei): JsonResponse
     {
         $product = Product::with(['bin', 'supplier', 'qcRecords'])

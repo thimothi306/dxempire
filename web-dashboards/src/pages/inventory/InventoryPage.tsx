@@ -65,6 +65,7 @@ export default function InventoryPage() {
   const [filters, setFilters] = useState({
     search: searchParams.get('search') ?? '',
     category: searchParams.get('category') ?? '',
+    brand: searchParams.get('brand') ?? '',
     grade: searchParams.get('grade') ?? '',
     status: searchParams.get('status') ?? '',
   });
@@ -73,6 +74,7 @@ export default function InventoryPage() {
     setFilters({
       search: f.search ?? '',
       category: f.category ?? '',
+      brand: '',
       grade: f.grade ?? '',
       status: f.status ?? '',
     });
@@ -86,6 +88,9 @@ export default function InventoryPage() {
 
   const { data: gradesData } = useQuery({ queryKey: ['grades'], queryFn: gradeService.list });
   const gradeCodes: string[] = Array.isArray(gradesData) ? gradesData.filter((g: any) => g.is_active).map((g: any) => g.code) : ['S1', 'S2', 'S3', 'S4', 'S5'];
+
+  const { data: brandsData } = useQuery({ queryKey: ['inventory-brands'], queryFn: inventoryService.brands });
+  const brands: string[] = Array.isArray(brandsData) ? brandsData : [];
 
   const { data, isLoading } = useQuery({
     queryKey: ['inventory', page, filters],
@@ -160,10 +165,12 @@ export default function InventoryPage() {
         <AiSearchBox onResult={applyAiFilters} />
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-5">
         <Input placeholder="Search IMEI / model..." value={filters.search} onChange={(e) => setFilters({ ...filters, search: e.target.value })} />
         <Select value={filters.category} onChange={(e) => setFilters({ ...filters, category: e.target.value })}
           options={[{ value: '', label: 'All Categories' }, { value: 'phone', label: 'Phone' }, { value: 'laptop', label: 'Laptop' }]} />
+        <Select value={filters.brand} onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
+          options={[{ value: '', label: 'All Brands' }, ...brands.map((b) => ({ value: b, label: b }))]} />
         <Select value={filters.grade} onChange={(e) => setFilters({ ...filters, grade: e.target.value })}
           options={[{ value: '', label: 'All Grades' }, ...gradeCodes.map((g) => ({ value: g, label: g }))]} />
         <Select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}
