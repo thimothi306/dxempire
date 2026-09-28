@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { UserPlus, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { adminService } from '../../services';
+import { adminService, hrService } from '../../services';
 import { Button, Badge, Table, Pagination, Modal, Input, Select, PageHeader, Card, Spinner, ExportButton } from '../../components/ui';
+import { STATE_NAMES, districtsForState } from '../../data/statesDistricts';
+import { DocumentUploadFields } from '../hr/EmployeesPage';
 import type { User, Role } from '../../types';
 
 const ROLES: Role[] = [
@@ -12,7 +14,14 @@ const ROLES: Role[] = [
   'accounts', 'hr_manager', 'logistics',
 ];
 
-const EMPTY_FORM = { name: '', phone: '', email: '', password: '', role: 'sales' as Role };
+const EMPTY_FORM = {
+  name: '', phone: '', email: '', password: '', role: 'sales' as Role,
+  create_employee: false,
+  department: '', designation: '', employment_type: 'full_time', shift: 'morning',
+  salary: '', joining_date: '',
+  village_street: '', post_office: '', police_station: '', district: '', state: '', pincode: '',
+  bank_account_number: '', confirm_account_number: '', account_holder_name: '', bank_name: '', ifsc_code: '',
+};
 
 export default function UsersPage() {
   const qc = useQueryClient();
@@ -24,6 +33,16 @@ export default function UsersPage() {
   const [newUserCode, setNewUserCode] = useState<{ name: string; code: string } | null>(null);
   const [roleFilter, setRoleFilter] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
+  const [docAadhaarNumber, setDocAadhaarNumber] = useState('');
+  const [docPanNumber, setDocPanNumber] = useState('');
+  const [docFiles, setDocFiles] = useState<Record<string, File | null>>({});
+
+  const resetCreateForm = () => {
+    setForm(EMPTY_FORM);
+    setDocAadhaarNumber('');
+    setDocPanNumber('');
+    setDocFiles({});
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin-users', page, roleFilter, searchFilter],
@@ -35,7 +54,37 @@ export default function UsersPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: () => adminService.createUser(form),
+    mutationFn: async () => {
+      const payload: Record<string, unknown> = {
+        name: form.name, phone: form.phone, email: form.email || null, password: form.password || null, role: form.role,
+      };
+      if (form.create_employee) {
+        Object.assign(payload, {
+          create_employee: true,
+          department: form.department || null, designation: form.designation || null,
+          employment_type: form.employment_type, shift: form.shift,
+          salary: Number(form.salary), joining_date: form.joining_date,
+          village_street: form.village_street || null, post_office: form.post_office || null,
+          police_station: form.police_station || null, district: form.district || null,
+          state: form.state || null, pincode: form.pincode || null,
+          bank_account_number: form.bank_account_number, confirm_account_number: form.confirm_account_number,
+          account_holder_name: form.account_holder_name, bank_name: form.bank_name, ifsc_code: form.ifsc_code,
+        });
+      }
+
+      const result: any = await adminService.createUser(payload);
+
+      const hasDocs = docAadhaarNumber || docPanNumber || Object.values(docFiles).some(Boolean);
+      if (form.create_employee && hasDocs && result?.employee_id) {
+        const fd = new FormData();
+        if (docAadhaarNumber) fd.append('aadhaar_number', docAadhaarNumber);
+        if (docPanNumber) fd.append('pan_number', docPanNumber);
+        Object.entries(docFiles).forEach(([key, file]) => { if (file) fd.append(key, file); });
+        await hrService.uploadEmployeeDocuments(result.employee_id, fd);
+      }
+
+      return result;
+    },
     onSuccess: (response: any) => {
       const uniqueCode = response?.unique_code || response?.data?.unique_code;
       setNewUserCode({ name: form.name, code: uniqueCode });
@@ -44,9 +93,9 @@ export default function UsersPage() {
       }
       qc.invalidateQueries({ queryKey: ['admin-users'] });
       setShowCreate(false);
-      setForm(EMPTY_FORM);
+      resetCreateForm();
     },
-    onError: () => toast.error('Failed to create user'),
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to create user'),
   });
 
   const roleMut = useMutation({
@@ -130,7 +179,7 @@ export default function UsersPage() {
       </Card>
 
       {/* Create User Modal */}
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Add User">
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); resetCreateForm(); }} title="Add User" width="max-w-2xl">
         <div className="space-y-4">
           <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -148,9 +197,102 @@ export default function UsersPage() {
             onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
             options={ROLES.map((r) => ({ value: r, label: r.replace(/_/g, ' ') }))}
           />
+
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer border-t border-gray-100 pt-4">
+            <input
+              type="checkbox"
+              checked={form.create_employee}
+              onChange={(e) => setForm({ ...form, create_employee: e.target.checked })}
+              className="accent-primary"
+            />
+            Also create HR/Employee record
+          </label>
+          <p className="text-xs text-gray-500 -mt-2">
+            Check this if this person is a real employee who needs salary, attendance, and payroll tracking — not just system access.
+          </p>
+
+          {form.create_employee && (
+            <>
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Employment Details</h3>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+                    <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+                  </div>
+                  <Input label="Monthly Salary (₹) *" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
+                  <Input label="Joining Date *" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Address Details</h3>
+                <div className="space-y-3">
+                  <Input label="Village / Street" value={form.village_street} onChange={(e) => setForm({ ...form, village_street: e.target.value })} />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Input label="Post Office (P.O)" value={form.post_office} onChange={(e) => setForm({ ...form, post_office: e.target.value })} />
+                    <Input label="Police Station (P.S)" value={form.police_station} onChange={(e) => setForm({ ...form, police_station: e.target.value })} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <Select
+                      label="State"
+                      value={form.state}
+                      onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })}
+                      options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map((s) => ({ value: s, label: s }))]}
+                    />
+                    <Select
+                      label="District"
+                      value={form.district}
+                      onChange={(e) => setForm({ ...form, district: e.target.value })}
+                      disabled={!form.state}
+                      options={[{ value: '', label: form.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(form.state).map((d) => ({ value: d, label: d }))]}
+                    />
+                  </div>
+                  <Input label="Pin Code" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Bank Account Details (Payout &amp; Settlement)</h3>
+                <div className="space-y-3">
+                  <Input label="Bank Account Number *" value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} />
+                  <Input label="Confirm Account Number *" value={form.confirm_account_number} onChange={(e) => setForm({ ...form, confirm_account_number: e.target.value })} />
+                  <Input label="Account Holder Name *" value={form.account_holder_name} onChange={(e) => setForm({ ...form, account_holder_name: e.target.value })} />
+                  <Input label="Bank Name *" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
+                  <Input label="IFSC Code *" value={form.ifsc_code} onChange={(e) => setForm({ ...form, ifsc_code: e.target.value.toUpperCase() })} />
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
+                <p className="text-xs text-gray-500 mb-3">Optional — attach any that are ready now; the rest can be added later from Employees.</p>
+                <DocumentUploadFields
+                  aadhaarNumber={docAadhaarNumber}
+                  panNumber={docPanNumber}
+                  onAadhaarNumberChange={setDocAadhaarNumber}
+                  onPanNumberChange={setDocPanNumber}
+                  files={docFiles}
+                  onFileChange={(key, file) => setDocFiles({ ...docFiles, [key]: file })}
+                />
+              </div>
+            </>
+          )}
+
           <div className="flex gap-3 pt-2">
-            <Button onClick={() => createMut.mutate()} loading={createMut.isPending} className="flex-1 justify-center">Create</Button>
-            <Button variant="outline" onClick={() => { setShowCreate(false); setForm(EMPTY_FORM); }} className="flex-1 justify-center">Cancel</Button>
+            <Button
+              onClick={() => {
+                if (form.create_employee && form.bank_account_number !== form.confirm_account_number) {
+                  toast.error('Account number and confirm account number do not match.');
+                  return;
+                }
+                createMut.mutate();
+              }}
+              loading={createMut.isPending}
+              className="flex-1 justify-center"
+            >
+              Create
+            </Button>
+            <Button variant="outline" onClick={() => { setShowCreate(false); resetCreateForm(); }} className="flex-1 justify-center">Cancel</Button>
           </div>
         </div>
       </Modal>
