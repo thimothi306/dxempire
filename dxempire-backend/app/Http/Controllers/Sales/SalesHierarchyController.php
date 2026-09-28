@@ -6,14 +6,33 @@ use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
 use App\Http\Traits\Exportable;
 use App\Models\Dealer;
+use App\Models\Employee;
 use App\Models\Order;
 use App\Models\SalesHierarchy;
+use App\Models\User;
+use App\Services\UniqueCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SalesHierarchyController extends Controller
 {
     use ApiResponse, Exportable;
+
+    /**
+     * hierarchy_role (this table's own enum) => users.role (the login/permission
+     * system's role column). The two tables have historically used different
+     * role vocabularies for the same real-world positions (e.g. this table
+     * says "salesman", Users says "sales") — this is the one place that maps
+     * between them, used only when creating a brand new person from scratch.
+     */
+    private const HIERARCHY_TO_USER_ROLE = [
+        'ceo'              => 'super_admin',
+        'state_manager'    => 'state_manager',
+        'area_manager'     => 'area_manager',
+        'district_manager' => 'district_manager',
+        'salesman'         => 'sales',
+    ];
 
     public function index(Request $request): JsonResponse
     {
@@ -55,6 +74,20 @@ class SalesHierarchyController extends Controller
             : $this->exportCsv("hierarchy_{$stamp}.csv", $headers, $rows);
     }
 
+    /** Staff Users not yet placed anywhere in the hierarchy — powers the "existing person" picker. */
+    public function availableUsers(): JsonResponse
+    {
+        $linkedUserIds = SalesHierarchy::whereNotNull('user_id')->pluck('user_id');
+
+        $users = User::whereNotIn('id', $linkedUserIds)
+            ->where('is_active', true)
+            ->where('role', '!=', 'b2b_partner')
+            ->orderBy('name')
+            ->get(['id', 'name', 'unique_code', 'role', 'phone']);
+
+        return $this->success($users);
+    }
+
     public function tree(): JsonResponse
     {
         $roots = SalesHierarchy::with('children.children.children.children')
@@ -67,7 +100,65 @@ class SalesHierarchyController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $mode = $request->input('mode', $request->filled('user_id') ? 'existing' : 'new');
+
+        return $mode === 'existing'
+            ? $this->storeExisting($request)
+            : $this->storeNew($request);
+    }
+
+    /**
+     * Place someone who is ALREADY a Staff User into the hierarchy — e.g.
+     * promoting an existing salesman to District Manager. No new login or HR
+     * record: just one new row, linked to their existing account. tree_id
+     * reuses that account's own unique_code rather than generating a fresh
+     * one, so the two are guaranteed to match instead of merely convention.
+     */
+    private function storeExisting(Request $request): JsonResponse
+    {
         $request->validate([
+            'user_id'            => ['required', 'exists:users,id', 'unique:sales_hierarchy,user_id'],
+            'hierarchy_role'     => ['required', 'in:ceo,state_manager,area_manager,district_manager,salesman'],
+            'parent_id'          => ['nullable', 'exists:sales_hierarchy,id'],
+            'parent_unique_code' => ['nullable', 'string', 'exists:sales_hierarchy,tree_id'],
+            'state'              => ['nullable', 'string', 'max:100'],
+            'area'               => ['nullable', 'string', 'max:100'],
+            'district'           => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $user = User::findOrFail($request->user_id);
+        $parentId = $this->resolveParentId($request);
+
+        $node = SalesHierarchy::create([
+            'tree_id'        => $user->unique_code,
+            'name'           => $user->name,
+            'phone'          => $user->phone,
+            'email'          => $user->email,
+            'hierarchy_role' => $request->hierarchy_role,
+            'parent_id'      => $parentId,
+            'state'          => $request->state,
+            'area'           => $request->area,
+            'district'       => $request->district,
+            'user_id'        => $user->id,
+            'is_active'      => true,
+        ]);
+
+        return $this->created($node->load(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member added to hierarchy.');
+    }
+
+    /**
+     * Onboard a genuinely NEW person: creates a Staff User (login), an
+     * Employee (HR/payroll/documents) record, and the hierarchy placement —
+     * all three in one transaction, all three linked, and all three sharing
+     * ONE generated code (used as both the User's unique_code and this row's
+     * tree_id) so they can never drift apart for people created this way.
+     * No password is set — sales-hierarchy roles log into the mobile app
+     * with just their code (see MobileAuthController::login); one can be
+     * added later via Staff Users if this person also needs web access.
+     */
+    private function storeNew(Request $request): JsonResponse
+    {
+        $data = $request->validate([
             'name'               => ['required', 'string', 'max:200'],
             'phone'              => ['nullable', 'string', 'max:20'],
             'email'              => ['nullable', 'email'],
@@ -77,27 +168,95 @@ class SalesHierarchyController extends Controller
             'state'              => ['nullable', 'string', 'max:100'],
             'area'               => ['nullable', 'string', 'max:100'],
             'district'           => ['nullable', 'string', 'max:100'],
-            'user_id'            => ['nullable', 'exists:users,id'],
+
+            // Employee/HR fields — same shape as the Employees "Add" form.
+            'department'         => ['nullable', 'string', 'max:100'],
+            'designation'        => ['nullable', 'string', 'max:100'],
+            'employment_type'    => ['nullable', 'in:full_time,part_time,contract'],
+            'shift'              => ['nullable', 'in:morning,evening'],
+            'salary'             => ['required', 'numeric', 'min:0'],
+            'joining_date'       => ['required', 'date'],
+
+            'village_street'     => ['nullable', 'string', 'max:150'],
+            'post_office'        => ['nullable', 'string', 'max:100'],
+            'police_station'     => ['nullable', 'string', 'max:100'],
+            'pincode'            => ['nullable', 'string', 'max:10'],
+
+            'bank_account_number'    => ['required', 'string', 'max:30'],
+            'confirm_account_number' => ['required', 'same:bank_account_number'],
+            'account_holder_name'    => ['required', 'string', 'max:150'],
+            'bank_name'              => ['required', 'string', 'max:150'],
+            'ifsc_code'              => ['required', 'string', 'max:15'],
         ]);
 
-        $parentId = $this->resolveParentId($request);
-        $treeId   = SalesHierarchy::generateTreeId($request->hierarchy_role);
+        $userRole   = self::HIERARCHY_TO_USER_ROLE[$data['hierarchy_role']];
+        $uniqueCode = UniqueCodeGenerator::generateForRole($userRole);
 
-        $node = SalesHierarchy::create([
-            'tree_id'        => $treeId,
-            'name'           => $request->name,
-            'phone'          => $request->phone,
-            'email'          => $request->email,
-            'hierarchy_role' => $request->hierarchy_role,
-            'parent_id'      => $parentId,
-            'state'          => $request->state,
-            'area'           => $request->area,
-            'district'       => $request->district,
-            'user_id'        => $request->user_id,
-            'is_active'      => true,
-        ]);
+        DB::beginTransaction();
+        try {
+            $user = User::create([
+                'name'        => $data['name'],
+                'phone'       => $data['phone'] ?? null,
+                'email'       => $data['email'] ?? null,
+                'password'    => null,
+                'role'        => $userRole,
+                'unique_code' => $uniqueCode,
+                'is_active'   => true,
+            ]);
+            $user->assignRole($userRole);
 
-        return $this->created($node->load(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member added to hierarchy.');
+            $employee = Employee::create([
+                'user_id'             => $user->id,
+                'name'                => $data['name'],
+                'phone'               => $data['phone'] ?? null,
+                'email'               => $data['email'] ?? null,
+                'employee_code'       => Employee::generateEmployeeCode(),
+                'department'          => $data['department'] ?? null,
+                'designation'         => $data['designation'] ?? null,
+                'employment_type'     => $data['employment_type'] ?? 'full_time',
+                'shift'               => $data['shift'] ?? 'morning',
+                'basic_salary'        => $data['salary'],
+                'join_date'           => $data['joining_date'],
+                'is_active'           => true,
+                'village_street'      => $data['village_street'] ?? null,
+                'post_office'         => $data['post_office'] ?? null,
+                'police_station'      => $data['police_station'] ?? null,
+                'district'            => $data['district'] ?? null,
+                'state'               => $data['state'] ?? null,
+                'pincode'             => $data['pincode'] ?? null,
+                'bank_account_number' => $data['bank_account_number'],
+                'account_holder_name' => $data['account_holder_name'],
+                'bank_name'           => $data['bank_name'],
+                'ifsc_code'           => strtoupper($data['ifsc_code']),
+            ]);
+
+            $parentId = $this->resolveParentId($request);
+
+            $node = SalesHierarchy::create([
+                'tree_id'        => $uniqueCode,
+                'name'           => $data['name'],
+                'phone'          => $data['phone'] ?? null,
+                'email'          => $data['email'] ?? null,
+                'hierarchy_role' => $data['hierarchy_role'],
+                'parent_id'      => $parentId,
+                'state'          => $data['state'] ?? null,
+                'area'           => $data['area'] ?? null,
+                'district'       => $data['district'] ?? null,
+                'user_id'        => $user->id,
+                'is_active'      => true,
+            ]);
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        return $this->created([
+            'hierarchy'   => $node->load(['parent:id,name,tree_id', 'user:id,name,phone']),
+            'employee_id' => $employee->id,
+            'unique_code' => $uniqueCode,
+        ], 'New member created — login, HR record, and hierarchy placement all set up.');
     }
 
     /** Resolve parent_id from parent_unique_code (tree_id lookup) when the numeric parent_id isn't given. */

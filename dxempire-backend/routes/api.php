@@ -410,6 +410,7 @@ Route::prefix('v1')->group(function () {
             Route::get('hierarchy',                               [SalesHierarchyController::class, 'index']);
             Route::get('hierarchy/tree',                          [SalesHierarchyController::class, 'tree']);
             Route::get('hierarchy/export',                        [SalesHierarchyController::class, 'export']);
+            Route::get('hierarchy/available-users',               [SalesHierarchyController::class, 'availableUsers']);
             Route::post('hierarchy',                              [SalesHierarchyController::class, 'store']);
             Route::get('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'show']);
             Route::put('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'update']);

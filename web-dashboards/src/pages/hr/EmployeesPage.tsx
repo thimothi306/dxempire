@@ -17,7 +17,7 @@ const EMPTY_FORM = {
 };
 type EmployeeFormState = typeof EMPTY_FORM;
 
-const DOCUMENT_TYPES: { key: string; label: string }[] = [
+export const DOCUMENT_TYPES: { key: string; label: string }[] = [
   { key: 'aadhaar_document', label: 'Aadhaar Card' },
   { key: 'pan_document', label: 'PAN Card' },
   { key: 'passport_photo', label: 'Passport Size Photo' },
@@ -139,7 +139,7 @@ function EmployeeForm({
 // Shared presentational block for the 6 document uploads + Aadhaar/PAN number
 // fields — used both at creation (no checklist, nothing uploaded yet) and in
 // Edit (with a checklist + View links for whatever's already on file).
-function DocumentUploadFields({
+export function DocumentUploadFields({
   aadhaarNumber, panNumber, onAadhaarNumberChange, onPanNumberChange,
   files, onFileChange, checklist, onView, aadhaarPlaceholder, panPlaceholder,
 }: {

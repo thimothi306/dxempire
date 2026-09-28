@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, ChevronRight, Users, TrendingUp, Trash2, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hierarchyService } from '../../services/newModules';
+import { hrService } from '../../services';
 import { Card, Table, Pagination, Badge, Button, PageHeader, Spinner, Modal, Input, Select, fmtINR, ExportButton } from '../../components/ui';
 import { STATE_NAMES, districtsForState } from '../../data/statesDistricts';
+import { DocumentUploadFields } from '../hr/EmployeesPage';
 
 const ROLES = [
   { value: 'ceo',              label: 'CEO' },
@@ -20,6 +22,24 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 const EMPTY_FORM = { name: '', phone: '', email: '', hierarchy_role: 'salesman', parent_unique_code: '', state: '', area: '', district: '' };
+
+const EMPTY_ADD_FORM = {
+  mode: 'existing' as 'existing' | 'new',
+  existing_user_id: '',
+  // Shared by both modes
+  hierarchy_role: 'salesman',
+  parent_unique_code: '',
+  state: '', area: '', district: '',
+  // "New person" only — Basic
+  name: '', phone: '', email: '',
+  // "New person" only — HR/Employee
+  department: 'sales', designation: '', employment_type: 'full_time', shift: 'morning',
+  salary: '', joining_date: '',
+  village_street: '', post_office: '', police_station: '', pincode: '',
+  // "New person" only — Bank (required)
+  bank_account_number: '', confirm_account_number: '', account_holder_name: '', bank_name: '', ifsc_code: '',
+};
+type AddMemberFormState = typeof EMPTY_ADD_FORM;
 
 // Recursive — the API loads 4 levels of children per node, so a manager's
 // downline is a real tree, not a flat list of direct reports.
@@ -96,6 +116,161 @@ function MemberForm({
   );
 }
 
+// The "Add Member" flow has two modes:
+// - "existing": place someone who's already a Staff User into the hierarchy —
+//   just this one row, linked to their account. For reorganizations/promotions.
+// - "new": onboard someone who exists nowhere yet — creates their Staff User
+//   login, an Employee HR record (with bank details + optional documents),
+//   and the hierarchy placement together, all sharing one generated code.
+function AddMemberForm({
+  form, setForm, availableUsers, onSubmit, onCancel, loading,
+  docAadhaarNumber, docPanNumber, setDocAadhaarNumber, setDocPanNumber, docFiles, setDocFiles,
+}: {
+  form: AddMemberFormState;
+  setForm: (f: AddMemberFormState) => void;
+  availableUsers: { id: number; name: string; unique_code: string; role: string; phone?: string }[];
+  onSubmit: () => void;
+  onCancel: () => void;
+  loading: boolean;
+  docAadhaarNumber: string;
+  docPanNumber: string;
+  setDocAadhaarNumber: (v: string) => void;
+  setDocPanNumber: (v: string) => void;
+  docFiles: Record<string, File | null>;
+  setDocFiles: (f: Record<string, File | null>) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+        {([
+          { key: 'existing', label: 'Existing Person' },
+          { key: 'new', label: 'New Person' },
+        ] as const).map(t => (
+          <button
+            key={t.key}
+            onClick={() => setForm({ ...form, mode: t.key })}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${form.mode === t.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {form.mode === 'existing' ? (
+        <>
+          <p className="text-xs text-gray-500">Pick someone who's already a Staff User — no new login or HR record is created, just their hierarchy placement.</p>
+          <Select
+            label="Staff User *"
+            value={form.existing_user_id}
+            onChange={e => setForm({ ...form, existing_user_id: e.target.value })}
+            options={[{ value: '', label: 'Select a staff user...' }, ...availableUsers.map(u => ({ value: String(u.id), label: `${u.name} (${u.unique_code}) — ${u.role.replace(/_/g, ' ')}` }))]}
+          />
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-gray-500">A genuinely new hire — this creates their login, HR record, and hierarchy placement together.</p>
+          <Input label="Full Name *" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+            <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+          </div>
+        </>
+      )}
+
+      <Select label="Role *" value={form.hierarchy_role} onChange={e => setForm({ ...form, hierarchy_role: e.target.value })}
+        options={ROLES} />
+
+      <div className="bg-blue-50 border border-blue-200 p-3 rounded-lg">
+        <Input
+          label="Parent's Unique Code"
+          value={form.parent_unique_code}
+          onChange={e => setForm({ ...form, parent_unique_code: e.target.value })}
+          placeholder="e.g., SM001, DM001, AM001"
+        />
+        <p className="text-xs text-blue-700 mt-2">👤 Enter the parent's unique code. Leave empty only for top-level members.</p>
+      </div>
+
+      <Select label="State" value={form.state} onChange={e => setForm({ ...form, state: e.target.value, district: '' })}
+        options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map(s => ({ value: s, label: s }))]} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Input label="Area" value={form.area} onChange={e => setForm({ ...form, area: e.target.value })} placeholder="e.g. Bangalore Zone" />
+        <Select label="District" value={form.district} onChange={e => setForm({ ...form, district: e.target.value })}
+          disabled={!form.state}
+          options={[{ value: '', label: form.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(form.state).map(d => ({ value: d, label: d }))]} />
+      </div>
+
+      {form.mode === 'new' && (
+        <>
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Employment Details</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input label="Department" value={form.department} onChange={e => setForm({ ...form, department: e.target.value })} />
+                <Input label="Designation" value={form.designation} onChange={e => setForm({ ...form, designation: e.target.value })} />
+              </div>
+              <Input label="Monthly Salary (₹) *" type="number" value={form.salary} onChange={e => setForm({ ...form, salary: e.target.value })} />
+              <Input label="Joining Date *" type="date" value={form.joining_date} onChange={e => setForm({ ...form, joining_date: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Address Details</h3>
+            <div className="space-y-3">
+              <Input label="Village / Street" value={form.village_street} onChange={e => setForm({ ...form, village_street: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input label="Post Office (P.O)" value={form.post_office} onChange={e => setForm({ ...form, post_office: e.target.value })} />
+                <Input label="Police Station (P.S)" value={form.police_station} onChange={e => setForm({ ...form, police_station: e.target.value })} />
+              </div>
+              <Input label="Pin Code" value={form.pincode} onChange={e => setForm({ ...form, pincode: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Bank Account Details (Payout &amp; Settlement)</h3>
+            <div className="space-y-3">
+              <Input label="Bank Account Number *" value={form.bank_account_number} onChange={e => setForm({ ...form, bank_account_number: e.target.value })} />
+              <Input label="Confirm Account Number *" value={form.confirm_account_number} onChange={e => setForm({ ...form, confirm_account_number: e.target.value })} />
+              <Input label="Account Holder Name *" value={form.account_holder_name} onChange={e => setForm({ ...form, account_holder_name: e.target.value })} />
+              <Input label="Bank Name *" value={form.bank_name} onChange={e => setForm({ ...form, bank_name: e.target.value })} />
+              <Input label="IFSC Code *" value={form.ifsc_code} onChange={e => setForm({ ...form, ifsc_code: e.target.value.toUpperCase() })} />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
+            <p className="text-xs text-gray-500 mb-3">Optional — attach any that are ready now; the rest can be added later from Employees.</p>
+            <DocumentUploadFields
+              aadhaarNumber={docAadhaarNumber}
+              panNumber={docPanNumber}
+              onAadhaarNumberChange={setDocAadhaarNumber}
+              onPanNumberChange={setDocPanNumber}
+              files={docFiles}
+              onFileChange={(key, file) => setDocFiles({ ...docFiles, [key]: file })}
+            />
+          </div>
+        </>
+      )}
+
+      <div className="flex gap-3 pt-2">
+        <Button
+          onClick={() => {
+            if (form.mode === 'new' && form.bank_account_number !== form.confirm_account_number) {
+              toast.error('Account number and confirm account number do not match.');
+              return;
+            }
+            onSubmit();
+          }}
+          loading={loading}
+          className="flex-1 justify-center"
+        >
+          Save
+        </Button>
+        <Button variant="outline" onClick={onCancel} className="flex-1 justify-center">Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function HierarchyPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(1);
@@ -107,6 +282,24 @@ export default function HierarchyPage() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'downline' | 'performance'>('details');
   const [form, setForm] = useState(EMPTY_FORM);
+  const [addForm, setAddForm] = useState(EMPTY_ADD_FORM);
+  const [addDocAadhaarNumber, setAddDocAadhaarNumber] = useState('');
+  const [addDocPanNumber, setAddDocPanNumber] = useState('');
+  const [addDocFiles, setAddDocFiles] = useState<Record<string, File | null>>({});
+
+  const resetAddForm = () => {
+    setAddForm(EMPTY_ADD_FORM);
+    setAddDocAadhaarNumber('');
+    setAddDocPanNumber('');
+    setAddDocFiles({});
+  };
+
+  const { data: availableUsersData } = useQuery({
+    queryKey: ['hierarchy-available-users'],
+    queryFn: () => hierarchyService.availableUsers(),
+    enabled: showCreate,
+  });
+  const availableUsers: any[] = Array.isArray(availableUsersData) ? availableUsersData : [];
 
   const { data, isLoading } = useQuery({
     queryKey: ['hierarchy', page, roleFilter, stateFilter, districtFilter],
@@ -131,8 +324,53 @@ export default function HierarchyPage() {
   });
 
   const createMut = useMutation({
-    mutationFn: () => hierarchyService.create({ ...form, parent_unique_code: form.parent_unique_code || null }),
-    onSuccess: () => { toast.success('Member added'); qc.invalidateQueries({ queryKey: ['hierarchy'] }); qc.invalidateQueries({ queryKey: ['hierarchy-all'] }); setShowCreate(false); setForm(EMPTY_FORM); },
+    mutationFn: async () => {
+      const payload = addForm.mode === 'existing'
+        ? {
+            mode: 'existing',
+            user_id: Number(addForm.existing_user_id),
+            hierarchy_role: addForm.hierarchy_role,
+            parent_unique_code: addForm.parent_unique_code || null,
+            state: addForm.state || null,
+            area: addForm.area || null,
+            district: addForm.district || null,
+          }
+        : {
+            mode: 'new',
+            name: addForm.name, phone: addForm.phone || null, email: addForm.email || null,
+            hierarchy_role: addForm.hierarchy_role,
+            parent_unique_code: addForm.parent_unique_code || null,
+            state: addForm.state || null, area: addForm.area || null, district: addForm.district || null,
+            department: addForm.department || null, designation: addForm.designation || null,
+            employment_type: addForm.employment_type, shift: addForm.shift,
+            salary: Number(addForm.salary), joining_date: addForm.joining_date,
+            village_street: addForm.village_street || null, post_office: addForm.post_office || null,
+            police_station: addForm.police_station || null, pincode: addForm.pincode || null,
+            bank_account_number: addForm.bank_account_number, confirm_account_number: addForm.confirm_account_number,
+            account_holder_name: addForm.account_holder_name, bank_name: addForm.bank_name, ifsc_code: addForm.ifsc_code,
+          };
+
+      const result: any = await hierarchyService.create(payload);
+
+      const hasDocs = addDocAadhaarNumber || addDocPanNumber || Object.values(addDocFiles).some(Boolean);
+      if (addForm.mode === 'new' && hasDocs && result?.employee_id) {
+        const fd = new FormData();
+        if (addDocAadhaarNumber) fd.append('aadhaar_number', addDocAadhaarNumber);
+        if (addDocPanNumber) fd.append('pan_number', addDocPanNumber);
+        Object.entries(addDocFiles).forEach(([key, file]) => { if (file) fd.append(key, file); });
+        await hrService.uploadEmployeeDocuments(result.employee_id, fd);
+      }
+
+      return result;
+    },
+    onSuccess: () => {
+      toast.success('Member added');
+      qc.invalidateQueries({ queryKey: ['hierarchy'] });
+      qc.invalidateQueries({ queryKey: ['hierarchy-all'] });
+      qc.invalidateQueries({ queryKey: ['hierarchy-available-users'] });
+      setShowCreate(false);
+      resetAddForm();
+    },
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to add member'),
   });
 
@@ -171,7 +409,7 @@ export default function HierarchyPage() {
                 ...(districtFilter && { district: districtFilter }),
               })}
             />
-            <Button onClick={() => { setForm(EMPTY_FORM); setShowCreate(true); }}><Plus size={15} /> Add Member</Button>
+            <Button onClick={() => { resetAddForm(); setShowCreate(true); }}><Plus size={15} /> Add Member</Button>
           </div>
         }
       />
@@ -320,8 +558,21 @@ export default function HierarchyPage() {
       </Modal>
 
       {/* Add Member Modal */}
-      <Modal open={showCreate} onClose={() => { setShowCreate(false); setForm(EMPTY_FORM); }} title="Add Hierarchy Member">
-        <MemberForm form={form} setForm={setForm} onSubmit={() => createMut.mutate()} onCancel={() => { setShowCreate(false); setForm(EMPTY_FORM); }} loading={createMut.isPending} />
+      <Modal open={showCreate} onClose={() => { setShowCreate(false); resetAddForm(); }} title="Add Hierarchy Member" width="max-w-2xl">
+        <AddMemberForm
+          form={addForm}
+          setForm={setAddForm}
+          availableUsers={availableUsers}
+          onSubmit={() => createMut.mutate()}
+          onCancel={() => { setShowCreate(false); resetAddForm(); }}
+          loading={createMut.isPending}
+          docAadhaarNumber={addDocAadhaarNumber}
+          docPanNumber={addDocPanNumber}
+          setDocAadhaarNumber={setAddDocAadhaarNumber}
+          setDocPanNumber={setAddDocPanNumber}
+          docFiles={addDocFiles}
+          setDocFiles={setAddDocFiles}
+        />
       </Modal>
 
       {/* Edit Member Modal */}

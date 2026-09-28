@@ -11,6 +11,7 @@ export const hierarchyService = {
   downline:       (id: number) => api.get(`/sales/hierarchy/${id}/downline`).then(r => r.data.data),
   performance:    (id: number) => api.get(`/sales/hierarchy/${id}/performance`).then(r => r.data.data),
   assignDealer:   (id: number, dealer_id: number) => api.post(`/sales/hierarchy/${id}/assign-dealer`, { dealer_id }).then(r => r.data),
+  availableUsers: () => api.get('/sales/hierarchy/available-users').then(r => r.data.data),
   export:         (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
     api.get('/sales/hierarchy/export', { params: { ...params, format }, responseType: 'blob' }).then(r => r.data),
 };
