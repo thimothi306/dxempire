@@ -56,6 +56,8 @@ export const binsService = {
   products: (id: number) => DEMO_MODE ? mock({ data: [] }) : api.get(`/bins/${id}/products`).then((r) => r.data),
   move: (product_id: number, to_bin_id: number, reason?: string) => DEMO_MODE ? mock({}) : api.post('/bins/move', { product_id, to_bin_id, reason }).then((r) => r.data),
   create: (data: { code: string; zone?: string; capacity?: number }) => DEMO_MODE ? mock({ id: Date.now(), ...data, current_count: 0, is_active: true }) : api.post('/bins', data).then((r) => r.data.data),
+  update: (id: number, data: Record<string, unknown>) => DEMO_MODE ? mock({}) : api.put(`/bins/${id}`, data).then((r) => r.data.data),
+  destroy: (id: number) => DEMO_MODE ? mock({}) : api.delete(`/bins/${id}`).then((r) => r.data),
   export: (format: 'csv' | 'pdf' = 'csv', params?: Record<string, string>) =>
     api.get('/bins/export', { params: { ...params, format }, responseType: 'blob' }).then((r) => r.data),
 };
