@@ -18,6 +18,12 @@ export const authService = {
     api.post('/auth/admin/login', { email, password }).then((r) => r.data.data),
   logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me').then((r) => r.data.data),
+  forgotPassword: (identifier: string) =>
+    api.post('/auth/forgot-password', { identifier }).then((r) => r.data),
+  resetPassword: (identifier: string, code: string, password: string, password_confirmation: string) =>
+    api.post('/auth/reset-password', { identifier, code, password, password_confirmation }).then((r) => r.data),
+  changePassword: (data: { current_password?: string; password: string; password_confirmation: string }) =>
+    api.post('/auth/change-password', data).then((r) => r.data),
 };
 
 // ─── Analytics ───────────────────────────────────────────────────────────────

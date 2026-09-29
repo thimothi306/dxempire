@@ -7,8 +7,12 @@ import {
   FileText, Receipt, TrendingUp, BadgeDollarSign, Landmark,
   PersonStanding, CalendarDays, Banknote, ChevronDown, ChevronRight,
   GitBranch, Tag, PackageCheck, LifeBuoy, Images, Warehouse, Award, ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
+import { authService } from '../../services';
+import { Modal, Input, Button } from '../ui';
 import type { Role } from '../../types';
 
 interface NavItem {
@@ -72,6 +76,37 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const role = user?.role;
   const location = useLocation();
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const resetChangePasswordForm = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  const submitChangePassword = async () => {
+    if (newPassword !== confirmPassword) { toast.error('Passwords do not match.'); return; }
+    if (newPassword.length < 8) { toast.error('Password must be at least 8 characters.'); return; }
+    setChangingPassword(true);
+    try {
+      await authService.changePassword({
+        ...(currentPassword ? { current_password: currentPassword } : {}),
+        password: newPassword,
+        password_confirmation: confirmPassword,
+      });
+      toast.success('Password changed successfully.');
+      setShowChangePassword(false);
+      resetChangePasswordForm();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to change password.');
+    } finally {
+      setChangingPassword(false);
+    }
+  };
 
   const financeRoutes = ['/invoices', '/expenses', '/pl', '/gst', '/receivables'];
   const hrRoutes     = ['/employees', '/attendance', '/payroll'];
@@ -184,6 +219,12 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           </div>
         </div>
         <button
+          onClick={() => setShowChangePassword(true)}
+          className="flex items-center gap-2 text-sm text-blue-100/60 hover:text-accent transition-colors w-full mb-2"
+        >
+          <KeyRound size={15} /> Change Password
+        </button>
+        <button
           onClick={logout}
           className="flex items-center gap-2 text-sm text-blue-100/60 hover:text-accent transition-colors w-full"
         >
@@ -191,6 +232,27 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         </button>
         </div>
       </aside>
+
+      <Modal open={showChangePassword} onClose={() => { setShowChangePassword(false); resetChangePasswordForm(); }} title="Change Password">
+        <div className="space-y-4">
+          <p className="text-xs text-gray-500">
+            Enter your current password and choose a new one. If you've never set a password before, leave "Current Password" blank.
+          </p>
+          <Input
+            label="Current Password"
+            type="password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Leave blank if you've never set one"
+          />
+          <Input label="New Password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <Input label="Confirm New Password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+          <div className="flex gap-3 pt-2">
+            <Button onClick={submitChangePassword} loading={changingPassword} className="flex-1 justify-center">Save</Button>
+            <Button variant="outline" onClick={() => { setShowChangePassword(false); resetChangePasswordForm(); }} className="flex-1 justify-center">Cancel</Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
