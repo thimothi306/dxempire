@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Sales;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\ChecksLinkedRecords;
 use App\Http\Traits\Exportable;
 use App\Models\Dealer;
 use App\Models\Employee;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Hash;
 
 class SalesHierarchyController extends Controller
 {
-    use ApiResponse, Exportable;
+    use ApiResponse, Exportable, ChecksLinkedRecords;
 
     /**
      * hierarchy_role (this table's own enum) => users.role (the login/permission
@@ -310,9 +311,21 @@ class SalesHierarchyController extends Controller
         return $this->success($salesHierarchy->fresh(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member updated.');
     }
 
-    public function destroy(SalesHierarchy $salesHierarchy): JsonResponse
+    public function destroy(Request $request, SalesHierarchy $salesHierarchy): JsonResponse
     {
+        if (!$request->boolean('cascade')) {
+            $linked = $this->findLinkedRecords($salesHierarchy->user_id, 'hierarchy');
+            if ($linked) {
+                $confirmation = $this->linkedConfirmationPayload($linked);
+                return $this->success($confirmation['data'], $confirmation['message']);
+            }
+        }
+
         $salesHierarchy->update(['is_active' => false]);
+
+        if ($request->boolean('cascade')) {
+            $this->deactivateLinkedRecords($salesHierarchy->user_id, 'hierarchy');
+        }
 
         return $this->success(null, 'Member deactivated.');
     }

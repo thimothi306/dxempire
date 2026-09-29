@@ -393,8 +393,21 @@ export default function HierarchyPage() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => hierarchyService.remove(id),
-    onSuccess: () => { toast.success('Member deactivated'); qc.invalidateQueries({ queryKey: ['hierarchy'] }); },
+    mutationFn: async (id: number) => {
+      const res: any = await hierarchyService.remove(id);
+      if (res?.data?.needs_confirmation) {
+        if (window.confirm(res.message)) {
+          return hierarchyService.remove(id, true);
+        }
+        return res;
+      }
+      return res;
+    },
+    onSuccess: (res: any) => {
+      if (res?.data?.needs_confirmation) return; // user cancelled the cascade prompt
+      toast.success('Member deactivated');
+      qc.invalidateQueries({ queryKey: ['hierarchy'] });
+    },
     onError: () => toast.error('Failed'),
   });
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\HR;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\HR\StoreEmployeeRequest;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\ChecksLinkedRecords;
 use App\Http\Traits\Exportable;
 use App\Models\Employee;
 use Illuminate\Http\JsonResponse;
@@ -14,7 +15,7 @@ use Illuminate\Support\Facades\Storage;
 
 class EmployeeController extends Controller
 {
-    use ApiResponse, Exportable;
+    use ApiResponse, Exportable, ChecksLinkedRecords;
 
     public function index(Request $request): JsonResponse
     {
@@ -185,9 +186,21 @@ class EmployeeController extends Controller
         return $this->success($employee->load('user:id,name,phone,email'), 'Employee updated.');
     }
 
-    public function destroy(Employee $employee): JsonResponse
+    public function destroy(Request $request, Employee $employee): JsonResponse
     {
+        if (!$request->boolean('cascade')) {
+            $linked = $this->findLinkedRecords($employee->user_id, 'employee');
+            if ($linked) {
+                $confirmation = $this->linkedConfirmationPayload($linked);
+                return $this->success($confirmation['data'], $confirmation['message']);
+            }
+        }
+
         $employee->delete();
+
+        if ($request->boolean('cascade')) {
+            $this->deactivateLinkedRecords($employee->user_id, 'employee');
+        }
 
         return $this->success(null, 'Employee deactivated.');
     }

@@ -328,8 +328,18 @@ export default function EmployeesPage() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => hrService.deleteEmployee(id),
-    onSuccess: () => {
+    mutationFn: async (id: number) => {
+      const res: any = await hrService.deleteEmployee(id);
+      if (res?.data?.needs_confirmation) {
+        if (window.confirm(res.message)) {
+          return hrService.deleteEmployee(id, true);
+        }
+        return res;
+      }
+      return res;
+    },
+    onSuccess: (res: any) => {
+      if (res?.data?.needs_confirmation) return; // user cancelled the cascade prompt
       toast.success('Employee removed');
       qc.invalidateQueries({ queryKey: ['employees'] });
       setDeleteTarget(null);

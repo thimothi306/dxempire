@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Http\Traits\ApiResponse;
+use App\Http\Traits\ChecksLinkedRecords;
 use App\Http\Traits\Exportable;
 use App\Models\Employee;
 use App\Models\User;
@@ -17,7 +18,7 @@ use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
-    use ApiResponse, Exportable;
+    use ApiResponse, Exportable, ChecksLinkedRecords;
 
     // b2b_partner is deliberately excluded — partner accounts are created and
     // managed exclusively via Business Partners (New Dealer), which links a
@@ -210,14 +211,26 @@ class UserController extends Controller
         return $this->success($user->load('roles:name'), "Role updated to {$request->role}.");
     }
 
-    public function deactivate(User $user): JsonResponse
+    public function deactivate(Request $request, User $user): JsonResponse
     {
         if ($user->id === auth()->id()) {
             return $this->error('You cannot deactivate your own account.', 422);
         }
 
+        if (!$request->boolean('cascade')) {
+            $linked = $this->findLinkedRecords($user->id, 'user');
+            if ($linked) {
+                $confirmation = $this->linkedConfirmationPayload($linked);
+                return $this->success($confirmation['data'], $confirmation['message']);
+            }
+        }
+
         $user->update(['is_active' => false]);
         $user->tokens()->delete();
+
+        if ($request->boolean('cascade')) {
+            $this->deactivateLinkedRecords($user->id, 'user');
+        }
 
         return $this->success(null, 'User deactivated and all sessions revoked.');
     }

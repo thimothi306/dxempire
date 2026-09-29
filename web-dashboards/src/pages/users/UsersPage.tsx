@@ -109,8 +109,24 @@ export default function UsersPage() {
   });
 
   const toggleMut = useMutation({
-    mutationFn: (u: User) => u.is_active ? adminService.deactivate(u.id) : adminService.activate(u.id),
-    onSuccess: () => { toast.success('User updated'); qc.invalidateQueries({ queryKey: ['admin-users'] }); },
+    mutationFn: async (u: User) => {
+      if (!u.is_active) {
+        return adminService.activate(u.id);
+      }
+      const res: any = await adminService.deactivate(u.id);
+      if (res?.data?.needs_confirmation) {
+        if (window.confirm(res.message)) {
+          return adminService.deactivate(u.id, true);
+        }
+        return res;
+      }
+      return res;
+    },
+    onSuccess: (res: any) => {
+      if (res?.data?.needs_confirmation) return; // user cancelled the cascade prompt
+      toast.success('User updated');
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+    },
     onError: () => toast.error('Failed'),
   });
 

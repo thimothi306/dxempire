@@ -6,7 +6,7 @@ export const hierarchyService = {
   tree:           () => api.get('/sales/hierarchy/tree').then(r => r.data.data),
   create:         (data: Record<string, unknown>) => api.post('/sales/hierarchy', data).then(r => r.data.data),
   update:         (id: number, data: Record<string, unknown>) => api.put(`/sales/hierarchy/${id}`, data).then(r => r.data.data),
-  remove:         (id: number) => api.delete(`/sales/hierarchy/${id}`),
+  remove:         (id: number, cascade?: boolean) => api.delete(`/sales/hierarchy/${id}`, { data: cascade ? { cascade: true } : {} }).then(r => r.data),
   show:           (id: number) => api.get(`/sales/hierarchy/${id}`).then(r => r.data.data),
   downline:       (id: number) => api.get(`/sales/hierarchy/${id}/downline`).then(r => r.data.data),
   performance:    (id: number) => api.get(`/sales/hierarchy/${id}/performance`).then(r => r.data.data),
