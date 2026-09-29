@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronRight, Users, TrendingUp, Trash2, Pencil } from 'lucide-react';
+import { Plus, ChevronRight, Users, TrendingUp, Trash2, Pencil, Ban } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { hierarchyService } from '../../services/newModules';
 import { hrService } from '../../services';
@@ -392,12 +392,12 @@ export default function HierarchyPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to update'),
   });
 
-  const deleteMut = useMutation({
-    mutationFn: async (id: number) => {
-      const res: any = await hierarchyService.remove(id);
+  const deactivateMut = useMutation({
+    mutationFn: async (node: any) => {
+      const res: any = await hierarchyService.remove(node.id);
       if (res?.data?.needs_confirmation) {
         if (window.confirm(res.message)) {
-          return hierarchyService.remove(id, true);
+          return hierarchyService.remove(node.id, true);
         }
         return res;
       }
@@ -409,6 +409,15 @@ export default function HierarchyPage() {
       qc.invalidateQueries({ queryKey: ['hierarchy'] });
     },
     onError: () => toast.error('Failed'),
+  });
+
+  const forceDeleteMut = useMutation({
+    mutationFn: (id: number) => hierarchyService.forceRemove(id),
+    onSuccess: () => {
+      toast.success('Member permanently deleted');
+      qc.invalidateQueries({ queryKey: ['hierarchy'] });
+    },
+    onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to delete'),
   });
 
   const openEdit = (node: any) => {
@@ -462,6 +471,7 @@ export default function HierarchyPage() {
                 { key: 'parent', header: 'Reports To', render: (n: any) => n.parent ? <span className="text-xs text-gray-500"><code>{n.parent.unique_code}</code> — {n.parent.name}</span> : '—' },
                 { key: 'state', header: 'Territory', render: n => <span className="text-xs">{[n.state, n.area, n.district].filter(Boolean).join(' › ')}</span> },
                 { key: 'phone', header: 'Phone', render: n => n.phone ?? '—' },
+                { key: 'is_active', header: 'Status', render: n => <Badge label={n.is_active ? 'Active' : 'Deactivated'} color={n.is_active ? 'green' : 'gray'} /> },
                 {
                   key: 'actions', header: '', render: n => (
                     <div className="flex gap-2">
@@ -471,9 +481,31 @@ export default function HierarchyPage() {
                       <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); openEdit(n); }}>
                         <Pencil size={13} />
                       </Button>
-                      <Button size="sm" variant="danger" onClick={e => { e.stopPropagation(); deleteMut.mutate(n.id); }}>
-                        <Trash2 size={13} />
-                      </Button>
+                      {n.is_active ? (
+                        <Button
+                          size="sm" variant="danger"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (window.confirm(`Deactivate ${n.name}? They'll disappear from active lists but can be reactivated later.`)) {
+                              deactivateMut.mutate(n);
+                            }
+                          }}
+                        >
+                          <Ban size={13} />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm" variant="danger"
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (window.confirm(`Really delete ${n.name} permanently? This cannot be undone. Anyone reporting to them and any dealers assigned to them will be unlinked (not deleted).`)) {
+                              forceDeleteMut.mutate(n.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} />
+                        </Button>
+                      )}
                     </div>
                   ),
                 },

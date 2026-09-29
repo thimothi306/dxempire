@@ -418,6 +418,7 @@ Route::prefix('v1')->group(function () {
             Route::get('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'show']);
             Route::put('hierarchy/{salesHierarchy}',              [SalesHierarchyController::class, 'update']);
             Route::delete('hierarchy/{salesHierarchy}',           [SalesHierarchyController::class, 'destroy']);
+            Route::delete('hierarchy/{salesHierarchy}/permanent', [SalesHierarchyController::class, 'forceDestroy']);
             Route::get('hierarchy/{salesHierarchy}/downline',     [SalesHierarchyController::class, 'downline']);
             Route::get('hierarchy/{salesHierarchy}/performance',  [SalesHierarchyController::class, 'performance']);
             Route::post('hierarchy/{salesHierarchy}/assign-dealer', [SalesHierarchyController::class, 'assignDealer']);

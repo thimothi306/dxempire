@@ -330,6 +330,31 @@ class SalesHierarchyController extends Controller
         return $this->success(null, 'Member deactivated.');
     }
 
+    /**
+     * Permanently removes the row. Only allowed once the member (and any
+     * linked Staff User / Employee) is already deactivated, so this can't be
+     * used to instantly wipe someone who's still active. Anyone reporting to
+     * them (children.parent_id) and any dealers assigned to them
+     * (dealers.assigned_salesman_id) are auto-unlinked, not deleted — see the
+     * nullOnDelete foreign keys on sales_hierarchy.
+     */
+    public function forceDestroy(SalesHierarchy $salesHierarchy): JsonResponse
+    {
+        if ($salesHierarchy->is_active) {
+            return $this->error('Deactivate this member first before deleting permanently.', 422);
+        }
+
+        $linked = $this->findLinkedRecords($salesHierarchy->user_id, 'hierarchy');
+        if ($linked) {
+            $labels = collect($linked)->pluck('label')->implode(', ');
+            return $this->error("This person still has active linked records: {$labels}. Deactivate those first.", 422);
+        }
+
+        $salesHierarchy->delete();
+
+        return $this->success(null, 'Member permanently deleted.');
+    }
+
     public function downline(SalesHierarchy $salesHierarchy): JsonResponse
     {
         $salesHierarchy->load('children.children.children.children');
