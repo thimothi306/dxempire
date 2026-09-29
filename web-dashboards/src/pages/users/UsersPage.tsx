@@ -14,6 +14,10 @@ const ROLES: Role[] = [
   'accounts', 'hr_manager', 'logistics',
 ];
 
+// These log into the mobile app with Sales ID + password (both required) —
+// so unlike other roles, a password is mandatory when creating one here.
+const MOBILE_SALES_ROLES: Role[] = ['sales', 'state_manager', 'area_manager', 'district_manager'];
+
 const EMPTY_FORM = {
   name: '', phone: '', email: '', password: '', role: 'sales' as Role,
   create_employee: false,
@@ -184,18 +188,22 @@ export default function UsersPage() {
           <Input label="Full Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           <Input label="Phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
           <Input label="Email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Input
-            label="Password"
-            type="password"
-            value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
-            placeholder="Min 6 characters — used to login to this dashboard"
-          />
           <Select
             label="Role"
             value={form.role}
             onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
             options={ROLES.map((r) => ({ value: r, label: r.replace(/_/g, ' ') }))}
+          />
+          <Input
+            label={MOBILE_SALES_ROLES.includes(form.role) ? 'Password *' : 'Password'}
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            placeholder={
+              MOBILE_SALES_ROLES.includes(form.role)
+                ? 'Min 8 characters — required for Sales ID + Password login'
+                : 'Min 8 characters — used to login to this dashboard'
+            }
           />
 
           <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer border-t border-gray-100 pt-4">
@@ -281,6 +289,10 @@ export default function UsersPage() {
           <div className="flex gap-3 pt-2">
             <Button
               onClick={() => {
+                if (MOBILE_SALES_ROLES.includes(form.role) && form.password.length < 8) {
+                  toast.error('Password must be at least 8 characters for this role.');
+                  return;
+                }
                 if (form.create_employee && form.bank_account_number !== form.confirm_account_number) {
                   toast.error('Account number and confirm account number do not match.');
                   return;

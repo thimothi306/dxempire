@@ -14,16 +14,16 @@ class AuthController extends Controller
     use ApiResponse;
 
     /**
-     * Login with Sales ID — password is required only if the account has
-     * one set. Most sales-hierarchy accounts have no password (code-only
-     * login, unchanged); anyone who's set one via Change Password must now
-     * supply it too, matching whatever their account currently requires.
+     * Login with Sales ID + password — both required for every account.
+     * If an account somehow has no password yet (shouldn't happen going
+     * forward; every creation path now requires one), it's told to use
+     * Forgot Password rather than let it silently succeed without a check.
      */
     public function login(Request $request): JsonResponse
     {
         $request->validate([
             'unique_code' => 'required|string',
-            'password'    => 'nullable|string',
+            'password'    => 'required|string',
         ]);
 
         $user = User::where('unique_code', $request->unique_code)
@@ -34,7 +34,11 @@ class AuthController extends Controller
             return $this->error('Invalid Sales ID or account is inactive', 401);
         }
 
-        if ($user->password && (!$request->filled('password') || !Hash::check($request->password, $user->password))) {
+        if (!$user->password) {
+            return $this->error('No password set for this account yet. Use Forgot Password to set one.', 401);
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
             return $this->error('Invalid Sales ID or password', 401);
         }
 

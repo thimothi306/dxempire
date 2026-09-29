@@ -14,6 +14,7 @@ use App\Services\UniqueCodeGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class SalesHierarchyController extends Controller
 {
@@ -152,9 +153,8 @@ class SalesHierarchyController extends Controller
      * all three in one transaction, all three linked, and all three sharing
      * ONE generated code (used as both the User's unique_code and this row's
      * tree_id) so they can never drift apart for people created this way.
-     * No password is set — sales-hierarchy roles log into the mobile app
-     * with just their code (see MobileAuthController::login); one can be
-     * added later via Staff Users if this person also needs web access.
+     * Password is required — mobile Sales ID login now always needs one
+     * (see MobileAuthController::login).
      */
     private function storeNew(Request $request): JsonResponse
     {
@@ -162,6 +162,7 @@ class SalesHierarchyController extends Controller
             'name'               => ['required', 'string', 'max:200'],
             'phone'              => ['nullable', 'string', 'max:20'],
             'email'              => ['nullable', 'email'],
+            'password'           => ['required', 'string', 'min:8'],
             'hierarchy_role'     => ['required', 'in:ceo,state_manager,area_manager,district_manager,salesman'],
             'parent_id'          => ['nullable', 'exists:sales_hierarchy,id'],
             'parent_unique_code' => ['nullable', 'string', 'exists:sales_hierarchy,tree_id'],
@@ -198,7 +199,7 @@ class SalesHierarchyController extends Controller
                 'name'        => $data['name'],
                 'phone'       => $data['phone'] ?? null,
                 'email'       => $data['email'] ?? null,
-                'password'    => null,
+                'password'    => Hash::make($data['password']),
                 'role'        => $userRole,
                 'unique_code' => $uniqueCode,
                 'is_active'   => true,

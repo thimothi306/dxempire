@@ -31,7 +31,7 @@ const EMPTY_ADD_FORM = {
   parent_unique_code: '',
   state: '', area: '', district: '',
   // "New person" only — Basic
-  name: '', phone: '', email: '',
+  name: '', phone: '', email: '', password: '',
   // "New person" only — HR/Employee
   department: 'sales', designation: '', employment_type: 'full_time', shift: 'morning',
   salary: '', joining_date: '',
@@ -174,6 +174,13 @@ function AddMemberForm({
             <Input label="Phone" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
             <Input label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </div>
+          <Input
+            label="Password *"
+            type="password"
+            value={form.password}
+            onChange={e => setForm({ ...form, password: e.target.value })}
+            placeholder="Min 8 characters — used for Sales ID + Password login"
+          />
         </>
       )}
 
@@ -254,6 +261,10 @@ function AddMemberForm({
       <div className="flex gap-3 pt-2">
         <Button
           onClick={() => {
+            if (form.mode === 'new' && form.password.length < 8) {
+              toast.error('Password must be at least 8 characters.');
+              return;
+            }
             if (form.mode === 'new' && form.bank_account_number !== form.confirm_account_number) {
               toast.error('Account number and confirm account number do not match.');
               return;
@@ -338,6 +349,7 @@ export default function HierarchyPage() {
         : {
             mode: 'new',
             name: addForm.name, phone: addForm.phone || null, email: addForm.email || null,
+            password: addForm.password,
             hierarchy_role: addForm.hierarchy_role,
             parent_unique_code: addForm.parent_unique_code || null,
             state: addForm.state || null, area: addForm.area || null, district: addForm.district || null,

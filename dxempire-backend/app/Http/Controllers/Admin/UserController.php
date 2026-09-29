@@ -75,11 +75,17 @@ class UserController extends Controller
     {
         $createEmployee = $request->boolean('create_employee');
 
+        // These four roles log in via MobileAuthController (Sales ID + password,
+        // both required now) — so a password is mandatory when creating one here
+        // too, not just when creating them through Hierarchy's "New Person" mode.
+        $mobileSalesRoles = ['sales', 'state_manager', 'area_manager', 'district_manager'];
+        $passwordRequired = in_array($request->input('role'), $mobileSalesRoles, true);
+
         $data = $request->validate([
             'name'                => ['required', 'string', 'max:255'],
             'phone'               => ['required', 'string', 'unique:users,phone'],
             'email'               => ['nullable', 'email', 'unique:users,email'],
-            'password'            => ['nullable', 'string', 'min:6'],
+            'password'            => [$passwordRequired ? 'required' : 'nullable', 'string', 'min:8'],
             'role'                => ['required', Rule::in(self::ROLES)],
             'parent_unique_code'  => ['nullable', 'exists:users,unique_code'],
             'is_active'           => ['boolean'],
