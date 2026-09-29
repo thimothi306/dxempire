@@ -57,6 +57,8 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/send-otp',    [AuthController::class, 'sendOtp']);
         Route::post('/auth/verify-otp',  [AuthController::class, 'verifyOtp']);
         Route::post('/auth/admin/login', [AuthController::class, 'adminLogin']);
+        Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword']);
+        Route::post('/auth/reset-password',  [AuthController::class, 'resetPassword']);
 
         // Marketing site's contact form — no auth, deliberately narrow (see LeadController::publicContact).
         Route::post('/public/contact', [LeadController::class, 'publicContact']);
@@ -71,6 +73,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/auth/logout',  [AuthController::class, 'logout']);
         Route::post('/auth/complete-registration', [AuthController::class, 'completeRegistration']);
         Route::post('/auth/kyc-documents', [AuthController::class, 'uploadKycDocuments']);
+        Route::post('/auth/change-password', [AuthController::class, 'changePassword']);
 
         // Push tokens
         Route::post('/users/push-token',   [PushTokenController::class, 'register']);

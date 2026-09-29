@@ -78,6 +78,115 @@ class AuthController extends Controller
         ], 'Login successful');
     }
 
+    /**
+     * Forgot password — works for any role that has a password (partners,
+     * warehouse/office staff, or any sales-hierarchy account that's opted
+     * into one). Accepts phone, email, or unique_code as the identifier, but
+     * always sends the OTP to the phone number already on that account —
+     * reuses the exact SMS OTP system the mobile login already runs on, no
+     * new infrastructure. Responds with the same message whether or not a
+     * match was found, so this can't be used to enumerate real accounts.
+     */
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'identifier' => ['required', 'string'],
+        ]);
+
+        $user = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)
+            ->orWhere('unique_code', $request->identifier)
+            ->first();
+
+        if ($user && $user->phone) {
+            OtpCode::where('phone', $user->phone)->whereNull('verified_at')->delete();
+
+            $otp = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+
+            OtpCode::create([
+                'phone'      => $user->phone,
+                'code'       => Hash::make($otp),
+                'expires_at' => now()->addMinutes(10),
+                'created_at' => now(),
+            ]);
+
+            SendOtpJob::dispatch($user->phone, $otp);
+        }
+
+        return $this->success(null, 'If an account matches, an OTP has been sent to the mobile number on file.');
+    }
+
+    /**
+     * Completes the forgot-password flow — same OTP verification mechanics
+     * as verifyOtp() (hashed, expiring, single-use), then sets the new
+     * password. Also revokes existing sessions, since a password reset
+     * should log out anyone using the old credentials.
+     */
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $request->validate([
+            'identifier' => ['required', 'string'],
+            'code'       => ['required', 'string', 'digits:6'],
+            'password'   => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::where('phone', $request->identifier)
+            ->orWhere('email', $request->identifier)
+            ->orWhere('unique_code', $request->identifier)
+            ->first();
+
+        if (!$user || !$user->phone) {
+            return $this->error('Invalid request.', 422);
+        }
+
+        $otpRecord = OtpCode::where('phone', $user->phone)
+            ->whereNull('verified_at')
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (!$otpRecord) {
+            return $this->error('No OTP found for this account. Please request a new one.', 401);
+        }
+        if ($otpRecord->isExpired()) {
+            return $this->error('OTP has expired. Please request a new one.', 401);
+        }
+        if (!Hash::check($request->code, $otpRecord->code)) {
+            return $this->error('Invalid OTP. Please try again.', 401);
+        }
+
+        $otpRecord->update(['verified_at' => now()]);
+
+        $user->update(['password' => Hash::make($request->password)]);
+        $user->tokens()->delete();
+
+        return $this->success(null, 'Password reset successfully. Please log in with your new password.');
+    }
+
+    /**
+     * Change password while already logged in. If the account has no
+     * password yet (e.g. a sales-hierarchy account that's only ever used
+     * code-only mobile login), current_password isn't required — this
+     * doubles as "set my first password" for anyone opting into
+     * password-protected login going forward.
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $request->validate([
+            'current_password' => [Rule::requiredIf((bool) $user->password), 'string'],
+            'password'          => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if ($user->password && !Hash::check($request->current_password, $user->password)) {
+            return $this->error('Current password is incorrect.', 422);
+        }
+
+        $user->update(['password' => Hash::make($request->password)]);
+
+        return $this->success(null, 'Password changed successfully.');
+    }
+
     public function sendOtp(SendOtpRequest $request): JsonResponse
     {
         $phone = $request->phone;
