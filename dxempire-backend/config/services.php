@@ -43,6 +43,7 @@ return [
         'template_partner_otp'      => env('SMSLOGIN_TEMPLATE_PARTNER_OTP'),
         'template_retail_otp'       => env('SMSLOGIN_TEMPLATE_RETAIL_OTP'),
         'template_payment_received' => env('SMSLOGIN_TEMPLATE_PAYMENT_RECEIVED'),
+        'template_password_reset'   => env('SMSLOGIN_TEMPLATE_PASSWORD_RESET'),
     ],
 
     'razorpay' => [

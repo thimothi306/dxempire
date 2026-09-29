@@ -17,15 +17,20 @@ class SendOtpJob implements ShouldQueue
 
     public string $phone;
     public string $otp;
+    public string $purpose;
 
-    public function __construct(string $phone, string $otp)
+    public function __construct(string $phone, string $otp, string $purpose = 'partner')
     {
-        $this->phone = $phone;
-        $this->otp   = $otp;
+        $this->phone   = $phone;
+        $this->otp     = $otp;
+        $this->purpose = $purpose;
     }
 
     public function handle(SmsLoginService $sms): void
     {
-        $sms->sendPartnerOtp($this->phone, $this->otp);
+        match ($this->purpose) {
+            'password_reset' => $sms->sendPasswordResetOtp($this->phone, $this->otp),
+            default          => $sms->sendPartnerOtp($this->phone, $this->otp),
+        };
     }
 }

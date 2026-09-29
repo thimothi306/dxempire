@@ -110,7 +110,7 @@ class AuthController extends Controller
                 'created_at' => now(),
             ]);
 
-            SendOtpJob::dispatch($user->phone, $otp);
+            SendOtpJob::dispatch($user->phone, $otp, 'password_reset');
         }
 
         return $this->success(null, 'If an account matches, an OTP has been sent to the mobile number on file.');

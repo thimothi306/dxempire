@@ -62,6 +62,15 @@ class SmsLoginService
         );
     }
 
+    public function sendPasswordResetOtp(string $phone, string $otp): void
+    {
+        $this->send(
+            $phone,
+            "Your DXEMPIRE OTP for password reset is {$otp}. Valid for 10 minutes. Do not share this code with anyone. - DXEMPIRE",
+            config('services.smslogin.template_password_reset')
+        );
+    }
+
     public function sendRetailOtp(string $phone, string $otp): void
     {
         $this->send(
