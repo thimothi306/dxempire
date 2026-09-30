@@ -19,6 +19,10 @@ const DOCUMENT_TYPES: { key: string; label: string }[] = [
   { key: 'education_certificate', label: 'Educational Qualification Certificate' },
   { key: 'bank_passbook_document', label: 'Bank Passbook / Cancelled Cheque' },
   { key: 'signed_agreement_document', label: 'Signed Agreement Document' },
+  { key: 'trade_licence_document', label: 'Trade Licence Document' },
+  { key: 'gst_document', label: 'GST Document' },
+  { key: 'shop_document_front', label: 'Shop Document (Front)' },
+  { key: 'shop_document_inside', label: 'Shop Document (Inside)' },
 ];
 
 export default function DealersPage() {

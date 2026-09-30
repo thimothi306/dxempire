@@ -132,6 +132,10 @@ class DealerController extends Controller
             'education_certificate'     => 'education_certificate_path',
             'bank_passbook_document'    => 'bank_passbook_path',
             'signed_agreement_document' => 'signed_agreement_path',
+            'trade_licence_document'    => 'trade_licence_document_path',
+            'gst_document'              => 'gst_document_path',
+            'shop_document_front'       => 'shop_document_front_path',
+            'shop_document_inside'      => 'shop_document_inside_path',
         ];
     }
 

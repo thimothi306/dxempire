@@ -16,6 +16,7 @@ class Dealer extends Model
         'bank_account_number', 'account_holder_name', 'bank_name', 'ifsc_code',
         'aadhaar_number', 'pan_number', 'aadhaar_document_path', 'pan_document_path',
         'passport_photo_path', 'education_certificate_path', 'bank_passbook_path', 'signed_agreement_path',
+        'trade_licence_document_path', 'gst_document_path', 'shop_document_front_path', 'shop_document_inside_path',
     ];
 
     protected $casts = [

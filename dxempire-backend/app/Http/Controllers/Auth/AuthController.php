@@ -463,6 +463,10 @@ class AuthController extends Controller
             'education_certificate'   => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'bank_passbook_document'  => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'signed_agreement_document' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'trade_licence_document'  => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'gst_document'            => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'shop_document_front'     => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'shop_document_inside'    => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
         ]);
 
         $update = [];
@@ -476,6 +480,10 @@ class AuthController extends Controller
             'education_certificate'     => ['column' => 'education_certificate_path', 'dir' => 'education'],
             'bank_passbook_document'    => ['column' => 'bank_passbook_path', 'dir' => 'bank_passbook'],
             'signed_agreement_document' => ['column' => 'signed_agreement_path', 'dir' => 'agreement'],
+            'trade_licence_document'    => ['column' => 'trade_licence_document_path', 'dir' => 'trade_licence'],
+            'gst_document'              => ['column' => 'gst_document_path', 'dir' => 'gst'],
+            'shop_document_front'       => ['column' => 'shop_document_front_path', 'dir' => 'shop_front'],
+            'shop_document_inside'      => ['column' => 'shop_document_inside_path', 'dir' => 'shop_inside'],
         ];
 
         foreach ($fileMap as $field => $meta) {
@@ -514,6 +522,10 @@ class AuthController extends Controller
             'education_certificate'    => (bool) $dealer->education_certificate_path,
             'bank_passbook_document'   => (bool) $dealer->bank_passbook_path,
             'signed_agreement_document'=> (bool) $dealer->signed_agreement_path,
+            'trade_licence_document'   => (bool) $dealer->trade_licence_document_path,
+            'gst_document'             => (bool) $dealer->gst_document_path,
+            'shop_document_front'      => (bool) $dealer->shop_document_front_path,
+            'shop_document_inside'     => (bool) $dealer->shop_document_inside_path,
         ];
     }
 }
