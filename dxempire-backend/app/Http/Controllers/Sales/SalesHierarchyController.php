@@ -191,8 +191,8 @@ class SalesHierarchyController extends Controller
     {
         $data = $request->validate([
             'name'               => ['required', 'string', 'max:200'],
-            'phone'              => ['nullable', 'string', 'max:20'],
-            'email'              => ['nullable', 'email'],
+            'phone'              => ['nullable', 'string', 'max:20', 'unique:users,phone'],
+            'email'              => ['nullable', 'email', 'unique:users,email'],
             'password'           => ['required', 'string', 'min:8'],
             'hierarchy_role'     => ['required', 'in:ceo,state_manager,area_manager,district_manager,salesman'],
             'parent_id'          => ['nullable', 'exists:sales_hierarchy,id'],
