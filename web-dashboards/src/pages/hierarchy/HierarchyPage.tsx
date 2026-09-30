@@ -420,6 +420,15 @@ export default function HierarchyPage() {
     onError: (err: any) => toast.error(err?.response?.data?.message || 'Failed to delete'),
   });
 
+  const activateMut = useMutation({
+    mutationFn: (id: number) => hierarchyService.update(id, { is_active: true }),
+    onSuccess: () => {
+      toast.success('Member reactivated');
+      qc.invalidateQueries({ queryKey: ['hierarchy'] });
+    },
+    onError: () => toast.error('Failed to reactivate'),
+  });
+
   const openEdit = (node: any) => {
     setForm({ name: node.name, phone: node.phone ?? '', email: node.email ?? '', hierarchy_role: node.hierarchy_role, parent_unique_code: node.parent?.unique_code ?? '', state: node.state ?? '', area: node.area ?? '', district: node.district ?? '' });
     setEditTarget(node);
@@ -494,17 +503,25 @@ export default function HierarchyPage() {
                           <Ban size={13} />
                         </Button>
                       ) : (
-                        <Button
-                          size="sm" variant="danger"
-                          onClick={e => {
-                            e.stopPropagation();
-                            if (window.confirm(`Really delete ${n.name} permanently? This cannot be undone. Anyone reporting to them and any dealers assigned to them will be unlinked (not deleted).`)) {
-                              forceDeleteMut.mutate(n.id);
-                            }
-                          }}
-                        >
-                          <Trash2 size={13} />
-                        </Button>
+                        <>
+                          <Button
+                            size="sm" variant="secondary"
+                            onClick={e => { e.stopPropagation(); activateMut.mutate(n.id); }}
+                          >
+                            Activate
+                          </Button>
+                          <Button
+                            size="sm" variant="danger"
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (window.confirm(`Really delete ${n.name} permanently? This cannot be undone. Anyone reporting to them and any dealers assigned to them will be unlinked (not deleted).`)) {
+                                forceDeleteMut.mutate(n.id);
+                              }
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </Button>
+                        </>
                       )}
                     </div>
                   ),
