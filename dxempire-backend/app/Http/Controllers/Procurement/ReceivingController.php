@@ -102,12 +102,8 @@ class ReceivingController extends Controller
     public function importTemplate()
     {
         $headers = ['category', 'brand', 'model', 'purchase_price', 'quantity', 'imei'];
-        $sample = [
-            ['phone', 'Samsung', 'Galaxy A14', '8000', '5', ''],
-            ['laptop', 'Dell', 'Inspiron 15', '25000', '1', '123456789012345'],
-        ];
 
-        return $this->exportCsv('receiving_template.csv', $headers, $sample);
+        return $this->exportCsv('receiving_template.csv', $headers, []);
     }
 
     /**
@@ -123,9 +119,16 @@ class ReceivingController extends Controller
         $sheet->setTitle('Receiving');
 
         $sheet->fromArray(['category', 'brand', 'model', 'purchase_price', 'quantity', 'imei'], null, 'A1');
-        $sheet->fromArray(['phone', 'Samsung', 'Galaxy A14', 8000, 5, ''], null, 'A2');
-        $sheet->fromArray(['laptop', 'Dell', 'Inspiron 15', 25000, 1, '123456789012345'], null, 'A3');
         $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+
+        // IMEI is a 15-digit number — left as Excel's default "General" format,
+        // typing one in makes Excel silently switch the cell to scientific
+        // notation (e.g. 1.23457E+14), permanently losing the real digits
+        // before the file is ever uploaded. Forcing the column to Text format
+        // up front makes Excel treat anything typed here as a literal string.
+        $sheet->getStyle('F2:F1000')
+            ->getNumberFormat()
+            ->setFormatCode(\PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_TEXT);
 
         for ($row = 2; $row <= 500; $row++) {
             $validation = $sheet->getCell("A{$row}")->getDataValidation();
@@ -211,6 +214,21 @@ class ReceivingController extends Controller
         ], count($created) . ' item(s) imported' . (count($failed) ? ', ' . count($failed) . ' row(s) skipped — see details.' : '.'));
     }
 
+    /**
+     * A raw IMEI cell value can arrive as a PHP float (e.g. if the file was
+     * ever saved with that cell in a numeric format) — a plain (string) cast
+     * on a 15-digit float risks PHP's own scientific-notation formatting on
+     * top of Excel's, so integers are rendered with sprintf instead of cast.
+     */
+    private function normalizeImei($value): string
+    {
+        if (is_float($value)) {
+            return sprintf('%.0f', $value);
+        }
+
+        return trim((string) $value);
+    }
+
     /** @return array{header: array<string,int>, rows: array[]}|null */
     private function readCsvRows(string $path): ?array
     {
@@ -236,7 +254,13 @@ class ReceivingController extends Controller
     {
         try {
             $sheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($path)->getActiveSheet();
-            $data  = $sheet->toArray(null, true, true, false);
+            // formatData=false reads each cell's raw underlying value rather
+            // than its display text — matters for IMEI: a cell Excel is
+            // displaying as "1.23457E+14" still holds the real number
+            // underneath unless the value itself was already rounded before
+            // this file was saved (which forcing the template to Text format
+            // prevents from happening in the first place).
+            $data = $sheet->toArray(null, true, false, false);
         } catch (\Throwable $e) {
             return null;
         }
@@ -273,7 +297,7 @@ class ReceivingController extends Controller
             $model    = trim((string) ($row[$col['model']] ?? ''));
             $price    = trim((string) ($row[$col['purchase_price']] ?? ''));
             $qty      = max(1, (int) ($row[$col['quantity'] ?? -1] ?? 1));
-            $imei     = trim((string) ($row[$col['imei'] ?? -1] ?? ''));
+            $imei     = $this->normalizeImei($row[$col['imei'] ?? -1] ?? '');
 
             if (!in_array($category, ['phone', 'laptop'], true) || $brand === '' || $model === '' || !is_numeric($price)) {
                 $failed[] = ['row' => $rowNum, 'reason' => 'Missing or invalid category/brand/model/purchase_price'];
