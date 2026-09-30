@@ -473,7 +473,6 @@ export default function HierarchyPage() {
           <>
             <Table
               columns={[
-                { key: 'unique_code', header: 'Unique Code', render: (n: any) => n.unique_code ? <code className="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-1 rounded">{n.unique_code}</code> : '—' },
                 { key: 'tree_id', header: 'Employee ID', render: n => <code className="text-xs font-bold text-primary">{n.tree_id}</code> },
                 { key: 'name', header: 'Name', render: n => <span className="font-medium">{n.name}</span> },
                 { key: 'hierarchy_role', header: 'Role', render: n => <Badge label={n.hierarchy_role.replace(/_/g, ' ')} color={ROLE_COLORS[n.hierarchy_role] ?? 'gray'} /> },
