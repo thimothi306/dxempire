@@ -514,6 +514,7 @@ Route::prefix('v1')->group(function () {
             Route::get('peti-orders',             [PartnerPortalController::class, 'petiOrders']);
             Route::post('peti-orders',            [PartnerPortalController::class, 'storePetiOrder']);
             Route::get('peti-orders/{petiTransfer}', [PartnerPortalController::class, 'petiOrderShow']);
+            Route::post('peti-orders/{petiTransfer}/cancel', [PartnerPortalController::class, 'cancelPetiOrder']);
 
             // Catalog — browse in-stock products by brand / grade
             Route::get('catalog/brands',  [PartnerCatalogController::class, 'brands']);

@@ -425,4 +425,26 @@ class PartnerPortalController extends Controller
 
         return $this->success($petiTransfer);
     }
+
+    /**
+     * A partner can only cancel their own request while it's still 'draft'
+     * (i.e. before staff has priced and approved it). Once approved, staff
+     * may already be acting on it, so only the admin Peti Transfers screen
+     * can cancel from there on.
+     */
+    public function cancelPetiOrder(Request $request, PetiTransfer $petiTransfer): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer || $petiTransfer->to_dealer_id !== $dealer->id || $petiTransfer->source !== 'partner') {
+            return $this->error('Peti order not found.', 404);
+        }
+
+        if ($petiTransfer->status !== 'draft') {
+            return $this->error("This order is already {$petiTransfer->status} and can no longer be cancelled from the app. Contact support.", 422);
+        }
+
+        $petiTransfer->update(['status' => 'cancelled']);
+
+        return $this->success(null, 'Peti order cancelled.');
+    }
 }
