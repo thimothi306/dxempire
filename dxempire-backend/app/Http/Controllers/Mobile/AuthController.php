@@ -14,10 +14,13 @@ class AuthController extends Controller
     use ApiResponse;
 
     /**
-     * Login with Sales ID + password — both required for every account.
-     * If an account somehow has no password yet (shouldn't happen going
-     * forward; every creation path now requires one), it's told to use
-     * Forgot Password rather than let it silently succeed without a check.
+     * Login with Employee/Sales ID (unique_code) + password — both required
+     * for every account. Not role-specific: this is the same login for
+     * Sales ID (SM/STM/DM/AM-prefixed) and Warehouse staff (WH/WHM-prefixed)
+     * alike, since both just need to look up by unique_code. If an account
+     * somehow has no password yet (shouldn't happen going forward; every
+     * creation path now requires one), it's told to use Forgot Password
+     * rather than let it silently succeed without a check.
      */
     public function login(Request $request): JsonResponse
     {
