@@ -1,4 +1,4 @@
-import { Loader2, Download, ChevronDown, Search, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Loader2, Download, ChevronDown, Search, ArrowUp, ArrowDown, ArrowUpDown, Eye, EyeOff } from 'lucide-react';
 import React, { useState, useMemo } from 'react';
 
 // ─── Button ──────────────────────────────────────────────────────────────────
@@ -305,13 +305,33 @@ export const Modal = ({ open, onClose, title, children, width = 'max-w-lg' }: Mo
 
 // ─── Input ───────────────────────────────────────────────────────────────────
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> { label?: string; error?: string; }
-export const Input = ({ label, error, className = '', ...props }: InputProps) => (
-  <div className="flex flex-col gap-1">
-    {label && <label className="text-xs font-medium text-gray-600">{label}</label>}
-    <input className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary ${className}`} {...props} />
-    {error && <p className="text-xs text-red-500">{error}</p>}
-  </div>
-);
+export const Input = ({ label, error, className = '', type, ...props }: InputProps) => {
+  const [show, setShow] = useState(false);
+  const isPassword = type === 'password';
+  return (
+    <div className="flex flex-col gap-1">
+      {label && <label className="text-xs font-medium text-gray-600">{label}</label>}
+      <div className="relative">
+        <input
+          type={isPassword && show ? 'text' : type}
+          className={`border ${error ? 'border-red-400' : 'border-gray-300'} rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary w-full ${isPassword ? 'pr-9' : ''} ${className}`}
+          {...props}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShow((s) => !s)}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            {show ? <EyeOff size={15} /> : <Eye size={15} />}
+          </button>
+        )}
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  );
+};
 
 // ─── Select ──────────────────────────────────────────────────────────────────
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> { label?: string; options: { value: string; label: string }[]; }
