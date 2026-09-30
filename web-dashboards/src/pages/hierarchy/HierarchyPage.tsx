@@ -158,7 +158,7 @@ function AddMemberForm({
 
       {form.mode === 'existing' ? (
         <>
-          <p className="text-xs text-gray-500">Pick someone who's already a Staff User — no new login or HR record is created, just their hierarchy placement.</p>
+          <p className="text-xs text-gray-500">Pick someone who's already a Staff User — no new login is created, just their hierarchy placement. If they don't already have an HR/Employee record, a blank one is created automatically so they show up in Employees too.</p>
           <Select
             label="Staff User *"
             value={form.existing_user_id}

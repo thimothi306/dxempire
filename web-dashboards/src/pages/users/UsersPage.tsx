@@ -20,7 +20,6 @@ const MOBILE_SALES_ROLES: Role[] = ['sales', 'state_manager', 'area_manager', 'd
 
 const EMPTY_FORM = {
   name: '', phone: '', email: '', password: '', role: 'sales' as Role,
-  create_employee: false,
   department: '', designation: '', employment_type: 'full_time', shift: 'morning',
   salary: '', joining_date: '',
   village_street: '', post_office: '', police_station: '', district: '', state: '', pincode: '',
@@ -59,27 +58,24 @@ export default function UsersPage() {
 
   const createMut = useMutation({
     mutationFn: async () => {
+      // A Staff User always gets a linked HR/Employee record — these details
+      // are optional and can be filled in later from Employees if not known yet.
       const payload: Record<string, unknown> = {
         name: form.name, phone: form.phone, email: form.email || null, password: form.password || null, role: form.role,
+        department: form.department || null, designation: form.designation || null,
+        employment_type: form.employment_type, shift: form.shift,
+        salary: form.salary ? Number(form.salary) : null, joining_date: form.joining_date || null,
+        village_street: form.village_street || null, post_office: form.post_office || null,
+        police_station: form.police_station || null, district: form.district || null,
+        state: form.state || null, pincode: form.pincode || null,
+        bank_account_number: form.bank_account_number || null, confirm_account_number: form.confirm_account_number || null,
+        account_holder_name: form.account_holder_name || null, bank_name: form.bank_name || null, ifsc_code: form.ifsc_code || null,
       };
-      if (form.create_employee) {
-        Object.assign(payload, {
-          create_employee: true,
-          department: form.department || null, designation: form.designation || null,
-          employment_type: form.employment_type, shift: form.shift,
-          salary: Number(form.salary), joining_date: form.joining_date,
-          village_street: form.village_street || null, post_office: form.post_office || null,
-          police_station: form.police_station || null, district: form.district || null,
-          state: form.state || null, pincode: form.pincode || null,
-          bank_account_number: form.bank_account_number, confirm_account_number: form.confirm_account_number,
-          account_holder_name: form.account_holder_name, bank_name: form.bank_name, ifsc_code: form.ifsc_code,
-        });
-      }
 
       const result: any = await adminService.createUser(payload);
 
       const hasDocs = docAadhaarNumber || docPanNumber || Object.values(docFiles).some(Boolean);
-      if (form.create_employee && hasDocs && result?.employee_id) {
+      if (hasDocs && result?.employee_id) {
         const fd = new FormData();
         if (docAadhaarNumber) fd.append('aadhaar_number', docAadhaarNumber);
         if (docPanNumber) fd.append('pan_number', docPanNumber);
@@ -151,7 +147,7 @@ export default function UsersPage() {
 
       <div className="mb-5 bg-blue-50 border border-blue-100 rounded-xl px-5 py-3 text-sm text-gray-700 space-y-1">
         <p>This is <span className="font-semibold">login access</span> — who can sign in and what they're allowed to do (role, permissions).</p>
-        <p>It's separate from <span className="font-semibold">Employees</span> (HR records — salary, department, attendance). Adding someone here doesn't add their HR record, and vice versa.</p>
+        <p>It's separate from <span className="font-semibold">Employees</span> (HR records — salary, department, attendance), though a linked HR record is created automatically whenever you add someone here.</p>
       </div>
 
       <div className="mb-5 flex flex-wrap gap-3">
@@ -222,85 +218,75 @@ export default function UsersPage() {
             }
           />
 
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer border-t border-gray-100 pt-4">
-            <input
-              type="checkbox"
-              checked={form.create_employee}
-              onChange={(e) => setForm({ ...form, create_employee: e.target.checked })}
-              className="accent-primary"
-            />
-            Also create HR/Employee record
-          </label>
-          <p className="text-xs text-gray-500 -mt-2">
-            Check this if this person is a real employee who needs salary, attendance, and payroll tracking — not just system access.
-          </p>
+          <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 -mt-1">
+            <p className="text-xs text-gray-600">
+              Every Staff User also gets a linked HR/Employee record automatically. Everything below is optional —
+              fill in what you know now, or leave it blank and complete it later from Employees.
+            </p>
+          </div>
 
-          {form.create_employee && (
-            <>
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-3">Employment Details</h3>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
-                    <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-                  </div>
-                  <Input label="Monthly Salary (₹) *" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
-                  <Input label="Joining Date *" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
-                </div>
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Employment Details</h3>
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input label="Department" value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} />
+                <Input label="Designation" value={form.designation} onChange={(e) => setForm({ ...form, designation: e.target.value })} />
               </div>
+              <Input label="Monthly Salary (₹)" type="number" value={form.salary} onChange={(e) => setForm({ ...form, salary: e.target.value })} />
+              <Input label="Joining Date" type="date" value={form.joining_date} onChange={(e) => setForm({ ...form, joining_date: e.target.value })} />
+            </div>
+          </div>
 
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-3">Address Details</h3>
-                <div className="space-y-3">
-                  <Input label="Village / Street" value={form.village_street} onChange={(e) => setForm({ ...form, village_street: e.target.value })} />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Input label="Post Office (P.O)" value={form.post_office} onChange={(e) => setForm({ ...form, post_office: e.target.value })} />
-                    <Input label="Police Station (P.S)" value={form.police_station} onChange={(e) => setForm({ ...form, police_station: e.target.value })} />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Select
-                      label="State"
-                      value={form.state}
-                      onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })}
-                      options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map((s) => ({ value: s, label: s }))]}
-                    />
-                    <Select
-                      label="District"
-                      value={form.district}
-                      onChange={(e) => setForm({ ...form, district: e.target.value })}
-                      disabled={!form.state}
-                      options={[{ value: '', label: form.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(form.state).map((d) => ({ value: d, label: d }))]}
-                    />
-                  </div>
-                  <Input label="Pin Code" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
-                </div>
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Address Details</h3>
+            <div className="space-y-3">
+              <Input label="Village / Street" value={form.village_street} onChange={(e) => setForm({ ...form, village_street: e.target.value })} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input label="Post Office (P.O)" value={form.post_office} onChange={(e) => setForm({ ...form, post_office: e.target.value })} />
+                <Input label="Police Station (P.S)" value={form.police_station} onChange={(e) => setForm({ ...form, police_station: e.target.value })} />
               </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-3">Bank Account Details (Payout &amp; Settlement)</h3>
-                <div className="space-y-3">
-                  <Input label="Bank Account Number *" value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} />
-                  <Input label="Confirm Account Number *" value={form.confirm_account_number} onChange={(e) => setForm({ ...form, confirm_account_number: e.target.value })} />
-                  <Input label="Account Holder Name *" value={form.account_holder_name} onChange={(e) => setForm({ ...form, account_holder_name: e.target.value })} />
-                  <Input label="Bank Name *" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
-                  <Input label="IFSC Code *" value={form.ifsc_code} onChange={(e) => setForm({ ...form, ifsc_code: e.target.value.toUpperCase() })} />
-                </div>
-              </div>
-
-              <div className="border-t border-gray-100 pt-4">
-                <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
-                <p className="text-xs text-gray-500 mb-3">Optional — attach any that are ready now; the rest can be added later from Employees.</p>
-                <DocumentUploadFields
-                  aadhaarNumber={docAadhaarNumber}
-                  panNumber={docPanNumber}
-                  onAadhaarNumberChange={setDocAadhaarNumber}
-                  onPanNumberChange={setDocPanNumber}
-                  files={docFiles}
-                  onFileChange={(key, file) => setDocFiles({ ...docFiles, [key]: file })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Select
+                  label="State"
+                  value={form.state}
+                  onChange={(e) => setForm({ ...form, state: e.target.value, district: '' })}
+                  options={[{ value: '', label: 'Select state...' }, ...STATE_NAMES.map((s) => ({ value: s, label: s }))]}
+                />
+                <Select
+                  label="District"
+                  value={form.district}
+                  onChange={(e) => setForm({ ...form, district: e.target.value })}
+                  disabled={!form.state}
+                  options={[{ value: '', label: form.state ? 'Select district...' : 'Select a state first' }, ...districtsForState(form.state).map((d) => ({ value: d, label: d }))]}
                 />
               </div>
-            </>
-          )}
+              <Input label="Pin Code" value={form.pincode} onChange={(e) => setForm({ ...form, pincode: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Bank Account Details (Payout &amp; Settlement)</h3>
+            <div className="space-y-3">
+              <Input label="Bank Account Number" value={form.bank_account_number} onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })} />
+              <Input label="Confirm Account Number" value={form.confirm_account_number} onChange={(e) => setForm({ ...form, confirm_account_number: e.target.value })} />
+              <Input label="Account Holder Name" value={form.account_holder_name} onChange={(e) => setForm({ ...form, account_holder_name: e.target.value })} />
+              <Input label="Bank Name" value={form.bank_name} onChange={(e) => setForm({ ...form, bank_name: e.target.value })} />
+              <Input label="IFSC Code" value={form.ifsc_code} onChange={(e) => setForm({ ...form, ifsc_code: e.target.value.toUpperCase() })} />
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">Document Uploads (PDF / JPEG / PNG)</h3>
+            <p className="text-xs text-gray-500 mb-3">Optional — attach any that are ready now; the rest can be added later from Employees.</p>
+            <DocumentUploadFields
+              aadhaarNumber={docAadhaarNumber}
+              panNumber={docPanNumber}
+              onAadhaarNumberChange={setDocAadhaarNumber}
+              onPanNumberChange={setDocPanNumber}
+              files={docFiles}
+              onFileChange={(key, file) => setDocFiles({ ...docFiles, [key]: file })}
+            />
+          </div>
 
           <div className="flex gap-3 pt-2">
             <Button
@@ -309,7 +295,7 @@ export default function UsersPage() {
                   toast.error('Password must be at least 8 characters for this role.');
                   return;
                 }
-                if (form.create_employee && form.bank_account_number !== form.confirm_account_number) {
+                if (form.bank_account_number && form.bank_account_number !== form.confirm_account_number) {
                   toast.error('Account number and confirm account number do not match.');
                   return;
                 }

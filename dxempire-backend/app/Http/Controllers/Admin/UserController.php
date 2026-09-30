@@ -74,8 +74,6 @@ class UserController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        $createEmployee = $request->boolean('create_employee');
-
         // These four roles log in via MobileAuthController (Sales ID + password,
         // both required now) — so a password is mandatory when creating one here
         // too, not just when creating them through Hierarchy's "New Person" mode.
@@ -91,27 +89,27 @@ class UserController extends Controller
             'parent_unique_code'  => ['nullable', 'exists:users,unique_code'],
             'is_active'           => ['boolean'],
 
-            // Optional bundled HR/Employee record — same fields as the
-            // Employees "Add" form. Only required when create_employee=true,
-            // so a plain login-only Staff User isn't forced through them.
-            'create_employee'        => ['boolean'],
+            // Every Staff User also gets a linked HR/Employee record — same
+            // fields as the Employees "Add" form, all optional here so a
+            // login can be created before salary/bank details are known;
+            // they can be filled in later from the Employees page.
             'department'              => ['nullable', 'string', 'max:100'],
             'designation'             => ['nullable', 'string', 'max:100'],
             'employment_type'         => ['nullable', 'in:full_time,part_time,contract'],
             'shift'                   => ['nullable', 'in:morning,evening'],
-            'salary'                  => [Rule::requiredIf($createEmployee), 'numeric', 'min:0'],
-            'joining_date'            => [Rule::requiredIf($createEmployee), 'date'],
+            'salary'                  => ['nullable', 'numeric', 'min:0'],
+            'joining_date'            => ['nullable', 'date'],
             'village_street'          => ['nullable', 'string', 'max:150'],
             'post_office'             => ['nullable', 'string', 'max:100'],
             'police_station'          => ['nullable', 'string', 'max:100'],
             'district'                => ['nullable', 'string', 'max:100'],
             'state'                   => ['nullable', 'string', 'max:100'],
             'pincode'                 => ['nullable', 'string', 'max:10'],
-            'bank_account_number'     => [Rule::requiredIf($createEmployee), 'string', 'max:30'],
-            'confirm_account_number'  => [Rule::requiredIf($createEmployee), 'same:bank_account_number'],
-            'account_holder_name'     => [Rule::requiredIf($createEmployee), 'string', 'max:150'],
-            'bank_name'               => [Rule::requiredIf($createEmployee), 'string', 'max:150'],
-            'ifsc_code'               => [Rule::requiredIf($createEmployee), 'string', 'max:15'],
+            'bank_account_number'     => ['nullable', 'string', 'max:30'],
+            'confirm_account_number'  => ['nullable', 'same:bank_account_number'],
+            'account_holder_name'     => ['nullable', 'string', 'max:150'],
+            'bank_name'               => ['nullable', 'string', 'max:150'],
+            'ifsc_code'               => ['nullable', 'string', 'max:15'],
         ]);
 
         DB::beginTransaction();
@@ -131,33 +129,30 @@ class UserController extends Controller
 
             $user->assignRole($data['role']);
 
-            $employee = null;
-            if ($createEmployee) {
-                $employee = Employee::create([
-                    'user_id'             => $user->id,
-                    'name'                => $data['name'],
-                    'phone'               => $data['phone'],
-                    'email'               => $data['email'] ?? null,
-                    'employee_code'       => Employee::generateEmployeeCode(),
-                    'department'          => $data['department'] ?? null,
-                    'designation'         => $data['designation'] ?? null,
-                    'employment_type'     => $data['employment_type'] ?? 'full_time',
-                    'shift'               => $data['shift'] ?? 'morning',
-                    'basic_salary'        => $data['salary'],
-                    'join_date'           => $data['joining_date'],
-                    'is_active'           => true,
-                    'village_street'      => $data['village_street'] ?? null,
-                    'post_office'         => $data['post_office'] ?? null,
-                    'police_station'      => $data['police_station'] ?? null,
-                    'district'            => $data['district'] ?? null,
-                    'state'               => $data['state'] ?? null,
-                    'pincode'             => $data['pincode'] ?? null,
-                    'bank_account_number' => $data['bank_account_number'],
-                    'account_holder_name' => $data['account_holder_name'],
-                    'bank_name'           => $data['bank_name'],
-                    'ifsc_code'           => strtoupper($data['ifsc_code']),
-                ]);
-            }
+            $employee = Employee::create([
+                'user_id'             => $user->id,
+                'name'                => $data['name'],
+                'phone'               => $data['phone'],
+                'email'               => $data['email'] ?? null,
+                'employee_code'       => Employee::generateEmployeeCode(),
+                'department'          => $data['department'] ?? null,
+                'designation'         => $data['designation'] ?? null,
+                'employment_type'     => $data['employment_type'] ?? 'full_time',
+                'shift'               => $data['shift'] ?? 'morning',
+                'basic_salary'        => $data['salary'] ?? 0,
+                'join_date'           => $data['joining_date'] ?? now()->toDateString(),
+                'is_active'           => true,
+                'village_street'      => $data['village_street'] ?? null,
+                'post_office'         => $data['post_office'] ?? null,
+                'police_station'      => $data['police_station'] ?? null,
+                'district'            => $data['district'] ?? null,
+                'state'               => $data['state'] ?? null,
+                'pincode'             => $data['pincode'] ?? null,
+                'bank_account_number' => $data['bank_account_number'] ?? null,
+                'account_holder_name' => $data['account_holder_name'] ?? null,
+                'bank_name'           => $data['bank_name'] ?? null,
+                'ifsc_code'           => isset($data['ifsc_code']) ? strtoupper($data['ifsc_code']) : null,
+            ]);
 
             DB::commit();
         } catch (\Throwable $e) {

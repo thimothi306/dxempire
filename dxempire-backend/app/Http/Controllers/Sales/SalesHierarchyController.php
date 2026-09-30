@@ -36,6 +36,15 @@ class SalesHierarchyController extends Controller
         'salesman'         => 'sales',
     ];
 
+    /** Human-readable designation for the auto-backfilled Employee record — see storeExisting(). */
+    private const HIERARCHY_ROLE_LABELS = [
+        'ceo'              => 'CEO',
+        'state_manager'    => 'State Manager',
+        'area_manager'     => 'Area Manager',
+        'district_manager' => 'District Manager',
+        'salesman'         => 'Salesman',
+    ];
+
     public function index(Request $request): JsonResponse
     {
         $nodes = SalesHierarchy::with(['parent:id,name,tree_id', 'user:id,name,phone'])
@@ -144,6 +153,27 @@ class SalesHierarchyController extends Controller
             'user_id'        => $user->id,
             'is_active'      => true,
         ]);
+
+        // Every hierarchy member also has an HR/Employee record — this
+        // Staff User may predate that expectation, so backfill one here if
+        // they don't already have one. Salary/bank details are left blank
+        // to fill in later from the Employees page.
+        if (!Employee::where('user_id', $user->id)->exists()) {
+            Employee::create([
+                'user_id'         => $user->id,
+                'name'            => $user->name,
+                'phone'           => $user->phone,
+                'email'           => $user->email,
+                'employee_code'   => Employee::generateEmployeeCode(),
+                'department'      => 'sales',
+                'designation'     => self::HIERARCHY_ROLE_LABELS[$request->hierarchy_role] ?? $request->hierarchy_role,
+                'employment_type' => 'full_time',
+                'shift'           => 'morning',
+                'basic_salary'    => 0,
+                'join_date'       => now()->toDateString(),
+                'is_active'       => true,
+            ]);
+        }
 
         return $this->created($node->load(['parent:id,name,tree_id', 'user:id,name,phone']), 'Member added to hierarchy.');
     }
