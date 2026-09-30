@@ -12,6 +12,7 @@ use App\Models\Grade;
 use App\Models\Offer;
 use App\Models\Order;
 use App\Models\Invoice;
+use App\Models\PetiTransfer;
 use App\Models\Product;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
@@ -337,5 +338,91 @@ class PartnerPortalController extends Controller
             'unpaid_orders'      => $unpaidOrders,
             'note'               => 'Click Pay Now next to an order below to pay online.',
         ]);
+    }
+
+    /**
+     * Peti orders: bulk/mixed-lot stock requests, distinct from regular
+     * per-unit catalog orders (see store() above). A partner asks for a
+     * quantity of a brand/model/grade rather than picking specific in-stock
+     * units, and staff fulfils and prices it manually — so unlike a normal
+     * order, this never locks stock or reserves credit at request time.
+     */
+    public function petiOrders(Request $request): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer) {
+            return $this->error('No business partner profile linked to this account.', 404);
+        }
+
+        $orders = PetiTransfer::where('to_dealer_id', $dealer->id)
+            ->where('source', 'partner')
+            ->when($request->status, fn($q) => $q->where('status', $request->status))
+            ->latest()
+            ->paginate($request->integer('per_page', 15));
+
+        return $this->paginated($orders);
+    }
+
+    /**
+     * Place a new peti order.
+     * Body: { "items": [ { "category", "brand", "model", "grade", "quantity" } ], "notes"? }
+     * to_dealer_id is ALWAYS the authenticated partner's own dealer — never
+     * client-supplied. Pricing is deliberately NOT collected here — a
+     * partner can't set their own price; staff fills it in (via the admin
+     * Peti Transfers screen) before approving.
+     */
+    public function storePetiOrder(Request $request): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer) {
+            return $this->error('No business partner profile linked to this account.', 404);
+        }
+
+        $data = $request->validate([
+            'items'            => ['required', 'array', 'min:1', 'max:20'],
+            'items.*.category' => ['required', 'in:phone,laptop'],
+            'items.*.brand'    => ['required', 'string', 'max:100'],
+            'items.*.model'    => ['required', 'string', 'max:100'],
+            'items.*.grade'    => ['required', 'string', Rule::in(Grade::activeCodes())],
+            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:500'],
+            'notes'            => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $items = array_map(fn($line) => [...$line, 'unit_price' => 0], $data['items']);
+
+        $petiOrder = PetiTransfer::create([
+            'transfer_number' => PetiTransfer::generateTransferNumber(),
+            'type'            => 'dealer',
+            'source'          => 'partner',
+            'to_dealer_id'    => $dealer->id,
+            'items'           => $items,
+            'total_units'     => array_sum(array_column($items, 'quantity')),
+            'total_value'     => 0,
+            'notes'           => $data['notes'] ?? null,
+            'status'          => 'draft',
+            'created_by'      => $request->user()->id,
+        ]);
+
+        AuditLog::record(
+            $request->user()->id,
+            'partner_peti_order.created',
+            PetiTransfer::class,
+            $petiOrder->id,
+            [],
+            ['transfer_number' => $petiOrder->transfer_number, 'total_units' => $petiOrder->total_units]
+        );
+
+        return $this->success($petiOrder, 'Peti order submitted — our team will review, price, and confirm it shortly.', 201);
+    }
+
+    /** Detail view of one of the partner's own peti orders. */
+    public function petiOrderShow(Request $request, PetiTransfer $petiTransfer): JsonResponse
+    {
+        $dealer = $this->dealer($request);
+        if (!$dealer || $petiTransfer->to_dealer_id !== $dealer->id || $petiTransfer->source !== 'partner') {
+            return $this->error('Peti order not found.', 404);
+        }
+
+        return $this->success($petiTransfer);
     }
 }

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PetiTransfer extends Model
 {
     protected $fillable = [
-        'transfer_number', 'type',
+        'transfer_number', 'type', 'source',
         'from_location', 'to_location', 'to_dealer_id',
         'items', 'total_units', 'total_value',
         'status', 'notes',

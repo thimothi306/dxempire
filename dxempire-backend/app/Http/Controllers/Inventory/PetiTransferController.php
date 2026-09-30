@@ -93,6 +93,41 @@ class PetiTransferController extends Controller
         return $this->success($petiTransfer->load(['createdBy:id,name', 'approvedBy:id,name', 'toDealer:id,business_name,gst_number']));
     }
 
+    /**
+     * Edit items/pricing while still draft — mainly for pricing a
+     * partner-submitted request (source=partner), which arrives with
+     * unit_price left at 0 since the partner never sets their own price.
+     * Only draft transfers can be edited, same rule as approve()/complete().
+     */
+    public function update(Request $request, PetiTransfer $petiTransfer): JsonResponse
+    {
+        if ($petiTransfer->status !== 'draft') {
+            return $this->error("Only draft transfers can be edited. Current status: {$petiTransfer->status}.", 422);
+        }
+
+        $request->validate([
+            'items'              => ['required', 'array', 'min:1'],
+            'items.*.category'   => ['required', 'in:phone,laptop'],
+            'items.*.brand'      => ['required', 'string'],
+            'items.*.model'      => ['required', 'string'],
+            'items.*.grade'      => ['required', Rule::in(Grade::activeCodes())],
+            'items.*.quantity'   => ['required', 'integer', 'min:1'],
+            'items.*.unit_price' => ['required', 'numeric', 'min:0'],
+            'notes'              => ['nullable', 'string'],
+        ]);
+
+        $items = $request->items;
+
+        $petiTransfer->update([
+            'items'       => $items,
+            'total_units' => array_sum(array_column($items, 'quantity')),
+            'total_value' => array_sum(array_map(fn($i) => $i['quantity'] * $i['unit_price'], $items)),
+            'notes'       => $request->notes ?? $petiTransfer->notes,
+        ]);
+
+        return $this->success($petiTransfer->fresh(), 'Transfer updated.');
+    }
+
     public function approve(PetiTransfer $petiTransfer): JsonResponse
     {
         if ($petiTransfer->status !== 'draft') {

@@ -34,6 +34,7 @@ export const petiService = {
   list:     (params?: Record<string, string>) => api.get('/peti-transfers', { params }).then(r => r.data),
   create:   (data: Record<string, unknown>) => api.post('/peti-transfers', data).then(r => r.data.data),
   show:     (id: number) => api.get(`/peti-transfers/${id}`).then(r => r.data.data),
+  update:   (id: number, data: Record<string, unknown>) => api.put(`/peti-transfers/${id}`, data).then(r => r.data.data),
   approve:  (id: number) => api.post(`/peti-transfers/${id}/approve`).then(r => r.data),
   complete: (id: number) => api.post(`/peti-transfers/${id}/complete`).then(r => r.data),
   cancel:   (id: number) => api.post(`/peti-transfers/${id}/cancel`).then(r => r.data),

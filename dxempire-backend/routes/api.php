@@ -449,6 +449,7 @@ Route::prefix('v1')->group(function () {
             Route::get('export',                         [PetiTransferController::class, 'export']);
             Route::post('/',                             [PetiTransferController::class, 'store']);
             Route::get('{petiTransfer}',                 [PetiTransferController::class, 'show']);
+            Route::put('{petiTransfer}',                 [PetiTransferController::class, 'update']);
             Route::post('{petiTransfer}/approve',        [PetiTransferController::class, 'approve']);
             Route::post('{petiTransfer}/complete',       [PetiTransferController::class, 'complete']);
             Route::post('{petiTransfer}/cancel',         [PetiTransferController::class, 'cancel']);
@@ -508,6 +509,11 @@ Route::prefix('v1')->group(function () {
             Route::post('orders/{order}/pay', [PartnerPortalController::class, 'initiatePayment']);
             Route::get('invoices',        [PartnerPortalController::class, 'invoices']);
             Route::get('dues',            [PartnerPortalController::class, 'dues']);
+
+            // Peti orders — bulk/mixed-lot stock requests (see PartnerPortalController for how this differs from regular orders)
+            Route::get('peti-orders',             [PartnerPortalController::class, 'petiOrders']);
+            Route::post('peti-orders',            [PartnerPortalController::class, 'storePetiOrder']);
+            Route::get('peti-orders/{petiTransfer}', [PartnerPortalController::class, 'petiOrderShow']);
 
             // Catalog — browse in-stock products by brand / grade
             Route::get('catalog/brands',  [PartnerCatalogController::class, 'brands']);

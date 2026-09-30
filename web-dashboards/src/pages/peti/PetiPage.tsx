@@ -41,10 +41,24 @@ export default function PetiPage() {
     enabled: !!selected,
   });
 
+  const [priceEdits, setPriceEdits] = useState<Record<number, string>>({});
+
   const createMut = useMutation({
     mutationFn: () => petiService.create({ type: transferType, from_location: fromLoc, to_location: toLoc || undefined, to_dealer_id: toDealerId ? Number(toDealerId) : undefined, items: items.map(i => ({ ...i, quantity: Number(i.quantity), unit_price: Number(i.unit_price) })), notes }),
     onSuccess: () => { toast.success('Transfer created'); qc.invalidateQueries({ queryKey: ['peti-transfers'] }); setShowCreate(false); resetForm(); },
     onError: () => toast.error('Failed to create transfer'),
+  });
+
+  const priceMut = useMutation({
+    mutationFn: (id: number) => {
+      const priced = (detail?.items ?? []).map((item: any, i: number) => ({
+        ...item,
+        unit_price: Number(priceEdits[i] ?? item.unit_price ?? 0),
+      }));
+      return petiService.update(id, { items: priced });
+    },
+    onSuccess: () => { toast.success('Pricing saved'); qc.invalidateQueries({ queryKey: ['peti-detail', selected?.id] }); qc.invalidateQueries({ queryKey: ['peti-transfers'] }); setPriceEdits({}); },
+    onError: () => toast.error('Failed to save pricing'),
   });
 
   const approveMut = useMutation({
@@ -100,6 +114,7 @@ export default function PetiPage() {
               columns={[
                 { key: 'transfer_number', header: 'Transfer #', render: t => <code className="text-xs font-bold">{t.transfer_number}</code> },
                 { key: 'type', header: 'Type', render: t => <Badge label={t.type} color={t.type === 'dealer' ? 'blue' : 'purple'} /> },
+                { key: 'source', header: 'Requested By', render: t => <Badge label={t.source === 'partner' ? 'Partner' : 'Staff'} color={t.source === 'partner' ? 'orange' : 'gray'} /> },
                 { key: 'from_location', header: 'From', render: t => t.from_location ?? '—' },
                 { key: 'to', header: 'To', render: t => t.to_dealer?.business_name ?? t.to_location ?? '—' },
                 { key: 'total_units', header: 'Units', render: t => <span className="font-semibold">{t.total_units}</span> },
@@ -108,7 +123,7 @@ export default function PetiPage() {
                 { key: 'created_at', header: 'Date', render: t => <span className="text-xs text-gray-500">{fmtDate(t.created_at)}</span> },
                 {
                   key: 'actions', header: '', render: t => (
-                    <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); setSelected(t); }}>View</Button>
+                    <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); setPriceEdits({}); setSelected(t); }}>View</Button>
                   ),
                 },
               ]}
@@ -134,23 +149,45 @@ export default function PetiPage() {
             </div>
 
             {/* Items */}
-            {(detail?.items ?? []).length > 0 && (
-              <div>
-                <div className="text-xs font-medium text-gray-500 mb-2">Items</div>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {(detail?.items ?? []).map((item: any, i: number) => {
-                    const qty = item.quantity ?? item.qty ?? 0;
-                    const label = [item.brand, item.model].filter(Boolean).join(' ');
-                    return (
-                      <div key={i} className="flex justify-between text-xs bg-gray-50 px-3 py-2 rounded">
-                        <span>{label ? `${label} — ` : ''}Grade {item.grade} × {qty}</span>
-                        <span className="font-semibold">{item.unit_price != null ? fmtINR(item.unit_price * qty) : '—'}</span>
-                      </div>
-                    );
-                  })}
+            {(detail?.items ?? []).length > 0 && (() => {
+              const status = detail?.status ?? selected.status;
+              const source = detail?.source ?? selected.source;
+              const needsPricing = source === 'partner' && status === 'draft';
+              return (
+                <div>
+                  <div className="text-xs font-medium text-gray-500 mb-2">
+                    Items {needsPricing && <span className="text-orange-600">— set pricing before approving</span>}
+                  </div>
+                  <div className="space-y-1 max-h-56 overflow-y-auto">
+                    {(detail?.items ?? []).map((item: any, i: number) => {
+                      const qty = item.quantity ?? item.qty ?? 0;
+                      const label = [item.brand, item.model].filter(Boolean).join(' ');
+                      return (
+                        <div key={i} className="flex justify-between items-center text-xs bg-gray-50 px-3 py-2 rounded gap-2">
+                          <span>{label ? `${label} — ` : ''}Grade {item.grade} × {qty}</span>
+                          {needsPricing ? (
+                            <input
+                              type="number"
+                              className="border border-gray-300 rounded px-2 py-1 w-24 text-right"
+                              placeholder="Price ₹"
+                              value={priceEdits[i] ?? (item.unit_price || '')}
+                              onChange={e => setPriceEdits({ ...priceEdits, [i]: e.target.value })}
+                            />
+                          ) : (
+                            <span className="font-semibold">{item.unit_price != null ? fmtINR(item.unit_price * qty) : '—'}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {needsPricing && (
+                    <Button size="sm" className="mt-2" onClick={() => priceMut.mutate(selected.id)} loading={priceMut.isPending}>
+                      Save Pricing
+                    </Button>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Actions */}
             <div className="flex gap-2 pt-2 border-t">
